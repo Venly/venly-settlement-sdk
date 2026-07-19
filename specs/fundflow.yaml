@@ -1,0 +1,3936 @@
+openapi: 3.1.0
+info:
+  title: Fundflow API
+  description: |
+    Fundflow API provides endpoints for managing cryptocurrency on-ramp and off-ramp requests, 
+    company bank accounts, wallets, and user management for blockchain payment operations.
+    
+    ## Overview
+    The Fundflow API enables companies to:
+    - Create and manage on-ramp (fiat to crypto) and off-ramp (crypto to fiat) requests
+    - Manage company bank accounts across multiple payment networks (SEPA, ACH, SWIFT, etc.)
+    - Manage company cryptocurrency wallets across multiple blockchains
+    - Handle user roles and permissions within the company
+    - Calculate fees and retrieve exchange rate information
+    
+    ## Authentication
+    All endpoints require OAuth2 authentication using a bearer token that is retrieved from authentication endpoint using your client_id and client_secret.
+    
+    ## Optimistic Locking
+    Many write operations use optimistic locking via a `version` field to prevent concurrent updates.
+    When a version conflict occurs (HTTP 409), you must:
+    1. Fetch the latest version of the resource
+    2. Reapply their changes to the updated resource
+    3. Retry the operation with the new version number
+    
+    ## Status Workflows
+    
+    ### Ramp Request Status Flow
+    - **AWAITING_APPROVAL** → **AWAITING_FUNDS** (after approval)
+    - **AWAITING_APPROVAL** → **CANCELLED** (cancelled by requester)
+    - **AWAITING_APPROVAL** → **REJECTED** (rejected by company admin)
+    - **AWAITING_APPROVAL** → **DENIED** (denied by Venly admin)
+    - **AWAITING_APPROVAL** → **BLOCKED** (blocked by Venly admin)
+    - **AWAITING_FUNDS** → **PROCESSING** (payment received/initiated)
+    - **PROCESSING** → **SUCCEEDED** (transaction completed)
+    - **PROCESSING** → **FAILED** (transaction failed)
+  contact:
+    name: Venly
+    url: https://venly.io
+    email: contact@venly.io
+  version: 1.7.0
+
+servers:
+  - url: https://api-fundflow.venly.io
+    description: Production
+  - url: https://api-fundflow-staging.venly.io
+    description: Staging
+  - url: https://api-fundflow-qa.venly.io
+    description: QA sandbox
+
+paths:
+  /v1/ramp-requests/{id}/amount:
+    put:
+      tags:
+        - Ramp Requests
+      summary: Edit the amount of a ramp request
+      description: |
+        Updates the incoming amount for a ramp request. Uses optimistic locking to prevent concurrent updates.
+        
+        - For **ON_RAMP**: Updates the fiat amount (amount to be sent)
+        - For **OFF_RAMP**: Updates the crypto amount (amount to be sent)
+        
+        The corresponding outgoing amount is recalculated based on current exchange rates and fees.
+      operationId: editRampRequestAmount
+      security:
+        - OAuth2:
+            - edit:ramp-request
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the ramp request
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditRampAmountRequest'
+      responses:
+        '200':
+          description: Amount successfully updated
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/RampRequestDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          description: Version conflict - the resource was modified by another request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                errors:
+                  - code: OPTIMISTIC_LOCK_EXCEPTION
+                    message: The resource has been modified. Please fetch the latest version and retry.
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/company/users/{userId}/role:
+    put:
+      tags:
+        - Users
+      summary: Update user role
+      description: |
+        Updates the role of a company user.
+        
+        **Available Roles:**
+        - **COMPANY_ADMIN**: Full access to all company resources and user management
+        - **COMPANY_MANAGER**: Can create and manage ramp requests, view company resources
+        - **COMPANY_VIEWER**: Read-only access to company resources
+      operationId: updateUserRole
+      security:
+        - OAuth2:
+            - manage:company-users
+      parameters:
+        - name: userId
+          in: path
+          description: Unique identifier of the user
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User role successfully updated
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/UserDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ramp-requests:
+    get:
+      tags:
+        - Ramp Requests
+      summary: List all ramp requests
+      description: |
+        Retrieves a paginated list of ramp requests with optional filtering and sorting.
+      operationId: getAll
+      security:
+        - OAuth2:
+            - view:ramp-request
+      parameters:
+        - name: rampType
+          in: query
+          description: Filter by ramp type (ON_RAMP for fiat-to-crypto, OFF_RAMP for crypto-to-fiat)
+          required: false
+          schema:
+            type: string
+            enum:
+              - ON_RAMP
+              - OFF_RAMP
+        - name: status
+          in: query
+          description: Filter by request status
+          required: false
+          schema:
+            type: string
+            enum:
+              - AWAITING_APPROVAL
+              - AWAITING_FUNDS
+              - PROCESSING
+              - SUCCEEDED
+              - FAILED
+              - BLOCKED
+              - DENIED
+              - REJECTED
+              - CANCELLED
+        - name: fromDate
+          in: query
+          description: Filter requests created on or after this date (inclusive)
+          required: false
+          schema:
+            type: string
+            format: date
+          example: '2024-01-01'
+        - name: toDate
+          in: query
+          description: Filter requests created on or before this date (inclusive)
+          required: false
+          schema:
+            type: string
+            format: date
+          example: '2024-12-31'
+        - name: paymentReference
+          in: query
+          description: Filter by payment reference (auto-generated unique identifier)
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/SortOn'
+        - $ref: '#/components/parameters/SortOrder'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Successfully retrieved ramp requests
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                  sort:
+                    $ref: '#/components/schemas/Sort'
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RampRequestListItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Ramp Requests
+      summary: Create a new ramp request
+      description: |
+        Creates a new on-ramp or off-ramp request. The request will be created in AWAITING_APPROVAL status.
+        
+        **For ON_RAMP:**
+        - Specify fiat amount, fiat currency, crypto currency, and company wallet
+        - Fiat should be sent from the company bank account to the deposit bank account in the response object `depositBankAccount`
+        - Crypto will be received to the company wallet
+        
+        **For OFF_RAMP:**
+        - Specify crypto amount, crypto currency, fiat currency, and company bank account
+        - Crypto should be sent from the company wallet to the Venly deposit wallet address provided in the response object `depositWallet`
+        - Fiat will be received to the company bank account
+        
+        A unique payment reference is auto-generated for tracking purposes which should be included in your bank transfer so we can match your payment.
+      operationId: create
+      security:
+        - OAuth2:
+            - create:ramp-request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRampRequestRequest'
+      responses:
+        '201':
+          description: Ramp request successfully created
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/RampRequestDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ramp-requests/{id}/reject:
+    post:
+      tags:
+        - Ramp Requests
+      summary: Reject a ramp request
+      description: |
+        This endpoint allows a Company Admin to reject a ramp request that is created by a Manager. The status will change to REJECTED.
+        
+  
+      operationId: rejectRampRequest
+      security:
+        - OAuth2:
+            - reject:ramp-request
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the ramp request
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWithOptimisticLockingRequest'
+      responses:
+        '200':
+          description: Ramp request successfully rejected
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/RampRequestDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ramp-requests/{id}/cancel:
+    post:
+      tags:
+        - Ramp Requests
+      summary: Cancel a ramp request
+      description: |
+        Cancels a ramp request. This can be done by the Company Manager/Admin that created the request while the request is in 
+        AWAITING_APPROVAL status. The status will change to CANCELLED.
+        
+      operationId: cancelRampRequest
+      security:
+        - OAuth2:
+            - cancel:ramp-request
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the ramp request
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWithOptimisticLockingRequest'
+      responses:
+        '200':
+          description: Ramp request successfully cancelled
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/RampRequestDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ramp-requests/{id}/approve:
+    post:
+      tags:
+        - Ramp Requests
+      summary: Approve a ramp request
+      description: |
+        This endpoint allows a Company Admin to approve a ramp request that is created by a Manager. After approval, the status changes to AWAITING_FUNDS.
+      operationId: approveRampRequest
+      security:
+        - OAuth2:
+            - approve:ramp-request
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the ramp request
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWithOptimisticLockingRequest'
+      responses:
+        '200':
+          description: Ramp request successfully approved
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/RampRequestDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/fees/calculate:
+    post:
+      tags:
+        - Fees
+      summary: Calculate fee for a ramp request
+      description: |
+        Calculates the fee amount and percentage for a given ramp request amount.
+        Fees are company-specific and based on configured fee tiers.
+        
+        The calculation considers:
+        - Request type (ON_RAMP or OFF_RAMP)
+        - Amount (volume tiers may apply)
+        - Company-specific fee configuration
+      operationId: calculatedFee
+      security:
+        - OAuth2: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculateFeeRequest'
+      responses:
+        '200':
+          description: Fee successfully calculated
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/CalculatedFeeDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/company/users/invite:
+    post:
+      tags:
+        - Users
+      summary: Invite a user to the company
+      description: |
+        Invites a new user to join the company by sending an invitation email.
+        The user will receive an invitation URL to complete their registration.
+        
+        **User Roles:**
+        - **COMPANY_ADMIN**: Full access including user management
+        - **COMPANY_MANAGER**: Can create/manage ramp requests
+        - **COMPANY_VIEWER**: Read-only access
+      operationId: inviteUser
+      security:
+        - OAuth2:
+            - manage:company-users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddUserToCompanyRequest'
+      responses:
+        '200':
+          description: User invitation successfully sent
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/UserDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/company-wallets:
+    get:
+      tags:
+        - Company Wallets
+      summary: List company wallets
+      description: |
+        Retrieves a list of company cryptocurrency wallets with optional filtering by verification status, blockchain network, and wallet address.
+      operationId: getAll_1
+      security:
+        - OAuth2:
+            - view:company-wallet
+      parameters:
+        - name: verificationStatus
+          in: query
+          description: Filter by wallet verification status
+          required: false
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - VERIFIED
+              - DENIED
+        - name: chain
+          in: query
+          description: Filter by blockchain network
+          required: false
+          schema:
+            type: string
+            enum:
+              - ETHEREUM
+              - POLYGON
+              - BASE
+              - ARBITRUM
+              - SUI
+        - name: address
+          in: query
+          description: Filter by wallet address
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/SortOn'
+        - $ref: '#/components/parameters/SortOrder'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Successfully retrieved company wallets
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                  sort:
+                    $ref: '#/components/schemas/Sort'
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CompanyWalletListItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Company Wallets
+      summary: Whitelist a company wallet
+      description: |
+        Registers a new company cryptocurrency wallet with PENDING 
+        verification status and requires verification before it can be used in ramp requests. After creating the wallet, you must verify ownership by sending 1 USDC from the wallet to the deposit address that can be retrieved from the Get Deposit Wallets endpoint.
+        
+        
+      operationId: create_1
+      security:
+        - OAuth2:
+            - manage:company-wallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCompanyWalletRequest'
+      responses:
+        '201':
+          description: Company wallet successfully created
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/CompanyWalletDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/company-bank-accounts:
+    get:
+      tags:
+        - Company Bank Accounts
+      summary: List company bank accounts
+      description: |
+        Retrieves a list of your company bank accounts with optional filtering.
+      operationId: getAll_2
+      security:
+        - OAuth2:
+            - view:company-bank-account
+      parameters:
+        - name: verificationStatus
+          in: query
+          description: Filter by bank account verification status
+          required: false
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - VERIFIED
+              - DENIED
+        - name: supportedRampTypes
+          in: query
+          description: Filter by supported ramp types
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum:
+                - ON_RAMP
+                - OFF_RAMP
+                - ON_AND_OFF_RAMP
+        - $ref: '#/components/parameters/SortOn'
+        - $ref: '#/components/parameters/SortOrder'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Successfully retrieved company bank accounts
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                  sort:
+                    $ref: '#/components/schemas/Sort'
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CompanyBankAccountListItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Company Bank Accounts
+      summary: Whitelist a company bank account
+      description: |
+        Whitelist a new company bank account. The bank account will be created with PENDING verification status and requires verification before it can be used in ramp requests.
+         
+        
+        **Supported Bank Account Types:**
+        - **EUR_SEPA**: European SEPA transfers (IBAN, BIC)
+        - **USD_WIRE**: US Wire transfers (Account number, Routing number)
+        - **USD_ACH**: US ACH transfers (Account number, Routing number)
+        - **USD_SWIFT**: US SWIFT transfers (Account number, BIC, IBAN optional)
+        - **GBP_FPS**: UK Faster Payments (Account number, Sort code)
+        - **GBP_CHAPS**: UK CHAPS transfers (Account number, Sort code)
+        - **OTHER_SWIFT**: Other currency SWIFT transfers (specify currency)
+        
+        
+      operationId: create_2
+      security:
+        - OAuth2:
+            - manage:company-bank-account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/CreateEurSepaCompanyBankAccountRequest'
+                - $ref: '#/components/schemas/CreateGbpChapsCompanyBankAccountRequest'
+                - $ref: '#/components/schemas/CreateGbpFpsCompanyBankAccountRequest'
+                - $ref: '#/components/schemas/CreateOtherCurrencySwiftCompanyBankAccountRequest'
+                - $ref: '#/components/schemas/CreateUsAchCompanyBankAccountRequest'
+                - $ref: '#/components/schemas/CreateUsSwiftCompanyBankAccountRequest'
+                - $ref: '#/components/schemas/CreateUsWireCompanyBankAccountRequest'
+              discriminator:
+                propertyName: bankAccountType
+      responses:
+        '201':
+          description: Company bank account successfully created
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    oneOf:
+                      - $ref: '#/components/schemas/EurSepaCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/GbpChapsCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/GbpFpsCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/OtherCurrencySwiftCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/UsAchCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/UsSwiftCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/UsWireCompanyBankAccountDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ramp-requests/{id}/initiate:
+    patch:
+      tags:
+        - Ramp Requests
+      summary: Initiate an off-ramp request with transaction hash
+      description: |
+        Updates the blockchain transaction hash for an off-ramp request, marking it as initiated. 
+        
+        
+      operationId: updateTxHash
+      security:
+        - OAuth2:
+            - sign-off:ramp-request
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the ramp request
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRampRequestTransactionHashRequest'
+      responses:
+        '200':
+          description: Transaction hash successfully updated
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/RampRequestDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ramp-requests/{id}/tx-hash:
+    patch:
+      tags:
+        - Ramp Requests
+      summary: Update transaction hash
+      description: |
+        Updates the blockchain transaction hash for a ramp request.
+        
+        
+        
+      operationId: updateTxHash_1
+      security:
+        - OAuth2:
+            - sign-off:ramp-request
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the ramp request
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRampRequestTransactionHashRequest'
+      responses:
+        '200':
+          description: Transaction hash successfully updated
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/RampRequestDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/company/users/{userId}/status:
+    patch:
+      tags:
+        - Users
+      summary: Update user status
+      description: |
+        Enables or disables a company user account. Disabled users cannot access the system.
+      operationId: updateUserStatus
+      security:
+        - OAuth2:
+            - manage:company-users
+      parameters:
+        - name: userId
+          in: path
+          description: Unique identifier of the user
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserStatusRequest'
+      responses:
+        '200':
+          description: User status successfully updated
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/UserDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/company-wallets/{id}:
+    get:
+      tags:
+        - Company Wallets
+      summary: Get company wallet by ID
+      description: Retrieves detailed information about a specific company wallet
+      operationId: getById
+      security:
+        - OAuth2:
+            - view:company-wallet
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the company wallet
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Company wallet successfully retrieved
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/CompanyWalletDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags:
+        - Company Wallets
+      summary: Update company wallet
+      description: |
+        Updates the description of a company wallet.
+      operationId: update
+      security:
+        - OAuth2:
+            - manage:company-wallet
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the company wallet
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompanyWalletRequest'
+      responses:
+        '200':
+          description: Company wallet successfully updated
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/CompanyWalletDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/company-bank-accounts/{id}:
+    get:
+      tags:
+        - Company Bank Accounts
+      summary: Get company bank account by ID
+      description: Retrieves detailed information about a specific company bank account
+      operationId: getById_1
+      security:
+        - OAuth2:
+            - view:company-bank-account
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the company bank account
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Company bank account successfully retrieved
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    oneOf:
+                      - $ref: '#/components/schemas/EurSepaCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/GbpChapsCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/GbpFpsCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/OtherCurrencySwiftCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/UsAchCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/UsSwiftCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/UsWireCompanyBankAccountDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags:
+        - Company Bank Accounts
+      summary: Update company bank account
+      description: |
+        Updates the name of a company bank account. Uses optimistic locking to prevent concurrent updates.
+      operationId: update_1
+      security:
+        - OAuth2:
+            - manage:company-bank-account
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the company bank account
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompanyBankAccountRequest'
+      responses:
+        '200':
+          description: Company bank account successfully updated
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    oneOf:
+                      - $ref: '#/components/schemas/EurSepaCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/GbpChapsCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/GbpFpsCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/OtherCurrencySwiftCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/UsAchCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/UsSwiftCompanyBankAccountDto'
+                      - $ref: '#/components/schemas/UsWireCompanyBankAccountDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ramp-requests/{id}:
+    get:
+      tags:
+        - Ramp Requests
+      summary: Get ramp request by ID
+      description: |
+        Retrieves detailed information about a specific ramp request, including:
+        - Current status and timestamps
+        - Amount details (fiat, crypto, fees)
+        - Associated bank account or wallet
+        - Complete event history
+        - Payment information
+      operationId: getById_2
+      security:
+        - OAuth2:
+            - view:ramp-request
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the ramp request
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ramp request successfully retrieved
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/RampRequestDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ramp-requests/on-ramp/pairs:
+    get:
+      tags:
+        - Ramp Requests
+      summary: Get available on-ramp currency pairs
+      description: |
+        Retrieves all available currency pairs for on-ramp (fiat to crypto) operations.
+        Returns combinations of supported fiat currencies and their corresponding crypto currencies.
+        
+        
+      operationId: getOnRampPairs
+      security:
+        - OAuth2:
+            - create:ramp-request
+      responses:
+        '200':
+          description: Successfully retrieved on-ramp pairs
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OnRampPair'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ramp-requests/off-ramp/pairs:
+    get:
+      tags:
+        - Ramp Requests
+      summary: Get available off-ramp currency pairs
+      description: |
+        Retrieves all available currency pairs for off-ramp (crypto to fiat) operations.
+        Returns combinations of supported crypto currencies and their corresponding fiat currencies.
+        
+        
+      operationId: getOffRampPairs
+      security:
+        - OAuth2:
+            - create:ramp-request
+      responses:
+        '200':
+          description: Successfully retrieved off-ramp pairs
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OffRampPair'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ramp-requests/export:
+    get:
+      tags:
+        - Ramp Requests
+      summary: Export ramp requests
+      description: |
+        Exports all ramp requests for the company as a downloadable file (CSV/Excel format).
+        Useful for accounting, auditing, and record-keeping purposes.
+      operationId: exportRampRequests
+      security:
+        - OAuth2:
+            - export:ramp-requests
+      responses:
+        '200':
+          description: Ramp requests successfully exported
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/fiat-currencies:
+    get:
+      tags:
+        - Fiat Currencies
+      summary: List all fiat currencies
+      description: |
+        Retrieves all fiat currencies supported by the platform for ramp operations.
+      operationId: getAll_3
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Successfully retrieved fiat currencies
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FiatCurrencyDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/fiat-currencies/{id}:
+    get:
+      tags:
+        - Fiat Currencies
+      summary: Get fiat currency by ID
+      description: Retrieves detailed information about a specific fiat currency
+      operationId: getById_3
+      security:
+        - OAuth2: []
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the fiat currency
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Fiat currency successfully retrieved
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/FiatCurrencyDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/fees:
+    get:
+      tags:
+        - Fees
+      summary: Get company fee configuration
+      description: |
+        Retrieves the fee configuration for the authenticated company.
+        Fees are company-specific and may include volume tiers.
+      operationId: getCompanyFees
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Successfully retrieved fee configuration
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeeDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/deposit-wallets:
+    get:
+      tags:
+        - Deposit Wallets
+      summary: Get deposit wallets
+      description: |
+        Retrieves deposit wallets for specific chains where you should send 1 USDC from your company wallet to verify ownership.
+        
+        
+      operationId: getAll_4
+      security:
+        - OAuth2: []
+      parameters:
+        - name: chain
+          in: query
+          description: Filter by blockchain network
+          required: false
+          schema:
+            type: string
+            enum:
+              - ETHEREUM
+              - POLYGON
+              - BASE
+              - ARBITRUM
+              - SUI
+      responses:
+        '200':
+          description: Successfully retrieved deposit wallets
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DepositWalletDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/crypto-currencies:
+    get:
+      tags:
+        - Crypto Currencies
+      summary: List all crypto currencies
+      description: |
+        Retrieves all cryptocurrencies supported by the platform for ramp operations,
+        organized by blockchain network.
+      operationId: getAll_5
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Successfully retrieved crypto currencies
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CryptoCurrencyDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/crypto-currencies/{id}:
+    get:
+      tags:
+        - Crypto Currencies
+      summary: Get crypto currency by ID
+      description: Retrieves detailed information about a specific cryptocurrency
+      operationId: getById_4
+      security:
+        - OAuth2: []
+      parameters:
+        - name: id
+          in: path
+          description: Unique identifier of the crypto currency
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Crypto currency successfully retrieved
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/CryptoCurrencyDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/company:
+    get:
+      tags:
+        - Company
+      summary: Get company details
+      description: |
+        Retrieves details about the authenticated user's company, including KYB status.
+        
+        
+      operationId: getCompanyDetails
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Successfully retrieved company details
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/UserCompany'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/company/users:
+    get:
+      tags:
+        - Users
+      summary: List company users
+      description: |
+        Retrieves all users associated with the company, including their roles and status.
+      operationId: getCompanyUsers
+      security:
+        - OAuth2:
+            - manage:company-users
+      responses:
+        '200':
+          description: Successfully retrieved company users
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/chains:
+    get:
+      tags:
+        - Blockchain Networks
+      summary: Get supported blockchain networks
+      description: |
+        Retrieves all blockchain networks supported by the platform for cryptocurrency operations.
+      operationId: getSupportedChains
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Successfully retrieved supported chains
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/SupportedChainsDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/bank-accounts/config:
+    get:
+      tags:
+        - Bank Account Configuration
+      summary: Get bank account configuration
+      description: |
+        Retrieves configuration information for bank accounts, including:
+        - Enabled account types (SEPA, ACH, SWIFT, etc.)
+        - Supported countries
+        - Supported currencies
+      operationId: getAccountTypes
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Successfully retrieved bank account configuration
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/BankAccountConfigDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/auth/user:
+    get:
+      tags:
+        - Authentication
+      summary: Get authenticated user details
+      description: |
+        Retrieves information about the currently authenticated user, including:
+        - User profile (name, email)
+        - Company affiliation
+        - Assigned roles and authorities
+      operationId: getAuthenticatedUser
+      security:
+        - OAuth2: []
+      responses:
+        '200':
+          description: Successfully retrieved authenticated user
+          content:
+            '*/*':
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    default: true
+                  result:
+                    $ref: '#/components/schemas/AuthenticatedUserPrincipal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/company/users/{userId}:
+    delete:
+      tags:
+        - Users
+      summary: Delete a company user
+      description: |
+        Removes a user from the company. This action is permanent and cannot be undone.
+      operationId: deleteUser
+      security:
+        - OAuth2:
+            - manage:company-users
+      parameters:
+        - name: userId
+          in: path
+          description: Unique identifier of the user
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User successfully deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    SortOn:
+      name: sortOn
+      in: query
+      description: Field name to sort by
+      required: false
+      schema:
+        type: string
+
+    SortOrder:
+      name: sortOrder
+      in: query
+      description: Sort direction
+      required: false
+      schema:
+        type: string
+        default: ASC
+        enum:
+          - ASC
+          - DESC
+
+    Page:
+      name: page
+      in: query
+      description: Page number (1-based indexing)
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 1
+        minimum: 1
+      example: 1
+
+    Size:
+      name: size
+      in: query
+      description: Number of items per page
+      required: false
+      schema:
+        type: integer
+        format: int32
+        default: 100
+        minimum: 1
+      example: 100
+
+  responses:
+    BadRequest:
+      description: When the request contains invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: validation-error
+                message: A descriptive error message
+
+    Unauthorized:
+      description: When the user is not authorized to access the resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: UNAUTHORIZED
+                message: Access is denied.
+
+    Forbidden:
+      description: When a user doesn't have proper security authority
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: FORBIDDEN
+                message: User doesn't have proper authority to access this resource
+
+    NotFound:
+      description: When a resource is not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: NOT_FOUND
+
+    MethodNotAllowed:
+      description: When the HttpMethod is not supported
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: METHOD_NOT_SUPPORTED
+                message: HttpMethod is not supported. Supported methods are [..]
+
+    UnsupportedMediaType:
+      description: Usually when the input is not a valid json
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: INVALID_MEDIA_TYPE
+
+    Conflict:
+      description: Version conflict - the resource was modified by another request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: OPTIMISTIC_LOCK_EXCEPTION
+                message: The resource has been modified. Please fetch the latest version and retry.
+
+    InternalServerError:
+      description: When there's an unexpected error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            errors:
+              - code: INTERNAL_SERVER_ERROR
+                message: A description of the error (optional)
+
+  schemas:
+    # Request Schemas
+    EditRampAmountRequest:
+      type: object
+      title: Edit Ramp Request Amount
+      description: Request to update the incoming amount for an existing ramp request with optimistic locking
+      required:
+        - amount
+        - version
+      properties:
+        version:
+          type: integer
+          format: int64
+          description: |
+            Version number for optimistic locking. Must match the current version of the entity.
+            If the version has changed since the client last fetched the resource, the request will fail with HTTP 409.
+        amount:
+          type: number
+          description: |
+            The new incoming amount to set.
+            - For **ON_RAMP**: This is the fiat amount (amount to be sent)
+            - For **OFF_RAMP**: This is the crypto amount (amount to be sent)
+          minimum: 0.00000001
+          example: 1000.50
+
+    CreateRampRequestRequest:
+      type: object
+      title: Create Ramp Request
+      description: Request to create a new on-ramp or off-ramp transaction with specified currencies and amounts
+      required:
+        - rampType
+        - amount
+        - fiatCurrencyId
+        - cryptoCurrencyId
+      properties:
+        rampType:
+          type: string
+          description: Type of ramp operation
+          enum:
+            - ON_RAMP
+            - OFF_RAMP
+          example: ON_RAMP
+        amount:
+          type: number
+          description: |
+            The amount for the ramp request.
+            - For **ON_RAMP**: Fiat amount to be sent
+            - For **OFF_RAMP**: Crypto amount to be sent
+          minimum: 0.00000001
+          example: 1000.00
+        companyBankAccountId:
+          type: string
+          format: uuid
+          description: |
+            Required for OFF_RAMP requests. The company bank account where fiat will be received.
+          example: 123e4567-e89b-12d3-a456-426614174000
+        companyWalletId:
+          type: string
+          format: uuid
+          description: |
+            Required for ON_RAMP requests. The company wallet where crypto will be received.
+          example: 123e4567-e89b-12d3-a456-426614174001
+        fiatCurrencyId:
+          type: string
+          format: uuid
+          description: The fiat currency ID for the transaction
+          example: 123e4567-e89b-12d3-a456-426614174002
+        cryptoCurrencyId:
+          type: string
+          format: uuid
+          description: The crypto currency ID for the transaction
+          example: 123e4567-e89b-12d3-a456-426614174003
+
+    UpdateWithOptimisticLockingRequest:
+      type: object
+      title: Update with Optimistic Locking
+      description: Request containing only the version number for optimistic locking control
+      required:
+        - version
+      properties:
+        version:
+          type: integer
+          format: int64
+          description: |
+            Version number for optimistic locking. Must match the current version of the entity.
+            If a version conflict occurs, fetch the latest version and retry.
+
+    UpdateRampRequestTransactionHashRequest:
+      type: object
+      title: Update Ramp Request Transaction Hash
+      description: Request to add or update the blockchain transaction hash for a ramp request
+      required:
+        - blockchainTransactionHash
+        - version
+      properties:
+        version:
+          type: integer
+          format: int64
+          description: Version number for optimistic locking
+        blockchainTransactionHash:
+          type: string
+          minLength: 1
+          description: |
+            The transaction hash of the transfer of crypto funds to the Venly deposit wallet.
+            
+          example: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+
+    CalculateFeeRequest:
+      type: object
+      title: Calculate Fee
+      description: Request to calculate the fee for a ramp operation based on amount and type
+      required:
+        - amount
+        - type
+      properties:
+        amount:
+          type: number
+          description: The amount to calculate fee for
+          example: 1000.00
+        type:
+          type: string
+          description: Type of ramp operation
+          enum:
+            - ON_RAMP
+            - OFF_RAMP
+
+    AddUserToCompanyRequest:
+      type: object
+      title: Invite User to Company
+      description: Request to invite a new user to join the company with a specified role
+      required:
+        - email
+        - role
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          description: Email address of the user to invite
+          example: user@example.com
+        role:
+          type: string
+          description: |
+            Role to assign to the user:
+            - **COMPANY_ADMIN**: Full access including user management
+            - **COMPANY_MANAGER**: Can create and manage ramp requests
+            - **COMPANY_VIEWER**: Read-only access
+          enum:
+            - COMPANY_ADMIN
+            - COMPANY_VIEWER
+            - COMPANY_MANAGER
+        firstName:
+          type: string
+          description: First name of the user
+          example: John
+        lastName:
+          type: string
+          description: Last name of the user
+          example: Doe
+
+    UpdateUserRequest:
+      type: object
+      title: Update User Role
+      description: Request to change the role of an existing company user
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          description: New role for the user
+          enum:
+            - COMPANY_ADMIN
+            - COMPANY_VIEWER
+            - COMPANY_MANAGER
+
+    UpdateUserStatusRequest:
+      type: object
+      title: Update User Status
+      description: Request to enable or disable a company user account
+      required:
+        - enabled
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the user account should be enabled (true) or disabled (false)
+
+    CreateCompanyWalletRequest:
+      type: object
+      title: Create Company Wallet
+      description: Request to register a new cryptocurrency wallet for the company
+      required:
+        - address
+        - chain
+      properties:
+        description:
+          type: string
+          maxLength: 500
+          minLength: 0
+          description: Optional description for the wallet
+          example: Main treasury wallet
+        address:
+          type: string
+          maxLength: 255
+          minLength: 0
+          description: The blockchain wallet address
+          example: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'
+        chain:
+          type: string
+          description: The blockchain network for this wallet
+          enum:
+            - ETHEREUM
+            - POLYGON
+            - BASE
+            - ARBITRUM
+            - SUI
+
+    UpdateCompanyWalletRequest:
+      type: object
+      title: Update Company Wallet
+      description: Request to update the description of an existing company wallet
+      required:
+        - version
+      properties:
+        version:
+          type: integer
+          format: int64
+          description: Version number for optimistic locking
+        description:
+          type: string
+          description: Updated description for the wallet
+
+    CreateCompanyBankAccountRequest:
+      type: object
+      required:
+        - name
+        - bankName
+        - companyName
+        - bankCountry
+        - beneficiaryAddressLine1
+        - beneficiaryCity
+        - beneficiaryPostalCode
+        - beneficiaryCountry
+        - supportedRampType
+      discriminator:
+        propertyName: bankAccountType
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          minLength: 0
+          description: Display name for the bank account
+          example: Primary EUR Account
+        bankName:
+          type: string
+          maxLength: 255
+          minLength: 0
+          description: Name of the bank
+          example: Deutsche Bank
+        companyName:
+          type: string
+          maxLength: 255
+          minLength: 0
+          description: Legal name of the company (account holder)
+          example: Acme Corporation Ltd
+        bankCountry:
+          type: string
+          description: ISO 3166-1 alpha-2 country code of the bank
+          example: DE
+        beneficiaryAddressLine1:
+          type: string
+          maxLength: 255
+          minLength: 0
+          description: First line of beneficiary address
+          example: 123 Main Street
+        beneficiaryAddressLine2:
+          type: string
+          maxLength: 255
+          minLength: 0
+          description: Second line of beneficiary address (optional)
+          example: Suite 100
+        beneficiaryCity:
+          type: string
+          maxLength: 100
+          minLength: 0
+          description: Beneficiary city
+          example: Berlin
+        beneficiaryPostalCode:
+          type: string
+          maxLength: 20
+          minLength: 0
+          description: Beneficiary postal/ZIP code
+          example: '10115'
+        beneficiaryCountry:
+          type: string
+          description: ISO 3166-1 alpha-2 country code of the beneficiary
+          example: DE
+        supportedRampType:
+          type: string
+          description: |
+            Types of ramp operations this account supports:
+            - **ON_RAMP**: Can receive fiat (for deposit)
+            - **OFF_RAMP**: Can send fiat (for withdrawal)
+            - **ON_AND_OFF_RAMP**: Supports both operations
+          enum:
+            - ON_RAMP
+            - OFF_RAMP
+            - ON_AND_OFF_RAMP
+        bankAccountType:
+          type: string
+          description: Type of bank account/payment network
+          enum:
+            - EUR_SEPA
+            - USD_WIRE
+            - USD_ACH
+            - USD_SWIFT
+            - GBP_FPS
+            - GBP_CHAPS
+            - OTHER_SWIFT
+
+    CreateEurSepaCompanyBankAccountRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateCompanyBankAccountRequest'
+        - type: object
+          title: Create EUR SEPA Bank Account
+          description: Request to create a European SEPA bank account with IBAN and BIC
+          required:
+            - iban
+          properties:
+            iban:
+              type: string
+              minLength: 15
+              maxLength: 34
+              pattern: '^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$'
+              description: International Bank Account Number
+              example: DE89370400440532013000
+            bic:
+              type: string
+              minLength: 8
+              maxLength: 11
+              pattern: '^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$'
+              description: Bank Identifier Code (SWIFT code)
+              example: COBADEFFXXX
+            intermediaryBic:
+              type: string
+              minLength: 8
+              maxLength: 11
+              pattern: '^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$'
+              description: Intermediary bank BIC (if applicable)
+            email:
+              type: string
+              format: email
+              maxLength: 255
+              description: Contact email for account holder
+            phoneNumber:
+              type: string
+              maxLength: 50
+              pattern: '^\+?\d{7,15}$'
+              description: Contact phone number
+            beneficiaryState:
+              type: string
+              maxLength: 100
+              description: Beneficiary state/province (if applicable)
+            bankAccountType:
+              type: string
+              default: EUR_SEPA
+              enum:
+                - EUR_SEPA
+
+    CreateGbpFpsCompanyBankAccountRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateCompanyBankAccountRequest'
+        - type: object
+          title: Create GBP Faster Payments Bank Account
+          description: Request to create a UK Faster Payments Service bank account with account number and sort code
+          required:
+            - accountNumber
+            - sortCode
+          properties:
+            accountNumber:
+              type: string
+              minLength: 8
+              maxLength: 8
+              pattern: '^\d{8}$'
+              description: UK bank account number (8 digits)
+              example: '12345678'
+            sortCode:
+              type: string
+              minLength: 6
+              maxLength: 6
+              pattern: '^\d{6}$'
+              description: UK sort code (6 digits)
+              example: '123456'
+            email:
+              type: string
+              format: email
+              maxLength: 255
+            phoneNumber:
+              type: string
+              maxLength: 50
+              pattern: '^\+?\d{7,15}$'
+            beneficiaryState:
+              type: string
+              maxLength: 100
+            bankAccountType:
+              type: string
+              default: GBP_FPS
+              enum:
+                - GBP_FPS
+
+    CreateGbpChapsCompanyBankAccountRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateCompanyBankAccountRequest'
+        - type: object
+          title: Create GBP CHAPS Bank Account
+          description: Request to create a UK CHAPS (Clearing House Automated Payment System) bank account with account number and sort code
+          required:
+            - accountNumber
+            - sortCode
+          properties:
+            accountNumber:
+              type: string
+              minLength: 8
+              maxLength: 8
+              pattern: '^\d{8}$'
+              description: UK bank account number (8 digits)
+              example: '12345678'
+            sortCode:
+              type: string
+              minLength: 6
+              maxLength: 6
+              pattern: '^\d{6}$'
+              description: UK sort code (6 digits)
+              example: '123456'
+            email:
+              type: string
+              format: email
+              maxLength: 255
+            phoneNumber:
+              type: string
+              maxLength: 50
+              pattern: '^\+?\d{7,15}$'
+            beneficiaryState:
+              type: string
+              maxLength: 100
+            bankAccountType:
+              type: string
+              default: GBP_CHAPS
+              enum:
+                - GBP_CHAPS
+
+    CreateUsAchCompanyBankAccountRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateCompanyBankAccountRequest'
+        - type: object
+          title: Create US ACH Bank Account
+          description: Request to create a US ACH (Automated Clearing House) bank account with account number and routing number
+          required:
+            - accountNumber
+            - routingNumber
+            - email
+            - beneficiaryState
+          properties:
+            accountNumber:
+              type: string
+              minLength: 8
+              maxLength: 17
+              pattern: '^\d{8,17}$'
+              description: US bank account number
+              example: '123456789012'
+            routingNumber:
+              type: string
+              minLength: 9
+              maxLength: 9
+              pattern: '^\d{9}$'
+              description: US routing number (ABA number)
+              example: '021000021'
+            email:
+              type: string
+              format: email
+              maxLength: 255
+            phoneNumber:
+              type: string
+              maxLength: 50
+              pattern: '^\+?\d{7,15}$'
+            beneficiaryState:
+              type: string
+              maxLength: 100
+              description: US state (required for ACH)
+              example: NY
+            bankAccountType:
+              type: string
+              default: USD_ACH
+              enum:
+                - USD_ACH
+
+    CreateUsWireCompanyBankAccountRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateCompanyBankAccountRequest'
+        - type: object
+          title: Create US Wire Transfer Bank Account
+          description: Request to create a US Wire Transfer bank account with account number and routing number
+          required:
+            - accountNumber
+            - routingNumber
+            - email
+            - beneficiaryState
+          properties:
+            accountNumber:
+              type: string
+              minLength: 8
+              maxLength: 17
+              pattern: '^\d{8,17}$'
+              description: US bank account number
+            routingNumber:
+              type: string
+              minLength: 9
+              maxLength: 9
+              pattern: '^\d{9}$'
+              description: US routing number (ABA number)
+            email:
+              type: string
+              format: email
+              maxLength: 255
+            phoneNumber:
+              type: string
+              maxLength: 50
+              pattern: '^\+?\d{7,15}$'
+            beneficiaryState:
+              type: string
+              maxLength: 100
+              description: US state (required for Wire)
+            bankAccountType:
+              type: string
+              default: USD_WIRE
+              enum:
+                - USD_WIRE
+
+    CreateUsSwiftCompanyBankAccountRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateCompanyBankAccountRequest'
+        - type: object
+          title: Create US SWIFT Bank Account
+          description: Request to create a US SWIFT international bank account with BIC, account number, and bank address details
+          required:
+            - bic
+            - accountNumber
+            - bankStreetAddress
+            - bankCity
+            - bankPostalCode
+            - beneficiaryState
+          properties:
+            bic:
+              type: string
+              minLength: 8
+              maxLength: 11
+              pattern: '^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$'
+              description: Bank Identifier Code (SWIFT code)
+            accountNumber:
+              type: string
+              maxLength: 34
+              description: Bank account number
+            iban:
+              type: string
+              minLength: 15
+              maxLength: 34
+              pattern: '^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$'
+              description: IBAN (optional for US SWIFT)
+            bankStreetAddress:
+              type: string
+              maxLength: 255
+              description: Bank street address
+            bankCity:
+              type: string
+              maxLength: 100
+              description: Bank city
+            bankPostalCode:
+              type: string
+              maxLength: 20
+              description: Bank postal code
+            intermediaryBankName:
+              type: string
+              maxLength: 255
+              description: Intermediary bank name (if applicable)
+            intermediaryBic:
+              type: string
+              minLength: 8
+              maxLength: 11
+              pattern: '^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$'
+              description: Intermediary bank BIC
+            intermediaryAccountNumber:
+              type: string
+              maxLength: 34
+              description: Intermediary account number
+            email:
+              type: string
+              format: email
+              maxLength: 255
+            phoneNumber:
+              type: string
+              maxLength: 50
+              pattern: '^$|^\+?\d{7,15}$'
+            beneficiaryState:
+              type: string
+              maxLength: 100
+            bankAccountType:
+              type: string
+              default: USD_SWIFT
+              enum:
+                - USD_SWIFT
+
+    CreateOtherCurrencySwiftCompanyBankAccountRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateCompanyBankAccountRequest'
+        - type: object
+          title: Create Other Currency SWIFT Bank Account
+          description: Request to create a SWIFT bank account for currencies other than EUR, GBP, or USD (e.g., SGD, AUD, CHF)
+          required:
+            - currency
+            - bic
+          properties:
+            currency:
+              type: string
+              minLength: 3
+              maxLength: 3
+              description: ISO 4217 currency code (e.g., SGD, AUD, CHF)
+              example: SGD
+            bic:
+              type: string
+              minLength: 8
+              maxLength: 11
+              pattern: '^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$'
+              description: Bank Identifier Code (SWIFT code)
+            accountNumber:
+              type: string
+              maxLength: 34
+              description: Account number (required if IBAN not provided)
+            iban:
+              type: string
+              minLength: 15
+              maxLength: 34
+              pattern: '^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$'
+              description: IBAN (required if account number not provided)
+            intermediaryBankName:
+              type: string
+              maxLength: 255
+            intermediaryBic:
+              type: string
+              minLength: 8
+              maxLength: 11
+              pattern: '^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$'
+            intermediaryAccountNumber:
+              type: string
+              maxLength: 34
+            email:
+              type: string
+              format: email
+              maxLength: 255
+            phoneNumber:
+              type: string
+              maxLength: 50
+              pattern: '^$|^\+?\d{7,15}$'
+            beneficiaryState:
+              type: string
+              maxLength: 100
+            bankAccountType:
+              type: string
+              default: OTHER_SWIFT
+              enum:
+                - OTHER_SWIFT
+
+    UpdateCompanyBankAccountRequest:
+      type: object
+      title: Update Company Bank Account
+      description: Request to update the display name of an existing company bank account
+      required:
+        - version
+      properties:
+        version:
+          type: integer
+          format: int64
+          description: Version number for optimistic locking
+        name:
+          type: string
+          description: Updated display name for the bank account
+
+    # Response DTOs
+    RampRequestDto:
+      type: object
+      description: Complete ramp request details including status, amounts, and event history
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier
+        companyId:
+          type: string
+          format: uuid
+          description: Associated company ID
+        companyName:
+          type: string
+          description: Name of the company
+        rampType:
+          type: string
+          description: Type of ramp operation
+          enum:
+            - ON_RAMP
+            - OFF_RAMP
+        status:
+          type: string
+          description: |
+            Current status of the request. See API overview for status flow details.
+          enum:
+            - AWAITING_APPROVAL
+            - AWAITING_FUNDS
+            - PROCESSING
+            - SUCCEEDED
+            - FAILED
+            - BLOCKED
+            - DENIED
+            - REJECTED
+            - CANCELLED
+        amount:
+          type: number
+          description: Deprecated - use fiatAmount or cryptoAmount instead
+          deprecated: true
+        netAmount:
+          type: number
+          description: Deprecated - use fiatNetAmount instead
+          deprecated: true
+        fiatAmount:
+          type: number
+          description: Total fiat amount (including fees)
+          example: 1000.00
+        fiatNetAmount:
+          type: number
+          description: Net fiat amount (after deducting fees)
+          example: 990.00
+        cryptoAmount:
+          type: number
+          description: Crypto amount
+          example: 0.5
+        fiatFeeAmount:
+          type: number
+          description: Fee amount in fiat currency
+          example: 10.00
+        exchangeRate:
+          type: number
+          description: |
+            Exchange rate used for the conversion.
+            
+          example: 2000.00
+        feePercentage:
+          type: number
+          description: Fee percentage applied
+          example: 1.0
+        paymentReference:
+          type: string
+          description: Auto-generated unique payment reference for tracking
+          example: PAY-2024-001234
+        paymentReceived:
+          type: boolean
+          description: Whether payment has been received
+        blockchainTransactionHash:
+          type: string
+          description: Blockchain transaction hash (when available)
+          example: '0x1234...'
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when request was created
+        companyBankAccount:
+          description: Company bank account (for OFF_RAMP)
+          oneOf:
+            - $ref: '#/components/schemas/EurSepaCompanyBankAccountDto'
+            - $ref: '#/components/schemas/GbpChapsCompanyBankAccountDto'
+            - $ref: '#/components/schemas/GbpFpsCompanyBankAccountDto'
+            - $ref: '#/components/schemas/OtherCurrencySwiftCompanyBankAccountDto'
+            - $ref: '#/components/schemas/UsAchCompanyBankAccountDto'
+            - $ref: '#/components/schemas/UsSwiftCompanyBankAccountDto'
+            - $ref: '#/components/schemas/UsWireCompanyBankAccountDto'
+        companyWallet:
+          $ref: '#/components/schemas/CompanyWalletDto'
+          description: Company wallet (for ON_RAMP)
+        depositBankAccount:
+          description: |
+            Venly deposit bank account where fiat should be sent (for ON_RAMP).
+            
+          oneOf:
+            - $ref: '#/components/schemas/EurSepaDepositBankAccountDto'
+            - $ref: '#/components/schemas/GbpChapsDepositBankAccountDto'
+            - $ref: '#/components/schemas/GbpFpsDepositBankAccountDto'
+            - $ref: '#/components/schemas/OtherCurrencySwiftDepositBankAccountDto'
+            - $ref: '#/components/schemas/UsAchDepositBankAccountDto'
+            - $ref: '#/components/schemas/UsSwiftDepositBankAccountDto'
+            - $ref: '#/components/schemas/UsWireDepositBankAccountDto'
+        depositWallet:
+          $ref: '#/components/schemas/DepositWalletDto'
+          description: |
+            Venly deposit wallet where crypto should be sent (for OFF_RAMP).
+            
+        fiatCurrency:
+          $ref: '#/components/schemas/FiatCurrencyDto'
+        cryptoCurrency:
+          $ref: '#/components/schemas/CryptoCurrencyDto'
+        events:
+          type: array
+          description: Complete audit trail of all events for this request
+          items:
+            $ref: '#/components/schemas/RampRequestEventDto'
+        version:
+          type: integer
+          format: int64
+          description: Version number for optimistic locking
+        amountReceived:
+          type: number
+          description: Actual amount received
+
+    RampRequestListItem:
+      type: object
+      description: Simplified ramp request for list views
+      properties:
+        id:
+          type: string
+          format: uuid
+        paymentReference:
+          type: string
+        rampType:
+          type: string
+          enum:
+            - ON_RAMP
+            - OFF_RAMP
+        status:
+          type: string
+          enum:
+            - AWAITING_APPROVAL
+            - AWAITING_FUNDS
+            - PROCESSING
+            - SUCCEEDED
+            - FAILED
+            - BLOCKED
+            - DENIED
+            - REJECTED
+            - CANCELLED
+        fiatAmount:
+          type: number
+        fiatCurrency:
+          type: string
+        cryptoAmount:
+          type: number
+        cryptoCurrency:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+
+    RampRequestEventDto:
+      type: object
+      description: Audit event for a ramp request
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          description: Type of event that occurred
+          enum:
+            - CREATED
+            - AWAITING_APPROVAL
+            - TX_HASH_ADDED
+            - UPDATED
+            - STATUS_CHANGED
+            - APPROVED
+            - REJECTED
+            - ADMIN_REJECTED
+            - PAYMENT_RECEIVED
+            - PAYMENT_SENT
+            - COMPLETED
+            - FAILED
+            - CANCELLED
+            - AMOUNT_CHANGED
+        userId:
+          type: string
+          description: ID of user who triggered the event
+        username:
+          type: string
+          description: Username of user who triggered the event
+        email:
+          type: string
+          description: Email of user who triggered the event
+        role:
+          type: string
+          description: Role of user who triggered the event
+          enum:
+            - COMPANY_ADMIN
+            - COMPANY_VIEWER
+            - COMPANY_MANAGER
+        createdAt:
+          type: string
+          format: date-time
+          description: When the event occurred
+        version:
+          type: integer
+          format: int64
+        metadata:
+          type: object
+          description: |
+            Event-specific metadata in JSON format.
+            For AMOUNT_CHANGED events, contains:
+            - previousAmount: The amount before the change
+            - newAmount: The amount after the change
+
+    CompanyWalletDto:
+      type: object
+      description: Company cryptocurrency wallet details
+      properties:
+        id:
+          type: string
+          format: uuid
+        companyId:
+          type: string
+          format: uuid
+        description:
+          type: string
+          description: User-provided description
+        address:
+          type: string
+          description: Blockchain wallet address
+        chain:
+          type: string
+          description: Blockchain network
+          enum:
+            - ETHEREUM
+            - POLYGON
+            - BASE
+            - ARBITRUM
+            - SUI
+        verificationStatus:
+          type: string
+          description: |
+            Verification status of the wallet.
+            
+          enum:
+            - PENDING
+            - VERIFIED
+            - DENIED
+        verifiedAt:
+          type: string
+          format: date-time
+          description: When wallet was verified (if applicable)
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+
+    CompanyWalletListItem:
+      type: object
+      description: Simplified wallet for list views
+      properties:
+        id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        address:
+          type: string
+        chain:
+          type: string
+          enum:
+            - ETHEREUM
+            - POLYGON
+            - BASE
+            - ARBITRUM
+            - SUI
+        verificationStatus:
+          type: string
+          enum:
+            - PENDING
+            - VERIFIED
+            - DENIED
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CompanyBankAccountDto:
+      type: object
+      description: Base company bank account schema
+      discriminator:
+        propertyName: bankAccountType
+      properties:
+        id:
+          type: string
+          format: uuid
+        companyId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Display name
+        bankName:
+          type: string
+        companyName:
+          type: string
+          description: Legal company name (account holder)
+        email:
+          type: string
+        phoneNumber:
+          type: string
+        bankCountry:
+          type: string
+          description: ISO 3166-1 alpha-2 country code
+        beneficiaryAddressLine1:
+          type: string
+        beneficiaryAddressLine2:
+          type: string
+        beneficiaryCity:
+          type: string
+        beneficiaryState:
+          type: string
+        beneficiaryPostalCode:
+          type: string
+        beneficiaryCountry:
+          type: string
+          description: ISO 3166-1 alpha-2 country code
+        bankAccountType:
+          type: string
+          enum:
+            - EUR_SEPA
+            - USD_WIRE
+            - USD_ACH
+            - USD_SWIFT
+            - GBP_FPS
+            - GBP_CHAPS
+            - OTHER_SWIFT
+        supportedRampType:
+          type: string
+          enum:
+            - ON_RAMP
+            - OFF_RAMP
+            - ON_AND_OFF_RAMP
+        verificationStatus:
+          type: string
+          description: |
+            Verification status of the bank account.
+            
+          enum:
+            - PENDING
+            - VERIFIED
+            - DENIED
+        verifiedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+
+    EurSepaCompanyBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/CompanyBankAccountDto'
+        - type: object
+          properties:
+            iban:
+              type: string
+              description: International Bank Account Number
+            bic:
+              type: string
+              description: Bank Identifier Code
+            intermediaryBic:
+              type: string
+              description: Intermediary bank BIC (if applicable)
+
+    GbpFpsCompanyBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/CompanyBankAccountDto'
+        - type: object
+          properties:
+            accountNumber:
+              type: string
+              description: UK account number (8 digits)
+            sortCode:
+              type: string
+              description: UK sort code (6 digits)
+
+    GbpChapsCompanyBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/CompanyBankAccountDto'
+        - type: object
+          properties:
+            accountNumber:
+              type: string
+            sortCode:
+              type: string
+
+    UsAchCompanyBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/CompanyBankAccountDto'
+        - type: object
+          properties:
+            accountNumber:
+              type: string
+            routingNumber:
+              type: string
+              description: ABA routing number
+
+    UsWireCompanyBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/CompanyBankAccountDto'
+        - type: object
+          properties:
+            accountNumber:
+              type: string
+            routingNumber:
+              type: string
+
+    UsSwiftCompanyBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/CompanyBankAccountDto'
+        - type: object
+          properties:
+            bic:
+              type: string
+            accountNumber:
+              type: string
+            iban:
+              type: string
+            bankStreetAddress:
+              type: string
+            bankCity:
+              type: string
+            bankPostalCode:
+              type: string
+            intermediaryBankName:
+              type: string
+            intermediaryBic:
+              type: string
+            intermediaryAccountNumber:
+              type: string
+
+    OtherCurrencySwiftCompanyBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/CompanyBankAccountDto'
+        - type: object
+          properties:
+            currency:
+              type: string
+              description: ISO 4217 currency code
+            bic:
+              type: string
+            accountNumber:
+              type: string
+            iban:
+              type: string
+            intermediaryBankName:
+              type: string
+            intermediaryBic:
+              type: string
+            intermediaryAccountNumber:
+              type: string
+
+    CompanyBankAccountListItem:
+      type: object
+      description: Simplified bank account for list views
+      discriminator:
+        propertyName: bankAccountType
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        bankName:
+          type: string
+        bankCountry:
+          type: string
+        bankAccountType:
+          type: string
+          enum:
+            - EUR_SEPA
+            - USD_WIRE
+            - USD_ACH
+            - USD_SWIFT
+            - GBP_FPS
+            - GBP_CHAPS
+            - OTHER_SWIFT
+        supportedRampType:
+          type: string
+          enum:
+            - ON_RAMP
+            - OFF_RAMP
+            - ON_AND_OFF_RAMP
+        verificationStatus:
+          type: string
+          enum:
+            - PENDING
+            - VERIFIED
+            - DENIED
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DepositBankAccountDto:
+      type: object
+      description: |
+        Venly-managed deposit bank account where customers send fiat for on-ramp.
+        
+      discriminator:
+        propertyName: bankAccountType
+      properties:
+        id:
+          type: string
+          format: uuid
+        bankName:
+          type: string
+        beneficiary:
+          type: string
+          description: Beneficiary name (Venly entity)
+        fiatCurrency:
+          $ref: '#/components/schemas/FiatCurrencyDto'
+        label:
+          type: string
+        isActive:
+          type: boolean
+        isDefault:
+          type: boolean
+        bankAccountType:
+          type: string
+          enum:
+            - EUR_SEPA
+            - USD_WIRE
+            - USD_ACH
+            - USD_SWIFT
+            - GBP_FPS
+            - GBP_CHAPS
+            - OTHER_SWIFT
+        version:
+          type: integer
+          format: int64
+
+    EurSepaDepositBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/DepositBankAccountDto'
+        - type: object
+          properties:
+            bic:
+              type: string
+            intermediaryBic:
+              type: string
+            iban:
+              type: string
+
+    GbpFpsDepositBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/DepositBankAccountDto'
+        - type: object
+          properties:
+            accountNumber:
+              type: string
+            sortCode:
+              type: string
+
+    GbpChapsDepositBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/DepositBankAccountDto'
+        - type: object
+          properties:
+            accountNumber:
+              type: string
+            sortCode:
+              type: string
+
+    UsAchDepositBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/DepositBankAccountDto'
+        - type: object
+          properties:
+            companyName:
+              type: string
+            email:
+              type: string
+            phoneNumber:
+              type: string
+            accountNumber:
+              type: string
+            routingNumber:
+              type: string
+            bankCountry:
+              type: string
+            beneficiaryAddressLine1:
+              type: string
+            beneficiaryAddressLine2:
+              type: string
+            beneficiaryCity:
+              type: string
+            beneficiaryState:
+              type: string
+            beneficiaryPostalCode:
+              type: string
+            beneficiaryCountry:
+              type: string
+
+    UsWireDepositBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/DepositBankAccountDto'
+        - type: object
+          properties:
+            companyName:
+              type: string
+            email:
+              type: string
+            phoneNumber:
+              type: string
+            accountNumber:
+              type: string
+            routingNumber:
+              type: string
+            bankCountry:
+              type: string
+            beneficiaryAddressLine1:
+              type: string
+            beneficiaryAddressLine2:
+              type: string
+            beneficiaryCity:
+              type: string
+            beneficiaryState:
+              type: string
+            beneficiaryPostalCode:
+              type: string
+            beneficiaryCountry:
+              type: string
+
+    UsSwiftDepositBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/DepositBankAccountDto'
+        - type: object
+          properties:
+            companyName:
+              type: string
+            email:
+              type: string
+            phoneNumber:
+              type: string
+            bic:
+              type: string
+            accountNumber:
+              type: string
+            iban:
+              type: string
+            bankCountry:
+              type: string
+            bankStreetAddress:
+              type: string
+            bankCity:
+              type: string
+            bankPostalCode:
+              type: string
+            intermediaryBankName:
+              type: string
+            intermediaryBic:
+              type: string
+            intermediaryAccountNumber:
+              type: string
+            beneficiaryAddressLine1:
+              type: string
+            beneficiaryAddressLine2:
+              type: string
+            beneficiaryCity:
+              type: string
+            beneficiaryState:
+              type: string
+            beneficiaryPostalCode:
+              type: string
+            beneficiaryCountry:
+              type: string
+
+    OtherCurrencySwiftDepositBankAccountDto:
+      allOf:
+        - $ref: '#/components/schemas/DepositBankAccountDto'
+        - type: object
+          properties:
+            companyName:
+              type: string
+            email:
+              type: string
+            phoneNumber:
+              type: string
+            bic:
+              type: string
+            accountNumber:
+              type: string
+            iban:
+              type: string
+            bankCountry:
+              type: string
+            intermediaryBankName:
+              type: string
+            intermediaryBic:
+              type: string
+            intermediaryAccountNumber:
+              type: string
+            beneficiaryAddressLine1:
+              type: string
+            beneficiaryAddressLine2:
+              type: string
+            beneficiaryCity:
+              type: string
+            beneficiaryState:
+              type: string
+            beneficiaryPostalCode:
+              type: string
+            beneficiaryCountry:
+              type: string
+
+    DepositWalletDto:
+      type: object
+      description: |
+        Venly-managed deposit wallet where customers send crypto for off-ramp.
+        
+      properties:
+        id:
+          type: string
+          format: uuid
+        address:
+          type: string
+          description: Blockchain wallet address
+        chain:
+          type: string
+          enum:
+            - ETHEREUM
+            - POLYGON
+            - BASE
+            - ARBITRUM
+            - SUI
+        label:
+          type: string
+        isDefault:
+          type: boolean
+        isActive:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+
+    FiatCurrencyDto:
+      type: object
+      description: Fiat currency supported for ramp operations
+      properties:
+        id:
+          type: string
+          format: uuid
+        currency:
+          type: string
+          description: ISO 4217 currency code
+          example: EUR
+        label:
+          type: string
+          description: Display name
+          example: Euro
+        enabled:
+          type: boolean
+          description: Whether this currency is currently enabled
+        version:
+          type: integer
+          format: int64
+
+    CryptoCurrencyDto:
+      type: object
+      description: Cryptocurrency supported for ramp operations
+      properties:
+        id:
+          type: string
+          format: uuid
+        currency:
+          type: string
+          description: Currency symbol
+          example: USDC
+        chain:
+          type: string
+          description: Blockchain network
+          enum:
+            - ETHEREUM
+            - POLYGON
+            - BASE
+            - ARBITRUM
+            - SUI
+        label:
+          type: string
+          description: Display name
+          example: USD Coin
+        enabled:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+        coingeckoId:
+          type: string
+          description: CoinGecko API identifier for price data
+
+    CalculatedFeeDto:
+      type: object
+      description: Calculated fee breakdown
+      properties:
+        amount:
+          type: number
+          description: Fee amount in currency
+          example: 10.00
+        percentage:
+          type: number
+          description: Fee percentage applied
+          example: 1.0
+
+    FeeDto:
+      type: object
+      description: Fee configuration for the company
+      properties:
+        id:
+          type: string
+          format: uuid
+        companyId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Fee tier name
+        type:
+          type: string
+          description: Ramp type this fee applies to
+          enum:
+            - ON_RAMP
+            - OFF_RAMP
+        minVolume:
+          type: number
+          description: Minimum volume for this tier
+        maxVolume:
+          type: number
+          description: Maximum volume for this tier
+        percentage:
+          type: number
+          description: Fee percentage for this tier
+        version:
+          type: integer
+          format: int64
+
+    UserDto:
+      type: object
+      description: Company user details
+      properties:
+        id:
+          type: string
+          description: User ID in authentication system
+        username:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        enabled:
+          type: boolean
+          description: Whether user account is enabled
+        role:
+          type: string
+          description: User's role in the company
+          enum:
+            - COMPANY_ADMIN
+            - COMPANY_VIEWER
+            - COMPANY_MANAGER
+        invitationUrl:
+          type: string
+          description: URL for user to complete registration (if pending)
+        invitationStatus:
+          type: string
+          enum:
+            - PENDING
+            - ACCEPTED
+
+    UserCompany:
+      type: object
+      description: Company details
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Legal company name
+        kybStatus:
+          type: string
+          description: |
+            Know Your Business verification status.
+            
+          enum:
+            - PENDING
+            - VERIFIED
+            - DENIED
+        invoicesUrl:
+          type: string
+          description: URL to access company invoices
+        sequenceCustomerId:
+          type: string
+          description: Customer ID in billing system
+        createdAt:
+          type: string
+          format: date-time
+
+    AuthenticatedUserPrincipal:
+      type: object
+      description: Currently authenticated user details
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        realmRoles:
+          type: array
+          items:
+            type: string
+          description: System-level roles
+        company:
+          $ref: '#/components/schemas/CompanyClaim'
+        name:
+          type: string
+          description: Full name
+
+    CompanyClaim:
+      type: object
+      description: Company information in user token
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    OnRampPair:
+      type: object
+      description: Available on-ramp currency pair (fiat to crypto)
+      properties:
+        from:
+          $ref: '#/components/schemas/FiatPairItem'
+        to:
+          $ref: '#/components/schemas/CryptoPairItem'
+
+    OffRampPair:
+      type: object
+      description: Available off-ramp currency pair (crypto to fiat)
+      properties:
+        from:
+          $ref: '#/components/schemas/CryptoPairItem'
+        to:
+          $ref: '#/components/schemas/FiatPairItem'
+
+    FiatPairItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        currency:
+          type: string
+          description: ISO 4217 code
+        label:
+          type: string
+
+    CryptoPairItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        currency:
+          type: string
+          description: Currency symbol
+        chain:
+          type: string
+          enum:
+            - ETHEREUM
+            - POLYGON
+            - BASE
+            - ARBITRUM
+            - SUI
+        label:
+          type: string
+
+    SupportedChainsDto:
+      type: object
+      description: Blockchain networks supported by the platform
+      properties:
+        supportedChains:
+          type: array
+          items:
+            type: string
+            enum:
+              - ETHEREUM
+              - POLYGON
+              - BASE
+              - ARBITRUM
+              - SUI
+
+    BankAccountConfigDto:
+      type: object
+      description: Bank account configuration metadata
+      properties:
+        enabledAccountTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/BankAccountTypeDto'
+        supportedCountries:
+          type: array
+          items:
+            $ref: '#/components/schemas/CountryDto'
+        supportedCurrencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurrencyItemDto'
+
+    BankAccountTypeDto:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - EUR_SEPA
+            - USD_WIRE
+            - USD_ACH
+            - USD_SWIFT
+            - GBP_FPS
+            - GBP_CHAPS
+            - OTHER_SWIFT
+        description:
+          type: string
+
+    CountryDto:
+      type: object
+      properties:
+        countryCode:
+          type: string
+          description: ISO 3166-1 alpha-2 code
+        countryName:
+          type: string
+
+    CurrencyItemDto:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Currency code
+        name:
+          type: string
+          description: Currency name
+
+    # Common schemas
+    Pagination:
+      type: object
+      description: Pagination metadata
+      properties:
+        pageNumber:
+          type: integer
+          format: int32
+          description: Current page number (1-based)
+        pageSize:
+          type: integer
+          format: int32
+          description: Number of items per page
+        numberOfElements:
+          type: integer
+          format: int64
+          description: Total number of items across all pages
+        numberOfPages:
+          type: integer
+          format: int32
+          description: Total number of pages
+        hasNextPage:
+          type: boolean
+          description: Whether there's a next page
+        hasPreviousPage:
+          type: boolean
+          description: Whether there's a previous page
+
+    Sort:
+      type: object
+      description: Sort configuration
+      properties:
+        orders:
+          type: array
+          items:
+            type: string
+            enum:
+              - ASC
+              - DESC
+
+    ErrorResponse:
+      type: object
+      description: Error response wrapper
+      properties:
+        success:
+          type: boolean
+          default: false
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorBody'
+        result:
+          type: object
+          nullable: true
+
+    ErrorBody:
+      type: object
+      description: Individual error details
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+        message:
+          type: string
+          description: Human-readable error message
+
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      description: OAuth2 authentication via Venly Identity Platform
+      flows:
+        implicit:
+          authorizationUrl: https://login-qa.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/auth?nonce=c7809da4-d045-4d45-b690-f07a268f3860
+          scopes:
+            openid: OpenID Connect scope
+            view:ramp-request: View ramp requests
+            create:ramp-request: Create ramp requests
+            edit:ramp-request: Edit ramp request amounts
+            approve:ramp-request: Approve ramp requests
+            reject:ramp-request: Reject ramp requests
+            cancel:ramp-request: Cancel ramp requests
+            sign-off:ramp-request: Sign off on ramp requests (add transaction hash)
+            export:ramp-requests: Export ramp requests
+            view:company-wallet: View company wallets
+            manage:company-wallet: Create and manage company wallets
+            view:company-bank-account: View company bank accounts
+            manage:company-bank-account: Create and manage company bank accounts
+            manage:company-users: Manage company users
+
