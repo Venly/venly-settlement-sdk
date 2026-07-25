@@ -16,11 +16,37 @@ TypeScript SDK for the [Venly Finance](https://docs.venlyfinance.com) and Fundfl
 | Concern | Behaviour |
 |---|---|
 | Auth | OAuth2 client credentials. Tokens expire after ~5 min; cached, refreshed 30 s early, single-flighted, transparently re-fetched on a 401. |
-| Idempotency | Every POST gets an auto-generated UUID `Idempotency-Key` (pass your own to override). This is what makes retries safe. |
+| Idempotency | Every mutating request (POST/PUT/PATCH) gets an auto-generated UUID `Idempotency-Key` (pass your own to override). This is what makes retries safe. |
 | Retries | Exponential backoff + jitter on 429/502/503/504 and network errors, `Retry-After` respected, 3 attempts by default. |
 | Errors | Non-2xx throws `VenlyApiError` with `status`, `errors[]` and the `traceCode` to quote at support. |
 | Envelope | `{success, errors[], result}` is unwrapped — methods return `result` directly. |
 | Pagination | `list()` returns `{items, pagination}`; `iterate()` walks all pages as an async iterator. |
+
+## Try it in 0 minutes (mock mode)
+
+No signup, no credentials, no network. Every method returns realistic fixtures
+typed against the OpenAPI schemas:
+
+```ts
+import { VenlyFinanceClient } from "@venlyfinance/sdk";
+
+const venly = new VenlyFinanceClient({ environment: "mock" });
+
+const party = await venly.parties.create({
+  partyType: "INDIVIDUAL", firstName: "Ada", lastName: "Lovelace",
+});
+const accounts = await venly.accounts.list();          // paginated fixtures
+const vibans = await venly.virtualBankAccounts.list(accounts.items[0].id!);
+
+venly.mock!.failNext("NOT_FOUND");                     // simulate an API error
+venly.mock!.calls;                                     // inspect everything your code sent
+```
+
+Error simulation throws the same `VenlyApiError` the live API produces
+(`failNext("OPTIMISTIC_LOCK_EXCEPTION")`, or a custom `{status, code, message}`;
+add a route filter like `failNext("VALIDATION_ERROR", "POST /parties")`).
+Ready for real calls? Swap the options for
+`{ clientId, clientSecret, environment: "staging" }` - nothing else changes.
 
 ## Quickstart
 

@@ -196,3 +196,46 @@ test("query params: undefined values are dropped, defined ones serialised", asyn
   assert.equal(url.searchParams.get("size"), "50");
   assert.equal(url.searchParams.has("status"), false);
 });
+
+// ─── Regressions for the 2026-07-25 fixes ───
+import { FundflowClient } from "../dist/esm/index.js";
+
+const fundflowOptions = (fetchImpl) => ({
+  clientId: "test-client",
+  clientSecret: "test-secret",
+  environment: "staging",
+  fetch: fetchImpl,
+});
+
+test("idempotency: PUT and PATCH now carry an Idempotency-Key too", async () => {
+  const fetch = mockFetch(() => jsonResponse({ success: true, result: { id: "rr-1" } }));
+  const client = new FundflowClient(fundflowOptions(fetch));
+
+  await client.rampRequests.setAmount("rr-1", { fiatAmount: 100 });
+  await client.rampRequests.initiate("rr-1", { transactionHash: "0xabc" });
+  const keys = fetch.apiCalls().map((c) => c.init.headers["Idempotency-Key"]);
+  assert.equal(keys.length, 2);
+  for (const key of keys) assert.ok(key, "mutating request missing Idempotency-Key");
+});
+
+test("export: returns raw CSV text and keeps Accept: text/csv under caller headers", async () => {
+  const csv = "id,status\nrr-1,SUCCEEDED";
+  const fetch = mockFetch(() => new Response(csv, { status: 200, headers: { "Content-Type": "text/csv" } }));
+  const client = new FundflowClient(fundflowOptions(fetch));
+
+  const out = await client.rampRequests.export(undefined, { headers: { "X-Extra": "1" } });
+  assert.equal(out, csv, "CSV body must not be JSON.parsed");
+  const headers = fetch.apiCalls()[0].init.headers;
+  assert.equal(headers["Accept"], "text/csv", "caller headers must not clobber Accept");
+  assert.equal(headers["X-Extra"], "1");
+});
+
+test("approve: sends the optimistic-locking version body", async () => {
+  const fetch = mockFetch(() => jsonResponse({ success: true, result: { id: "rr-1", version: 4 } }));
+  const client = new FundflowClient(fundflowOptions(fetch));
+
+  await client.rampRequests.approve("rr-1", { version: 3 });
+  const call = fetch.apiCalls()[0];
+  assert.match(call.url, /\/v1\/ramp-requests\/rr-1\/approve$/);
+  assert.deepEqual(JSON.parse(call.init.body), { version: 3 });
+});

@@ -7,14 +7,29 @@ export interface RequestOptions {
   /** JSON request body. */
   body?: unknown;
   /**
-   * Idempotency key for POST requests. Auto-generated (UUID v4) when omitted,
-   * so retries are always safe. Pass your own to deduplicate across processes.
+   * Idempotency key for mutating requests (POST/PUT/PATCH). Auto-generated
+   * (UUID v4) when omitted, so retries are always safe. Pass your own to
+   * deduplicate across processes.
    */
   idempotencyKey?: string;
   /** Extra headers, merged last. */
   headers?: Record<string, string>;
   /** AbortSignal to cancel the request (not retried after abort). */
   signal?: AbortSignal;
+  /**
+   * How to read a successful body. "json" (default) parses; "text" returns
+   * the raw string (e.g. CSV exports).
+   */
+  responseType?: "json" | "text";
+}
+
+/**
+ * The single seam every resource namespace calls through. `HttpClient` is the
+ * network implementation; `MockTransport` (environment: "mock") is the
+ * fixture-backed one.
+ */
+export interface Transport {
+  request<T>(method: string, path: string, options?: RequestOptions): Promise<T>;
 }
 
 export interface HttpClientOptions {
@@ -50,7 +65,7 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
  * + jitter on 429/502/503/504 and network errors (Retry-After respected),
  * and `{success, errors[], result}` envelope handling on failures.
  */
-export class HttpClient {
+export class HttpClient implements Transport {
   private readonly opts: Required<HttpClientOptions>;
 
   constructor(opts: HttpClientOptions) {
@@ -70,7 +85,7 @@ export class HttpClient {
       ...options.headers,
     };
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
-    if (method === "POST") {
+    if (method === "POST" || method === "PUT" || method === "PATCH") {
       headers["Idempotency-Key"] = options.idempotencyKey ?? crypto.randomUUID();
     }
 
@@ -97,6 +112,7 @@ export class HttpClient {
       if (res.ok) {
         if (res.status === 204) return undefined as T;
         const text = await res.text();
+        if (options.responseType === "text") return text as T;
         return (text ? JSON.parse(text) : undefined) as T;
       }
 

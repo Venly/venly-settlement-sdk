@@ -1,7 +1,9 @@
 import type { components, operations } from "../generated/fundflow.js";
 import { TokenManager } from "../core/auth.js";
-import { HttpClient, type RequestOptions } from "../core/http.js";
+import { HttpClient, type RequestOptions, type Transport } from "../core/http.js";
 import { iteratePages, type Page, type PageParams } from "../core/pagination.js";
+import { MockTransport, type VenlyMock } from "../mock/transport.js";
+import { fundflowRoutes } from "../mock/fundflow.js";
 
 type schemas = components["schemas"];
 type Query<Op extends keyof operations> = operations[Op]["parameters"] extends {
@@ -28,7 +30,7 @@ function unwrapPage<T>(res: Envelope<T[]>): Page<T> {
 
 export type FundflowEnvironment = "production" | "staging" | "qa";
 
-export interface FundflowClientOptions {
+export interface FundflowCredentialOptions {
   clientId: string;
   clientSecret: string;
   /** Picks base + auth URLs. Default "production". */
@@ -38,6 +40,13 @@ export interface FundflowClientOptions {
   fetch?: typeof fetch;
   maxAttempts?: number;
 }
+
+/** Mock mode: zero credentials, zero network, fixture-backed. See `client.mock`. */
+export interface FundflowMockOptions {
+  environment: "mock";
+}
+
+export type FundflowClientOptions = FundflowCredentialOptions | FundflowMockOptions;
 
 const FUNDFLOW_URLS: Record<FundflowEnvironment, { base: string; token: string }> = {
   production: {
@@ -65,23 +74,33 @@ export class FundflowClient {
   readonly fees: FeesResource;
   readonly referenceData: ReferenceDataResource;
 
-  private readonly http: HttpClient;
+  private readonly http: Transport;
+
+  /** Mock controls (call log, failNext); defined only when `environment: "mock"`. */
+  readonly mock?: VenlyMock;
 
   constructor(options: FundflowClientOptions) {
-    const env = FUNDFLOW_URLS[options.environment ?? "production"];
-    const fetchImpl = options.fetch ?? fetch;
-    const tokenManager = new TokenManager({
-      tokenUrl: options.tokenUrl ?? env.token,
-      clientId: options.clientId,
-      clientSecret: options.clientSecret,
-      fetch: fetchImpl,
-    });
-    this.http = new HttpClient({
-      baseUrl: options.baseUrl ?? env.base,
-      tokenManager,
-      fetch: fetchImpl,
-      maxAttempts: options.maxAttempts,
-    });
+    if (options.environment === "mock") {
+      // Zero network by construction: no TokenManager, no HttpClient, no fetch.
+      const transport = new MockTransport(fundflowRoutes);
+      this.http = transport;
+      this.mock = transport;
+    } else {
+      const env = FUNDFLOW_URLS[options.environment ?? "production"];
+      const fetchImpl = options.fetch ?? fetch;
+      const tokenManager = new TokenManager({
+        tokenUrl: options.tokenUrl ?? env.token,
+        clientId: options.clientId,
+        clientSecret: options.clientSecret,
+        fetch: fetchImpl,
+      });
+      this.http = new HttpClient({
+        baseUrl: options.baseUrl ?? env.base,
+        tokenManager,
+        fetch: fetchImpl,
+        maxAttempts: options.maxAttempts,
+      });
+    }
     this.rampRequests = new RampRequestsResource(this.http);
     this.fees = new FeesResource(this.http);
     this.referenceData = new ReferenceDataResource(this.http);
@@ -94,7 +113,7 @@ export class FundflowClient {
 }
 
 export class RampRequestsResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   list(
     query?: Query<"getAll">,
@@ -135,34 +154,46 @@ export class RampRequestsResource {
       .then(unwrap);
   }
 
-  /** Four-eyes: approver must differ from the creator. */
-  approve(id: string, opts?: CallOptions): Promise<schemas["RampRequestDto"]> {
+  /**
+   * Four-eyes: approver must differ from the creator. Pass the optimistic-
+   * locking `{ version }` read from `get()` to guard concurrent edits.
+   */
+  approve(
+    id: string,
+    body?: schemas["UpdateWithOptimisticLockingRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["RampRequestDto"]> {
     return this.http
-      .request<Envelope<schemas["RampRequestDto"]>>(
-        "POST",
-        `/v1/ramp-requests/${id}/approve`,
-        opts,
-      )
+      .request<Envelope<schemas["RampRequestDto"]>>("POST", `/v1/ramp-requests/${id}/approve`, {
+        body,
+        ...opts,
+      })
       .then(unwrap);
   }
 
-  reject(id: string, opts?: CallOptions): Promise<schemas["RampRequestDto"]> {
+  reject(
+    id: string,
+    body?: schemas["UpdateWithOptimisticLockingRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["RampRequestDto"]> {
     return this.http
-      .request<Envelope<schemas["RampRequestDto"]>>(
-        "POST",
-        `/v1/ramp-requests/${id}/reject`,
-        opts,
-      )
+      .request<Envelope<schemas["RampRequestDto"]>>("POST", `/v1/ramp-requests/${id}/reject`, {
+        body,
+        ...opts,
+      })
       .then(unwrap);
   }
 
-  cancel(id: string, opts?: CallOptions): Promise<schemas["RampRequestDto"]> {
+  cancel(
+    id: string,
+    body?: schemas["UpdateWithOptimisticLockingRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["RampRequestDto"]> {
     return this.http
-      .request<Envelope<schemas["RampRequestDto"]>>(
-        "POST",
-        `/v1/ramp-requests/${id}/cancel`,
-        opts,
-      )
+      .request<Envelope<schemas["RampRequestDto"]>>("POST", `/v1/ramp-requests/${id}/cancel`, {
+        body,
+        ...opts,
+      })
       .then(unwrap);
   }
 
@@ -227,14 +258,15 @@ export class RampRequestsResource {
   export(query?: Query<"exportRampRequests">, opts?: CallOptions): Promise<string> {
     return this.http.request<string>("GET", "/v1/ramp-requests/export", {
       query,
-      headers: { Accept: "text/csv", ...opts?.headers },
       ...opts,
+      responseType: "text",
+      headers: { Accept: "text/csv", ...opts?.headers },
     });
   }
 }
 
 export class FeesResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   calculate(
     body: schemas["CalculateFeeRequest"],
@@ -256,7 +288,7 @@ export class FeesResource {
 }
 
 export class ReferenceDataResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   fiatCurrencies(opts?: CallOptions): Promise<schemas["FiatCurrencyDto"][]> {
     return this.http

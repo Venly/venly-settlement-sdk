@@ -1,7 +1,9 @@
 import type { components, operations } from "../generated/finance.js";
 import { TokenManager } from "../core/auth.js";
-import { HttpClient, type RequestOptions } from "../core/http.js";
+import { HttpClient, type RequestOptions, type Transport } from "../core/http.js";
 import { iteratePages, type Page, type PageParams } from "../core/pagination.js";
+import { MockTransport, type VenlyMock } from "../mock/transport.js";
+import { financeRoutes } from "../mock/finance.js";
 
 type schemas = components["schemas"];
 type Query<Op extends keyof operations> = operations[Op]["parameters"] extends {
@@ -29,7 +31,7 @@ function unwrapPage<T>(res: Envelope<T[]>): Page<T> {
 
 export type FinanceEnvironment = "production" | "staging";
 
-export interface VenlyFinanceClientOptions {
+export interface VenlyFinanceCredentialOptions {
   clientId: string;
   clientSecret: string;
   /** Picks base + auth URLs. Default "production". */
@@ -43,6 +45,17 @@ export interface VenlyFinanceClientOptions {
   /** Total attempts per request including the first. Default 3. */
   maxAttempts?: number;
 }
+
+/**
+ * Mock mode: zero credentials, zero network. Every method returns bundled
+ * fixtures typed against the OpenAPI schemas; `client.mock` exposes the call
+ * log and error injection.
+ */
+export interface VenlyFinanceMockOptions {
+  environment: "mock";
+}
+
+export type VenlyFinanceClientOptions = VenlyFinanceCredentialOptions | VenlyFinanceMockOptions;
 
 const FINANCE_URLS: Record<FinanceEnvironment, { base: string; token: string }> = {
   production: {
@@ -83,23 +96,33 @@ export class VenlyFinanceClient {
   readonly permits: PermitsResource;
   readonly allowances: AllowancesResource;
 
-  private readonly http: HttpClient;
+  private readonly http: Transport;
+
+  /** Mock controls (call log, failNext); defined only when `environment: "mock"`. */
+  readonly mock?: VenlyMock;
 
   constructor(options: VenlyFinanceClientOptions) {
-    const env = FINANCE_URLS[options.environment ?? "production"];
-    const fetchImpl = options.fetch ?? fetch;
-    const tokenManager = new TokenManager({
-      tokenUrl: options.tokenUrl ?? env.token,
-      clientId: options.clientId,
-      clientSecret: options.clientSecret,
-      fetch: fetchImpl,
-    });
-    this.http = new HttpClient({
-      baseUrl: options.baseUrl ?? env.base,
-      tokenManager,
-      fetch: fetchImpl,
-      maxAttempts: options.maxAttempts,
-    });
+    if (options.environment === "mock") {
+      // Zero network by construction: no TokenManager, no HttpClient, no fetch.
+      const transport = new MockTransport(financeRoutes);
+      this.http = transport;
+      this.mock = transport;
+    } else {
+      const env = FINANCE_URLS[options.environment ?? "production"];
+      const fetchImpl = options.fetch ?? fetch;
+      const tokenManager = new TokenManager({
+        tokenUrl: options.tokenUrl ?? env.token,
+        clientId: options.clientId,
+        clientSecret: options.clientSecret,
+        fetch: fetchImpl,
+      });
+      this.http = new HttpClient({
+        baseUrl: options.baseUrl ?? env.base,
+        tokenManager,
+        fetch: fetchImpl,
+        maxAttempts: options.maxAttempts,
+      });
+    }
     this.parties = new PartiesResource(this.http);
     this.accounts = new AccountsResource(this.http);
     this.wallets = new WalletsResource(this.http);
@@ -122,7 +145,7 @@ export class VenlyFinanceClient {
 }
 
 export class PartiesResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   list(query?: Query<"listParties">, opts?: CallOptions): Promise<Page<schemas["Party"]>> {
     return this.http
@@ -178,7 +201,7 @@ export class PartiesResource {
 }
 
 export class AccountsResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   list(query?: Query<"listAccounts">, opts?: CallOptions): Promise<Page<schemas["Account"]>> {
     return this.http
@@ -270,7 +293,7 @@ export class AccountsResource {
 }
 
 export class WalletsResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   list(
     accountId: string,
@@ -310,7 +333,7 @@ export class WalletsResource {
 }
 
 export class VirtualBankAccountsResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   list(
     accountId: string,
@@ -356,7 +379,7 @@ export class VirtualBankAccountsResource {
 }
 
 export class PaymentLinksResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   create(
     accountId: string,
@@ -374,7 +397,7 @@ export class PaymentLinksResource {
 }
 
 export class PaymentRequestsResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   /** Create a payment request scoped to an account. */
   create(
@@ -406,7 +429,7 @@ export class PaymentRequestsResource {
 }
 
 export class TransfersResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   createFiat(
     senderAccountId: string,
@@ -461,7 +484,7 @@ export class TransfersResource {
 }
 
 export class AccountToAccountTransfersResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   list(
     query?: Query<"listAccountToAccountTransfers">,
@@ -491,7 +514,7 @@ export class AccountToAccountTransfersResource {
 }
 
 export class PermitsResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   /** Retrieve the unsigned EIP-712 permit messages for a wallet. */
   getMessages(
@@ -527,7 +550,7 @@ export class PermitsResource {
 }
 
 export class AllowancesResource {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: Transport) {}
 
   list(
     accountId: string,
