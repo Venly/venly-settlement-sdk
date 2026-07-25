@@ -79,7 +79,7 @@ export const accounts = [
   {
     id: "a10c2d31-2222-4b20-8c63-000000000001",
     externalId: "acct-main-eur",
-    name: "Acme — Main EUR",
+    name: "Acme – Main EUR",
     kycStatus: "VERIFIED",
     status: "ACTIVE",
     createdAt: "2026-05-02T10:00:00Z",
@@ -88,7 +88,7 @@ export const accounts = [
   {
     id: "a10c2d31-2222-4b20-8c63-000000000002",
     externalId: "acct-ops-usd",
-    name: "Acme — Ops USD",
+    name: "Acme – Ops USD",
     kycStatus: "VERIFIED",
     status: "ACTIVE",
     createdAt: "2026-05-02T10:05:00Z",
@@ -97,7 +97,7 @@ export const accounts = [
   {
     id: "a10c2d31-2222-4b20-8c63-000000000003",
     externalId: "acct-treasury",
-    name: "Acme — Treasury",
+    name: "Acme – Treasury",
     kycStatus: "VERIFIED",
     status: "ACTIVE",
     createdAt: "2026-05-10T08:30:00Z",
@@ -106,7 +106,7 @@ export const accounts = [
   {
     id: "a10c2d31-2222-4b20-8c63-000000000004",
     externalId: "acct-suspended",
-    name: "Borealis — Frozen",
+    name: "Borealis – Frozen",
     kycStatus: "VERIFICATION_PENDING",
     status: "SUSPENDED",
     createdAt: "2026-06-01T12:00:00Z",
@@ -115,7 +115,7 @@ export const accounts = [
   {
     id: "a10c2d31-2222-4b20-8c63-000000000005",
     externalId: "acct-payouts",
-    name: "Acme — Payouts",
+    name: "Acme – Payouts",
     kycStatus: "VERIFIED",
     status: "ACTIVE",
     createdAt: "2026-06-15T09:45:00Z",
@@ -377,7 +377,7 @@ export const financeRoutes: RouteTable = {
   },
   // Payment sessions + payment requests. All of these use kind "item", not
   // "create": the request bodies carry `amount` as a plain number (and fields
-  // like callbackUrl) while the responses type `amount` as {fiat, crypto} —
+  // like callbackUrl) while the responses type `amount` as {fiat, crypto} –
   // a body echo would corrupt the response shape.
   "POST /accounts/{accountId}/fiat-to-crypto/payment-sessions": {
     kind: "item",

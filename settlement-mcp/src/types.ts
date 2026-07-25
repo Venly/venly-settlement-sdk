@@ -2,7 +2,7 @@
  * Domain types + the injectable VenlyClient interface.
  *
  * These shapes are a minimal projection of the published OpenAPI specs
- * vendored in this repository under `specs/` — finance.yaml (servers:
+ * vendored in this repository under `specs/` – finance.yaml (servers:
  * https://api.venlyfinance.com/v1) and fundflow.yaml (servers:
  * https://api-fundflow.venly.io). Only the fields the tools actually read or
  * echo are modeled. Fields are intentionally loose (optional) because this is a

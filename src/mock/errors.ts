@@ -10,7 +10,7 @@ import type { ApiErrorBody } from "../core/errors.js";
  * codes ("invalid-request", "concurrent-modification"), Fundflow emits
  * uppercase codes ("UNAUTHORIZED", "OPTIMISTIC_LOCK_EXCEPTION") except its 400
  * ("validation-error"). Preset NAMES stay identical across both clients so
- * `failNext("VALIDATION_ERROR")` always means "simulate this API's 400" — the
+ * `failNext("VALIDATION_ERROR")` always means "simulate this API's 400" – the
  * thrown `code` is whatever that API actually emits.
  */
 export interface ErrorSpec {
