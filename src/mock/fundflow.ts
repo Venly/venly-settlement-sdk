@@ -173,6 +173,8 @@ export const fundflowRoutes: RouteTable = {
   },
   "GET /v1/ramp-requests/on-ramp/pairs": { kind: "array", items: onRampPairs },
   "GET /v1/ramp-requests/off-ramp/pairs": { kind: "array", items: offRampPairs },
+  // Literal path shadows the {id} template, matching real router behavior:
+  // on the live API too, get("export") would hit the export endpoint.
   "GET /v1/ramp-requests/export": { kind: "text", body: rampRequestsCsv },
   // "item", not "create": echoing the request body would overwrite the fee.
   "POST /v1/fees/calculate": { kind: "item", result: calculatedFee },

@@ -4,6 +4,7 @@ import { HttpClient, type RequestOptions, type Transport } from "../core/http.js
 import { iteratePages, type Page, type PageParams } from "../core/pagination.js";
 import { MockTransport, type VenlyMock } from "../mock/transport.js";
 import { fundflowRoutes } from "../mock/fundflow.js";
+import { fundflowErrorPresets } from "../mock/errors.js";
 
 type schemas = components["schemas"];
 type Query<Op extends keyof operations> = operations[Op]["parameters"] extends {
@@ -82,7 +83,7 @@ export class FundflowClient {
   constructor(options: FundflowClientOptions) {
     if (options.environment === "mock") {
       // Zero network by construction: no TokenManager, no HttpClient, no fetch.
-      const transport = new MockTransport(fundflowRoutes);
+      const transport = new MockTransport(fundflowRoutes, fundflowErrorPresets);
       this.http = transport;
       this.mock = transport;
     } else {

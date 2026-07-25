@@ -76,11 +76,13 @@ function echoId(template: string, path: string, result: unknown): unknown {
  */
 export class MockTransport implements Transport, VenlyMock {
   private readonly routes: RouteTable;
+  private readonly presets: Record<string, ErrorSpec>;
   private readonly log: MockCall[] = [];
   private readonly failures: QueuedFailure[] = [];
 
-  constructor(routes: RouteTable) {
+  constructor(routes: RouteTable, presets: Record<string, ErrorSpec> = errorPresets) {
     this.routes = routes;
+    this.presets = presets;
   }
 
   get calls(): readonly MockCall[] {
@@ -93,10 +95,10 @@ export class MockTransport implements Transport, VenlyMock {
   }
 
   failNext(error: ErrorPresetName | ErrorSpec, match?: string): void {
-    const spec = typeof error === "string" ? errorPresets[error] : error;
+    const spec = typeof error === "string" ? this.presets[error] : error;
     if (!spec) {
       throw new Error(
-        `Unknown error preset "${String(error)}". Known presets: ${Object.keys(errorPresets).join(", ")}`,
+        `Unknown error preset "${String(error)}". Known presets: ${Object.keys(this.presets).join(", ")}`,
       );
     }
     this.failures.push({ spec, match });

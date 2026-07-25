@@ -265,3 +265,45 @@ test("mock: clean-room ESM and CJS entry both construct and answer", () => {
   );
   assert.equal(cjs.status, 0, `CJS spawn failed: ${cjs.stderr}`);
 });
+
+// ─── Evaluator-round regressions (2026-07-25 NEEDS_WORK findings) ───
+
+test("mock: error presets teach each API's real codes (evaluator findings 1+2)", async () => {
+  const f = mockFinance();
+  f.mock.failNext("INTERNAL_SERVER_ERROR");
+  await assert.rejects(
+    () => f.accounts.get("a-1"),
+    (err) => err.status === 500 && err.errors[0].code === "INTERNAL_SERVER_ERROR",
+  );
+  f.mock.failNext("VALIDATION_ERROR");
+  await assert.rejects(
+    () => f.accounts.get("a-1"),
+    (err) => err.errors[0].code === "VALIDATION_ERROR", // finance spec: uppercase
+  );
+
+  const ff = mockFundflow();
+  ff.mock.failNext("VALIDATION_ERROR");
+  await assert.rejects(
+    () => ff.rampRequests.get("rr-1"),
+    (err) => err.errors[0].code === "validation-error", // fundflow spec: lowercase
+  );
+  ff.mock.failNext("INTERNAL_SERVER_ERROR");
+  await assert.rejects(
+    () => ff.rampRequests.get("rr-1"),
+    (err) => err.errors[0].code === "INTERNAL_SERVER_ERROR",
+  );
+});
+
+test("mock: literal route shadows {id} template, same as the live router (evaluator finding 3)", async () => {
+  const ff = mockFundflow();
+  // get("export") routes to the CSV endpoint exactly as the real API would;
+  // the SDK method then unwraps a string to undefined (no valid DTO). Pin the
+  // routing and the degraded result, and pin that a real UUID still hits the
+  // by-id route.
+  const shadowed = await ff.rampRequests.get("export");
+  assert.equal(shadowed, undefined, "shadowed call must not fabricate a DTO");
+  assert.equal(ff.mock.calls.at(-1).route, "GET /v1/ramp-requests/export");
+  const real = await ff.rampRequests.get("123e4567-e89b-12d3-a456-426614174000");
+  assert.equal(real.version, 3);
+  assert.equal(ff.mock.calls.at(-1).route, "GET /v1/ramp-requests/{id}");
+});

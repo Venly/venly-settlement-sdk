@@ -59,14 +59,30 @@ export const errorPresets = {
     code: "RATE_LIMITED",
     message: "Too many requests. Please retry after the specified time.",
   },
-  INTERNAL_ERROR: {
+  INTERNAL_SERVER_ERROR: {
     status: 500,
-    code: "INTERNAL_ERROR",
-    message: "An unexpected error occurred.",
+    code: "INTERNAL_SERVER_ERROR",
+    message: "An unexpected error occurred. Please try again later.",
   },
 } as const satisfies Record<string, ErrorSpec>;
 
 export type ErrorPresetName = keyof typeof errorPresets;
+
+/**
+ * Fundflow's error-code conventions diverge from Finance in one place: its
+ * 400 example uses lowercase "validation-error" (`specs/fundflow.yaml`).
+ * The fundflow mock client resolves presets from this table so
+ * `failNext("VALIDATION_ERROR")` teaches the code the Fundflow API actually
+ * emits. Preset NAMES stay identical across both clients on purpose.
+ */
+export const fundflowErrorPresets: Record<ErrorPresetName, ErrorSpec> = {
+  ...errorPresets,
+  VALIDATION_ERROR: {
+    status: 400,
+    code: "validation-error",
+    message: "A descriptive error message",
+  },
+};
 
 let traceCounter = 0;
 
