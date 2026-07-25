@@ -174,6 +174,8 @@ MCP-consumable workflow docs under `skills/`:
 - `reconcile-by-reference-code.md`
 - `four-eyes-approval.md`
 - `stage-and-confirm-transfer.md`
+- `payment-link-lifecycle.md`
+- `x402-quote-walkthrough.md`
 
 ## Layout
 
