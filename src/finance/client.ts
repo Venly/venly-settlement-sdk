@@ -59,19 +59,19 @@ export type VenlyFinanceClientOptions = VenlyFinanceCredentialOptions | VenlyFin
 
 const FINANCE_URLS: Record<FinanceEnvironment, { base: string; token: string }> = {
   production: {
-    base: "https://api.venlyfinance.com/api/v1",
+    base: "https://api.venlyfinance.com/v1",
     token: "https://login.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token",
   },
   staging: {
-    base: "https://api-staging.venlyfinance.com/api/v1",
+    base: "https://api-staging.venlyfinance.com/v1",
     token:
-      "https://login-sandbox.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token",
+      "https://login-staging.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token",
   },
 };
 
 /**
  * Client for the Venly Finance API: parties, accounts, wallets, virtual bank
- * accounts, payment links, payment requests, transfers and permits.
+ * accounts, payment sessions, payment requests, transfers and permits.
  *
  * ```ts
  * const venly = new VenlyFinanceClient({
@@ -89,10 +89,9 @@ export class VenlyFinanceClient {
   readonly accounts: AccountsResource;
   readonly wallets: WalletsResource;
   readonly virtualBankAccounts: VirtualBankAccountsResource;
-  readonly paymentLinks: PaymentLinksResource;
+  readonly paymentSessions: PaymentSessionsResource;
   readonly paymentRequests: PaymentRequestsResource;
   readonly transfers: TransfersResource;
-  readonly accountToAccountTransfers: AccountToAccountTransfersResource;
   readonly permits: PermitsResource;
   readonly allowances: AllowancesResource;
 
@@ -127,10 +126,9 @@ export class VenlyFinanceClient {
     this.accounts = new AccountsResource(this.http);
     this.wallets = new WalletsResource(this.http);
     this.virtualBankAccounts = new VirtualBankAccountsResource(this.http);
-    this.paymentLinks = new PaymentLinksResource(this.http);
+    this.paymentSessions = new PaymentSessionsResource(this.http);
     this.paymentRequests = new PaymentRequestsResource(this.http);
     this.transfers = new TransfersResource(this.http);
-    this.accountToAccountTransfers = new AccountToAccountTransfersResource(this.http);
     this.permits = new PermitsResource(this.http);
     this.allowances = new AllowancesResource(this.http);
   }
@@ -185,19 +183,6 @@ export class PartiesResource {
   delete(partyId: string, opts?: CallOptions): Promise<void> {
     return this.http.request<void>("DELETE", `/parties/${partyId}`, opts);
   }
-
-  listAccounts(
-    partyId: string,
-    query?: Query<"listPartyAccounts">,
-    opts?: CallOptions,
-  ): Promise<Page<schemas["Account"]>> {
-    return this.http
-      .request<Envelope<schemas["Account"][]>>("GET", `/parties/${partyId}/accounts`, {
-        query,
-        ...opts,
-      })
-      .then(unwrapPage);
-  }
 }
 
 export class AccountsResource {
@@ -228,38 +213,9 @@ export class AccountsResource {
       .then(unwrap);
   }
 
-  update(
-    accountId: string,
-    body: schemas["UpdateAccountRequest"],
-    opts?: CallOptions,
-  ): Promise<schemas["Account"]> {
-    return this.http
-      .request<Envelope<schemas["Account"]>>("PATCH", `/accounts/${accountId}`, {
-        body,
-        ...opts,
-      })
-      .then(unwrap);
-  }
-
-  delete(accountId: string, opts?: CallOptions): Promise<void> {
-    return this.http.request<void>("DELETE", `/accounts/${accountId}`, opts);
-  }
-
-  suspend(accountId: string, opts?: CallOptions): Promise<schemas["Account"]> {
-    return this.http
-      .request<Envelope<schemas["Account"]>>("POST", `/accounts/${accountId}/suspend`, opts)
-      .then(unwrap);
-  }
-
-  reactivate(accountId: string, opts?: CallOptions): Promise<schemas["Account"]> {
-    return this.http
-      .request<Envelope<schemas["Account"]>>("POST", `/accounts/${accountId}/reactivate`, opts)
-      .then(unwrap);
-  }
-
   listPartyRoles(
     accountId: string,
-    query?: Query<"listAccountPartyRoles">,
+    query?: Query<"listPartyRoles">,
     opts?: CallOptions,
   ): Promise<Page<schemas["PartyRole"]>> {
     return this.http
@@ -308,28 +264,6 @@ export class WalletsResource {
       .then(unwrapPage);
   }
 
-  create(
-    accountId: string,
-    body: schemas["CreateWalletRequest"],
-    opts?: CallOptions,
-  ): Promise<schemas["Wallet"]> {
-    return this.http
-      .request<Envelope<schemas["Wallet"]>>("POST", `/accounts/${accountId}/wallets`, {
-        body,
-        ...opts,
-      })
-      .then(unwrap);
-  }
-
-  get(accountId: string, walletId: string, opts?: CallOptions): Promise<schemas["Wallet"]> {
-    return this.http
-      .request<Envelope<schemas["Wallet"]>>(
-        "GET",
-        `/accounts/${accountId}/wallets/${walletId}`,
-        opts,
-      )
-      .then(unwrap);
-  }
 }
 
 export class VirtualBankAccountsResource {
@@ -378,18 +312,23 @@ export class VirtualBankAccountsResource {
   }
 }
 
-export class PaymentLinksResource {
+export class PaymentSessionsResource {
   constructor(private readonly http: Transport) {}
 
+  /**
+   * Create a hosted fiat-to-crypto pay-in session. Redirect the payer to the
+   * returned `paymentUrl`; the API requires `callbackUrl` and a UUID
+   * `idempotencyKey` in the body.
+   */
   create(
     accountId: string,
-    body: schemas["CreatePaymentLinkRequest"],
+    body: schemas["CreatePayInSessionRequest"],
     opts?: CallOptions,
-  ): Promise<schemas["PaymentLink"]> {
+  ): Promise<schemas["PaymentSession"]> {
     return this.http
-      .request<Envelope<schemas["PaymentLink"]>>(
+      .request<Envelope<schemas["PaymentSession"]>>(
         "POST",
-        `/accounts/${accountId}/fiat-to-crypto/payment-links`,
+        `/accounts/${accountId}/fiat-to-crypto/payment-sessions`,
         { body, ...opts },
       )
       .then(unwrap);
@@ -421,6 +360,81 @@ export class PaymentRequestsResource {
   ): Promise<schemas["PaymentRequest"]> {
     return this.http
       .request<Envelope<schemas["PaymentRequest"]>>("POST", "/payment-requests", {
+        body,
+        ...opts,
+      })
+      .then(unwrap);
+  }
+
+  /** Adjust the reserved amount of a payment request before settlement. */
+  update(
+    paymentRequestId: string,
+    body: schemas["UpdatePaymentRequestInput"],
+    opts?: CallOptions,
+  ): Promise<schemas["PaymentRequest"]> {
+    return this.http
+      .request<Envelope<schemas["PaymentRequest"]>>(
+        "PATCH",
+        `/payment-requests/${paymentRequestId}`,
+        { body, ...opts },
+      )
+      .then(unwrap);
+  }
+
+  /**
+   * Settle a payment request: escrow moves to the settlement wallet. Returns
+   * `202` with `status: SETTLING`; the terminal `SETTLED` state lands once the
+   * on-chain transfers confirm.
+   */
+  settle(
+    paymentRequestId: string,
+    body: schemas["SettlePaymentRequestInput"],
+    opts?: CallOptions,
+  ): Promise<schemas["PaymentRequest"]> {
+    return this.http
+      .request<Envelope<schemas["PaymentRequest"]>>(
+        "POST",
+        `/payment-requests/${paymentRequestId}/settlements`,
+        { body, ...opts },
+      )
+      .then(unwrap);
+  }
+
+  /** Settle a payment request addressed by card-provider reference + externalId. */
+  settleByReference(
+    body: schemas["SettlePaymentRequestByReferenceInput"],
+    opts?: CallOptions,
+  ): Promise<schemas["PaymentRequest"]> {
+    return this.http
+      .request<Envelope<schemas["PaymentRequest"]>>("POST", "/payment-requests/settlements", {
+        body,
+        ...opts,
+      })
+      .then(unwrap);
+  }
+
+  /** Reverse (void/refund) a payment request; reserved funds return to the account wallet. */
+  reverse(
+    paymentRequestId: string,
+    body: schemas["ReversePaymentRequestInput"],
+    opts?: CallOptions,
+  ): Promise<schemas["PaymentRequest"]> {
+    return this.http
+      .request<Envelope<schemas["PaymentRequest"]>>(
+        "POST",
+        `/payment-requests/${paymentRequestId}/reversal`,
+        { body, ...opts },
+      )
+      .then(unwrap);
+  }
+
+  /** Reverse a payment request addressed by card-provider reference + externalId. */
+  reverseByReference(
+    body: schemas["ReversePaymentRequestByReferenceInput"],
+    opts?: CallOptions,
+  ): Promise<schemas["PaymentRequest"]> {
+    return this.http
+      .request<Envelope<schemas["PaymentRequest"]>>("POST", "/payment-requests/reversals", {
         body,
         ...opts,
       })
@@ -478,36 +492,6 @@ export class TransfersResource {
         "GET",
         `/accounts/${accountId}/transfers/${transferId}`,
         opts,
-      )
-      .then(unwrap);
-  }
-}
-
-export class AccountToAccountTransfersResource {
-  constructor(private readonly http: Transport) {}
-
-  list(
-    query?: Query<"listAccountToAccountTransfers">,
-    opts?: CallOptions,
-  ): Promise<Page<schemas["AccountToAccountTransfer"]>> {
-    return this.http
-      .request<Envelope<schemas["AccountToAccountTransfer"][]>>(
-        "GET",
-        "/account-to-account-transfers",
-        { query, ...opts },
-      )
-      .then(unwrapPage);
-  }
-
-  create(
-    body: schemas["CreateAccountToAccountTransferRequest"],
-    opts?: CallOptions,
-  ): Promise<schemas["AccountToAccountTransfer"]> {
-    return this.http
-      .request<Envelope<schemas["AccountToAccountTransfer"]>>(
-        "POST",
-        "/account-to-account-transfers",
-        { body, ...opts },
       )
       .then(unwrap);
   }

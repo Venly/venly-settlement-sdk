@@ -181,19 +181,26 @@ export function registerWriteTools(
   );
 
   server.registerTool(
-    "create_payment_link",
+    "create_payment_session",
     {
-      title: "Create a fiat-to-crypto payment link (dry-run by default)",
+      title: "Create a fiat-to-crypto payment session (dry-run by default)",
       description:
-        "Create a pay-in link (finance POST /accounts/{accountId}/fiat-to-crypto/payment-links). " +
-        "DISARMED by default.",
+        "Create a hosted pay-in session (finance POST " +
+        "/accounts/{accountId}/fiat-to-crypto/payment-sessions); redirect the " +
+        "payer to the returned paymentUrl. DISARMED by default.",
       inputSchema: {
         accountId: z.string(),
         inAmount: z.string().describe("Decimal string, e.g. \"250.00\""),
         inCurrency: z.string().describe("e.g. EUR"),
-        outCryptocurrency: z.string().optional().describe("e.g. USDC"),
-        redirectUrl: z.string().optional(),
+        outCryptocurrency: z.string().describe("e.g. USDC"),
+        callbackUrl: z.string().describe("Webhook URL notified on completion"),
+        successRedirectUrl: z.string().optional(),
+        failureRedirectUrl: z.string().optional(),
         externalRef: z.string().optional(),
+        idempotencyKey: z
+          .string()
+          .optional()
+          .describe("UUID; generated when omitted"),
         confirm: confirmField,
       },
       annotations: WRITE_ANNOTATIONS,
@@ -204,23 +211,26 @@ export function registerWriteTools(
         inAmount: rest.inAmount,
         inCurrency: rest.inCurrency,
         outCryptocurrency: rest.outCryptocurrency,
-        redirectUrl: rest.redirectUrl,
+        callbackUrl: rest.callbackUrl,
+        successRedirectUrl: rest.successRedirectUrl,
+        failureRedirectUrl: rest.failureRedirectUrl,
         externalRef: rest.externalRef,
+        idempotencyKey: rest.idempotencyKey ?? crypto.randomUUID(),
       };
       if (!gate.armed) {
         return jsonResult(
           buildDryRun(
-            "create_payment_link",
+            "create_payment_session",
             "POST",
             "finance",
-            `/accounts/${accountId}/fiat-to-crypto/payment-links`,
+            `/accounts/${accountId}/fiat-to-crypto/payment-sessions`,
             body,
             gate,
           ),
         );
       }
       try {
-        const result = await client.createPaymentLink(accountId, body);
+        const result = await client.createPayInSession(accountId, body);
         return jsonResult({ mode: "live", result });
       } catch (e) {
         return errorResult((e as Error).message);

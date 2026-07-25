@@ -1,9 +1,9 @@
 /**
  * Domain types + the injectable VenlyClient interface.
  *
- * These shapes are a minimal projection of the vendored OpenAPI specs at
- * projects/venly-docs-rebuild/api-reference/finance.yaml (servers:
- * https://api.venlyfinance.com/api/v1) and fundflow.yaml (servers:
+ * These shapes are a minimal projection of the published OpenAPI specs
+ * vendored in this repository under `specs/` — finance.yaml (servers:
+ * https://api.venlyfinance.com/v1) and fundflow.yaml (servers:
  * https://api-fundflow.venly.io). Only the fields the tools actually read or
  * echo are modeled. Fields are intentionally loose (optional) because this is a
  * thin wrapper, not a full SDK.
@@ -112,8 +112,8 @@ export interface Party {
   [key: string]: unknown;
 }
 
-/** A payment link (finance PaymentLink). */
-export interface PaymentLink {
+/** A fiat-to-crypto payment session (finance PaymentSession). */
+export interface PaymentSession {
   id: string;
   accountId?: string;
   paymentUrl?: string;
@@ -164,12 +164,15 @@ export interface OptimisticLockingBody {
   version: number;
 }
 
-/** Body for the payment link POST (finance CreatePaymentLinkRequest). */
-export interface CreatePaymentLinkRequest {
+/** Body for the payment session POST (finance CreatePayInSessionRequest). */
+export interface CreatePayInSessionRequest {
   inAmount: string;
   inCurrency: string;
-  outCryptocurrency?: string;
-  redirectUrl?: string;
+  outCryptocurrency: string;
+  callbackUrl: string;
+  idempotencyKey: string;
+  successRedirectUrl?: string;
+  failureRedirectUrl?: string;
   externalRef?: string;
   metadata?: Record<string, string>;
 }
@@ -198,5 +201,8 @@ export interface VenlyClient {
   createFiatTransfer(senderAccountId: string, body: CreateFiatTransferInput): Promise<Transfer>;
   approveRampRequest(id: string, body: OptimisticLockingBody): Promise<RampRequestDto>;
   rejectRampRequest(id: string, body: OptimisticLockingBody): Promise<RampRequestDto>;
-  createPaymentLink(accountId: string, body: CreatePaymentLinkRequest): Promise<PaymentLink>;
+  createPayInSession(
+    accountId: string,
+    body: CreatePayInSessionRequest,
+  ): Promise<PaymentSession>;
 }

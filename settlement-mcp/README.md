@@ -9,9 +9,11 @@ x402, the machine-to-machine agent-payments rail.
 The differentiator: the MCP is the human-gated operator surface; x402 is the
 machine-to-machine rail. Read-only by default, write tools fail closed.
 
-Status: v0.1.0. Read tools work against staging out of the box once credentials
-are set; write tools are shipped disarmed and fail closed (see the safety model).
-The x402 tool is a stub that states a position, it moves no funds.
+Status: v0.1.1 (realigned to the live published OpenAPI specs: staging base URL
+and auth host corrected, `create_payment_link` became `create_payment_session`
+to match the live API). Read tools work against staging out of the box once
+credentials are set; write tools are shipped disarmed and fail closed (see the
+safety model). The x402 tool is a stub that states a position, it moves no funds.
 
 ## What it is
 
@@ -57,7 +59,7 @@ matched vIBAN, the matched transactions, and the total amount.
 ### 2. Write tools (present, DISARMED by default)
 
 `stage_transfer`, `approve_ramp_request`, `reject_ramp_request`,
-`create_payment_link`.
+`create_payment_session`.
 
 Each is dry-run by default and returns the exact request it would send. See the
 safety model below.
@@ -186,7 +188,7 @@ MCP-consumable workflow docs under `skills/`:
 - `reconcile-by-reference-code.md`
 - `four-eyes-approval.md`
 - `stage-and-confirm-transfer.md`
-- `payment-link-lifecycle.md`
+- `payment-session-lifecycle.md`
 - `x402-quote-walkthrough.md`
 
 ## Layout
@@ -213,7 +215,7 @@ settlement-mcp/
     reconcile-by-reference-code.md
     four-eyes-approval.md
     stage-and-confirm-transfer.md
-    payment-link-lifecycle.md
+    payment-session-lifecycle.md
     x402-quote-walkthrough.md
     four-eyes-approval.md
     stage-and-confirm-transfer.md

@@ -11,11 +11,11 @@ import type { EnvLike } from "../src/safety.js";
 import type {
   Account,
   CreateFiatTransferInput,
-  CreatePaymentLinkRequest,
+  CreatePayInSessionRequest,
   ListRampRequestsParams,
   OptimisticLockingBody,
   Party,
-  PaymentLink,
+  PaymentSession,
   RampRequestDto,
   RampRequestListItem,
   Transfer,
@@ -157,12 +157,17 @@ export class MockVenlyClient implements VenlyClient {
     return { id, status: "REJECTED", version: 4 };
   }
 
-  async createPaymentLink(
+  async createPayInSession(
     accountId: string,
-    _body: CreatePaymentLinkRequest,
-  ): Promise<PaymentLink> {
-    this.track("createPaymentLink");
-    return { id: "link-live-1", accountId, paymentUrl: "https://pay.example/x", status: "OPEN" };
+    _body: CreatePayInSessionRequest,
+  ): Promise<PaymentSession> {
+    this.track("createPayInSession");
+    return {
+      id: "session-live-1",
+      accountId,
+      paymentUrl: "https://pay.example/x",
+      status: "CREATED",
+    };
   }
 }
 

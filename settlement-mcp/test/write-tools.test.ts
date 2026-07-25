@@ -85,18 +85,20 @@ test("reject_ramp_request dry-run shape", async () => {
   await h.close();
 });
 
-test("create_payment_link dry-run shape", async () => {
+test("create_payment_session dry-run shape", async () => {
   const h = await makeHarness({});
-  const { data } = await callToolJson(h.client, "create_payment_link", {
+  const { data } = await callToolJson(h.client, "create_payment_session", {
     accountId: "acct-1",
     inAmount: "250.00",
     inCurrency: "EUR",
     outCryptocurrency: "USDC",
+    callbackUrl: "https://example.com/webhooks/pay-in",
   });
   assert.equal(data.mode, "dry-run");
-  assert.equal(data.path, "/accounts/acct-1/fiat-to-crypto/payment-links");
+  assert.equal(data.path, "/accounts/acct-1/fiat-to-crypto/payment-sessions");
   assert.equal(data.body.inAmount, "250.00");
-  assert.equal(h.mock.called("createPaymentLink"), false);
+  assert.ok(data.body.idempotencyKey, "idempotencyKey auto-generated in the staged body");
+  assert.equal(h.mock.called("createPayInSession"), false);
   await h.close();
 });
 

@@ -25,7 +25,7 @@ test("server enumerates all read + write + x402 tools over the harness", async (
     "stage_transfer",
     "approve_ramp_request",
     "reject_ramp_request",
-    "create_payment_link",
+    "create_payment_session",
   ]) {
     assert.ok(names.includes(t), `missing write tool ${t}`);
   }

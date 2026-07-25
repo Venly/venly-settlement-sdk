@@ -57,13 +57,14 @@ test("mock: every namespace method returns a plausible fixture", async () => {
     // [description, promise, assertion]
     ["parties.list", f.parties.list(), (r) => r.items.length > 0],
     ["parties.get", f.parties.get("p-1"), (r) => r.id === "p-1"],
-    ["parties.update", f.parties.update("p-1", { firstName: "G" }), (r) => r.firstName === "G"],
+    [
+      "parties.update",
+      f.parties.update("p-1", { version: 0, firstName: "G" }),
+      (r) => r.firstName === "G",
+    ],
     ["parties.delete", f.parties.delete("p-1"), (r) => r === undefined],
-    ["parties.listAccounts", f.parties.listAccounts("p-1"), (r) => r.items.length > 0],
     ["accounts.list", f.accounts.list(), (r) => r.items.length === 5],
     ["accounts.get", f.accounts.get(acct), (r) => r.id === acct],
-    ["accounts.suspend", f.accounts.suspend(acct), (r) => r.status === "SUSPENDED"],
-    ["accounts.reactivate", f.accounts.reactivate(acct), (r) => r.status === "ACTIVE"],
     ["accounts.listPartyRoles", f.accounts.listPartyRoles(acct), (r) => r.items.length > 0],
     [
       "accounts.addPartyRole",
@@ -71,8 +72,11 @@ test("mock: every namespace method returns a plausible fixture", async () => {
       (r) => r.partyId === "p-9",
     ],
     ["accounts.removePartyRole", f.accounts.removePartyRole(acct, "p-9"), (r) => r === undefined],
-    ["wallets.list", f.wallets.list(acct), (r) => r.items[0].chain === "BASE"],
-    ["wallets.get", f.wallets.get(acct, wal), (r) => r.id === wal],
+    [
+      "wallets.list",
+      f.wallets.list(acct),
+      (r) => r.items[0].chain === "BASE" && r.items[0].balances[0].amount.total === "15230.500000",
+    ],
     [
       "virtualBankAccounts.list",
       f.virtualBankAccounts.list(acct),
@@ -85,14 +89,53 @@ test("mock: every namespace method returns a plausible fixture", async () => {
     ],
     ["virtualBankAccounts.get", f.virtualBankAccounts.get(acct, "vb-1"), (r) => r.id === "vb-1"],
     [
-      "paymentLinks.create",
-      f.paymentLinks.create(acct, { externalRef: "order-1" }),
-      (r) => typeof r.paymentUrl === "string",
+      "paymentSessions.create",
+      f.paymentSessions.create(acct, {
+        inAmount: "100.00",
+        inCurrency: "EUR",
+        outCryptocurrency: "USDC",
+        callbackUrl: "https://example.com/webhooks/pay-in",
+        idempotencyKey: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      }),
+      (r) => typeof r.paymentUrl === "string" && r.status === "CREATED",
     ],
     [
       "paymentRequests.create",
-      f.paymentRequests.create(acct, { amount: 9.5, currency: "USD" }),
-      (r) => r.amount === 9.5,
+      f.paymentRequests.create(acct, {
+        amount: 25,
+        currency: "USD",
+        idempotencyKey: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      }),
+      // response amount is the {fiat, crypto} object, never the request's number
+      (r) => r.amount.fiat === 25 && r.amount.crypto === "25.000000" && r.status === "RESERVED",
+    ],
+    [
+      "paymentRequests.settle",
+      f.paymentRequests.settle("pr-1", {
+        amount: 25,
+        currency: "USD",
+        idempotencyKey: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      }),
+      (r) =>
+        r.status === "SETTLING" &&
+        r.executions.some((e) => e.type === "SETTLEMENT" && e.status === "PENDING"),
+    ],
+    [
+      "paymentRequests.reverse",
+      f.paymentRequests.reverse("pr-1", {
+        reason: "MERCHANT_VOID",
+        idempotencyKey: "7c9e6679-7425-40de-944b-e07fc1f90ae8",
+      }),
+      (r) => r.status === "REVERSING" && r.reversalReason === "MERCHANT_VOID",
+    ],
+    [
+      "paymentRequests.update",
+      f.paymentRequests.update("pr-1", {
+        amount: 30,
+        currency: "USD",
+        idempotencyKey: "7c9e6679-7425-40de-944b-e07fc1f90ae9",
+      }),
+      (r) => typeof r.amount.fiat === "number",
     ],
     [
       "transfers.createFiat",
@@ -101,7 +144,6 @@ test("mock: every namespace method returns a plausible fixture", async () => {
     ],
     ["transfers.list", f.transfers.list(acct), (r) => r.items.length === 5],
     ["transfers.get", f.transfers.get(acct, "tr-1"), (r) => r.id === "tr-1"],
-    ["accountToAccountTransfers.list", f.accountToAccountTransfers.list(), (r) => r.items.length > 0],
     ["permits.getMessages", f.permits.getMessages(acct, wal), (r) => r.length > 0],
     ["allowances.list", f.allowances.list(acct, wal), (r) => r.length > 0],
     ["fundflow rampRequests.list", ff.rampRequests.list(), (r) => r.items.length === 5],
@@ -273,12 +315,17 @@ test("mock: error presets teach each API's real codes (evaluator findings 1+2)",
   f.mock.failNext("INTERNAL_SERVER_ERROR");
   await assert.rejects(
     () => f.accounts.get("a-1"),
-    (err) => err.status === 500 && err.errors[0].code === "INTERNAL_SERVER_ERROR",
+    (err) => err.status === 500 && err.errors[0].code === "internal-error",
   );
   f.mock.failNext("VALIDATION_ERROR");
   await assert.rejects(
     () => f.accounts.get("a-1"),
-    (err) => err.errors[0].code === "VALIDATION_ERROR", // finance spec: uppercase
+    (err) => err.errors[0].code === "invalid-request", // finance live spec: kebab-case
+  );
+  f.mock.failNext("OPTIMISTIC_LOCK_EXCEPTION");
+  await assert.rejects(
+    () => f.parties.update("p-1", { version: 0 }),
+    (err) => err.status === 409 && err.errors[0].code === "concurrent-modification",
   );
 
   const ff = mockFundflow();

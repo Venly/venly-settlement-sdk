@@ -2,7 +2,7 @@
 
 TypeScript SDK for the [Venly Finance](https://docs.venlyfinance.com) and Fundflow APIs. Types are generated from the OpenAPI specs in [`specs/`](specs/); the runtime layer is hand-written and has **zero runtime dependencies** (Node ≥ 18, or any environment with `fetch`).
 
-> **Status: v0.1.0 - first public release.** MIT licensed. Built on the roadmap commitment "[TypeScript SDK on npm](https://github.com/timdierckxsens/venly-roadmap)" (Q3 2026).
+> **Status: v0.1.1.** MIT licensed. Built on the roadmap commitment "[TypeScript SDK on npm](https://github.com/timdierckxsens/venly-roadmap)" (Q3 2026). v0.1.1 regenerates every type and endpoint from the live published OpenAPI specs, fixing the base URL and operation set v0.1.0 inherited from a stale spec snapshot — see [CHANGELOG](CHANGELOG.md).
 
 ## Packages in this repository
 
@@ -59,7 +59,7 @@ const venly = new VenlyFinanceClient({
   environment: "staging", // or "production" (default)
 });
 
-// Onboard a party, open an account, generate a wallet, assign an IBAN
+// Onboard a party, open an account (its wallet is auto-provisioned), assign an IBAN
 const party = await venly.parties.create({
   partyType: "INDIVIDUAL",
   firstName: "Ada",
@@ -68,13 +68,35 @@ const party = await venly.parties.create({
 
 const account = await venly.accounts.create({
   externalId: "customer-42",
-  defaultChain: "BASE",
+  chain: "BASE",
+  partyId: party.id,
 });
 
-const wallet = await venly.wallets.create(account.id!, {});
+const wallets = await venly.wallets.list(account.id!);
 
 const iban = await venly.virtualBankAccounts.create(account.id!, {
-  currency: "EUR",
+  name: "EUR Payouts",
+  inCurrency: "EUR",
+  targetCryptocurrency: "USDC",
+  idempotencyKey: crypto.randomUUID(),
+});
+```
+
+### Card settlement lifecycle
+
+```ts
+// Reserve funds for an authorization, then settle (or reverse) it.
+const pr = await venly.paymentRequests.create(account.id!, {
+  amount: 25, currency: "USD", idempotencyKey: crypto.randomUUID(),
+});
+
+await venly.paymentRequests.settle(pr.id!, {
+  amount: 25, currency: "USD", idempotencyKey: crypto.randomUUID(),
+}); // 202 → status SETTLING, then SETTLED once on-chain transfers confirm
+
+// or void it:
+await venly.paymentRequests.reverse(pr.id!, {
+  reason: "MERCHANT_VOID", idempotencyKey: crypto.randomUUID(),
 });
 ```
 
@@ -108,8 +130,9 @@ import { FundflowClient } from "@venlyfinance/sdk";
 const fundflow = new FundflowClient({ clientId, clientSecret, environment: "staging" });
 
 const ramp = await fundflow.rampRequests.create({ /* ... */ });
-// maker-checker: the API rejects self-approval server-side
-await fundflow.rampRequests.approve(ramp.id!);
+// maker-checker: the API rejects self-approval server-side, and approvals
+// carry the optimistic-locking version of the request you reviewed
+await fundflow.rampRequests.approve(ramp.id!, { version: ramp.version! });
 ```
 
 ### Escape hatch

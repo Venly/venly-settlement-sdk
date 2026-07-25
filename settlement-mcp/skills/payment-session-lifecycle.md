@@ -1,6 +1,6 @@
-# Skill: Create and track a payment link
+# Skill: Create and track a fiat-to-crypto payment session
 
-Stand up a fiat-to-crypto payment link for an account, hand the URL to a payer,
+Stand up a hosted pay-in session for an account, hand the URL to a payer,
 and follow the payment through to settlement.
 
 ## When to use
@@ -13,7 +13,7 @@ collections, top-ups.
 
 - `get_account` (read)
 - `list_virtual_bank_accounts` (read)
-- `create_payment_link` (write, disarmed by default)
+- `create_payment_session` (write, disarmed by default)
 - `get_transfer` (read)
 
 ## Steps
@@ -21,10 +21,11 @@ collections, top-ups.
 1. `get_account` for the collecting account. Confirm `status: "ACTIVE"` - an
    unverified or suspended account cannot collect.
 2. Optional context: `list_virtual_bank_accounts` shows the account's existing
-   collection surfaces (IBAN + referenceCode); a payment link is the hosted
+   collection surfaces (IBAN + referenceCode); a payment session is the hosted
    alternative for payers who won't do a bank transfer.
-3. `create_payment_link` with the `accountId` and an `externalRef` your own
-   system can reconcile on later.
+3. `create_payment_session` with the `accountId`, a `callbackUrl` your system
+   will receive the completion webhook on, and an `externalRef` you can
+   reconcile on later. An `idempotencyKey` is generated when you don't pass one.
    - By default the tool returns a dry-run object with the exact POST it would
      send. Review it.
    - Live execution needs all three: `confirm: true`, `VENLY_MCP_LIVE=1`, and
@@ -36,7 +37,7 @@ collections, top-ups.
 
 ## Notes
 
-- Payment links expire (`expiresAt`); a link that was never paid ends at
+- Payment sessions expire (`expiresAt`); a session that was never paid ends at
   `EXPIRED`, not `FAILED`.
 - Statuses walk `CREATED → PENDING_PAYMENT → PAYMENT_RECEIVED → CONVERTING →
   MINTING → COMPLETED`, with `FAILED`, `CANCELLED`, `REFUNDING`, `REFUNDED` as

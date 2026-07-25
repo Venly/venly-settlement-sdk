@@ -5,6 +5,13 @@ import type { ApiErrorBody } from "../core/errors.js";
  * examples in `specs/finance.yaml` and `specs/fundflow.yaml`
  * (`components/responses`). Each throws as a real `VenlyApiError` with the
  * same envelope shape the live API returns.
+ *
+ * The two APIs use different error-code conventions: Finance emits kebab-case
+ * codes ("invalid-request", "concurrent-modification"), Fundflow emits
+ * uppercase codes ("UNAUTHORIZED", "OPTIMISTIC_LOCK_EXCEPTION") except its 400
+ * ("validation-error"). Preset NAMES stay identical across both clients so
+ * `failNext("VALIDATION_ERROR")` always means "simulate this API's 400" — the
+ * thrown `code` is whatever that API actually emits.
  */
 export interface ErrorSpec {
   status: number;
@@ -13,21 +20,71 @@ export interface ErrorSpec {
   traceCode?: string;
 }
 
+/** Finance API presets (default table): codes from the live Finance spec. */
 export const errorPresets = {
   VALIDATION_ERROR: {
     status: 400,
-    code: "VALIDATION_ERROR",
+    code: "invalid-request",
     message: "The request contains invalid parameters.",
   },
   UNAUTHORIZED: {
     status: 401,
+    code: "unauthenticated",
+    message: "Please authenticate to perform this action.",
+  },
+  FORBIDDEN: {
+    status: 403,
+    code: "forbidden",
+    message: "You do not have permission to access this resource.",
+  },
+  NOT_FOUND: {
+    status: 404,
+    code: "account-not-found",
+    message: "The requested resource was not found.",
+  },
+  CONFLICT: {
+    status: 409,
+    code: "concurrent-modification",
+    message: "This request has been modified by another user. Please refresh and retry.",
+  },
+  OPTIMISTIC_LOCK_EXCEPTION: {
+    status: 409,
+    code: "concurrent-modification",
+    message: "This request has been modified by another user. Please refresh and retry.",
+  },
+  INSUFFICIENT_FUNDS: {
+    status: 402,
+    code: "insufficient-funds",
+    message: "The account wallet balance is insufficient to complete this request.",
+  },
+  IDEMPOTENCY_CONFLICT: {
+    status: 422,
+    code: "idempotency-conflict",
+    message: "This idempotency key was already used with a different request body.",
+  },
+  INTERNAL_SERVER_ERROR: {
+    status: 500,
+    code: "internal-error",
+    message: "An unexpected error occurred. Please try again later.",
+  },
+} as const satisfies Record<string, ErrorSpec>;
+
+/** Fundflow API presets: codes from the live Fundflow spec. */
+export const fundflowErrorPresets = {
+  VALIDATION_ERROR: {
+    status: 400,
+    code: "validation-error",
+    message: "A descriptive error message",
+  },
+  UNAUTHORIZED: {
+    status: 401,
     code: "UNAUTHORIZED",
-    message: "Missing or invalid authentication token.",
+    message: "Access is denied.",
   },
   FORBIDDEN: {
     status: 403,
     code: "FORBIDDEN",
-    message: "User does not have permission to access this resource.",
+    message: "User doesn't have proper authority to access this resource",
   },
   NOT_FOUND: {
     status: 404,
@@ -39,25 +96,20 @@ export const errorPresets = {
     code: "METHOD_NOT_SUPPORTED",
     message: "HttpMethod is not supported. Supported methods are [GET, POST].",
   },
-  CONFLICT: {
-    status: 409,
-    code: "CONFLICT",
-    message: "A resource with the specified identifier already exists.",
-  },
-  OPTIMISTIC_LOCK_EXCEPTION: {
-    status: 409,
-    code: "OPTIMISTIC_LOCK_EXCEPTION",
-    message: "The resource has been modified. Please fetch the latest version and retry.",
-  },
   INVALID_MEDIA_TYPE: {
     status: 415,
     code: "INVALID_MEDIA_TYPE",
     message: "Request must be application/json.",
   },
-  RATE_LIMITED: {
-    status: 429,
-    code: "RATE_LIMITED",
-    message: "Too many requests. Please retry after the specified time.",
+  CONFLICT: {
+    status: 409,
+    code: "OPTIMISTIC_LOCK_EXCEPTION",
+    message: "The resource has been modified. Please fetch the latest version and retry.",
+  },
+  OPTIMISTIC_LOCK_EXCEPTION: {
+    status: 409,
+    code: "OPTIMISTIC_LOCK_EXCEPTION",
+    message: "The resource has been modified. Please fetch the latest version and retry.",
   },
   INTERNAL_SERVER_ERROR: {
     status: 500,
@@ -66,23 +118,11 @@ export const errorPresets = {
   },
 } as const satisfies Record<string, ErrorSpec>;
 
-export type ErrorPresetName = keyof typeof errorPresets;
-
 /**
- * Fundflow's error-code conventions diverge from Finance in one place: its
- * 400 example uses lowercase "validation-error" (`specs/fundflow.yaml`).
- * The fundflow mock client resolves presets from this table so
- * `failNext("VALIDATION_ERROR")` teaches the code the Fundflow API actually
- * emits. Preset NAMES stay identical across both clients on purpose.
+ * Union of both tables' names. A name that exists only in the other API's
+ * table fails at runtime with the list of presets the current client knows.
  */
-export const fundflowErrorPresets: Record<ErrorPresetName, ErrorSpec> = {
-  ...errorPresets,
-  VALIDATION_ERROR: {
-    status: 400,
-    code: "validation-error",
-    message: "A descriptive error message",
-  },
-};
+export type ErrorPresetName = keyof typeof errorPresets | keyof typeof fundflowErrorPresets;
 
 let traceCounter = 0;
 

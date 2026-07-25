@@ -10,9 +10,9 @@ test("finance: staging environment picks the staging base URL", async () => {
   await client.accounts.list();
 
   assert.ok(
-    fetch.apiCalls()[0].url.startsWith("https://api-staging.venlyfinance.com/api/v1/accounts"),
+    fetch.apiCalls()[0].url.startsWith("https://api-staging.venlyfinance.com/v1/accounts"),
   );
-  assert.ok(fetch.calls[0].url.startsWith("https://login-sandbox.venly.io/"));
+  assert.ok(fetch.calls[0].url.startsWith("https://login-staging.venly.io/"));
 });
 
 test("finance: envelope is unwrapped so methods return the result directly", async () => {
@@ -30,13 +30,16 @@ test("finance: happy path per resource namespace hits the right path/method", as
   const client = new VenlyFinanceClient(clientOptions(fetch));
 
   await client.parties.create({ partyType: "INDIVIDUAL", firstName: "A", lastName: "B" });
-  await client.accounts.suspend("acc-1");
-  await client.wallets.create("acc-1", {});
-  await client.virtualBankAccounts.create("acc-1", { currency: "EUR" });
-  await client.paymentLinks.create("acc-1", {});
+  await client.wallets.list("acc-1");
+  await client.virtualBankAccounts.create("acc-1", { name: "EUR", inCurrency: "EUR" });
+  await client.paymentSessions.create("acc-1", {});
   await client.paymentRequests.createByCardProvider({});
+  await client.paymentRequests.settle("pr-1", {});
+  await client.paymentRequests.reverse("pr-1", {});
+  await client.paymentRequests.settleByReference({});
+  await client.paymentRequests.reverseByReference({});
+  await client.paymentRequests.update("pr-1", {});
   await client.transfers.createFiat("acc-1", {});
-  await client.accountToAccountTransfers.create({});
   await client.permits.submit("acc-1", "w-1", {});
   await client.allowances.list("acc-1", "w-1");
 
@@ -45,16 +48,19 @@ test("finance: happy path per resource namespace hits the right path/method", as
     return `${c.init.method} ${u.pathname}`;
   });
   assert.deepEqual(seen, [
-    "POST /api/v1/parties",
-    "POST /api/v1/accounts/acc-1/suspend",
-    "POST /api/v1/accounts/acc-1/wallets",
-    "POST /api/v1/accounts/acc-1/virtual-bank-accounts",
-    "POST /api/v1/accounts/acc-1/fiat-to-crypto/payment-links",
-    "POST /api/v1/payment-requests",
-    "POST /api/v1/accounts/acc-1/transfers/fiat",
-    "POST /api/v1/account-to-account-transfers",
-    "POST /api/v1/accounts/acc-1/wallets/w-1/permits",
-    "GET /api/v1/accounts/acc-1/wallets/w-1/allowances",
+    "POST /v1/parties",
+    "GET /v1/accounts/acc-1/wallets",
+    "POST /v1/accounts/acc-1/virtual-bank-accounts",
+    "POST /v1/accounts/acc-1/fiat-to-crypto/payment-sessions",
+    "POST /v1/payment-requests",
+    "POST /v1/payment-requests/pr-1/settlements",
+    "POST /v1/payment-requests/pr-1/reversal",
+    "POST /v1/payment-requests/settlements",
+    "POST /v1/payment-requests/reversals",
+    "PATCH /v1/payment-requests/pr-1",
+    "POST /v1/accounts/acc-1/transfers/fiat",
+    "POST /v1/accounts/acc-1/wallets/w-1/permits",
+    "GET /v1/accounts/acc-1/wallets/w-1/allowances",
   ]);
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "@venlyfinance/settlement-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Venly Settlement MCP server. Human-gated operator surface over the Venly Finance and Fundflow APIs, plus an x402 machine-to-machine quote stub. Read-only by default, write tools fail closed.",
   "type": "module",
   "bin": {

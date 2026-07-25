@@ -1,41 +1,16 @@
 openapi: 3.1.0
 info:
-  title: Venly Finance API -release 1
-  description: |
-    REST API for Venly Finance platform - Release 1 functionality:
-    - Party management (Individuals & Organisations)
-    - Account management with party association
-    - Wallet generation on Base blockchain
-    - Virtual bank account assignment for global payments (EUR SEPA)
-    - Fiat-to-crypto payment links (pay-in)
-    - Account-to-account transfers
-
-    ## Authentication
-
-    All endpoints use OAuth2 client credentials. Obtain a token first, then include it in every request:
-
-    **Step 1 — Get a token:**
-    ```bash
-    curl -X POST https://login.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token \
-      -H "Content-Type: application/x-www-form-urlencoded" \
-      -d "grant_type=client_credentials&client_id={CLIENT_ID}&client_secret={CLIENT_SECRET}"
-    ```
-
-    **Step 2 — Use the token:**
-    ```
-    Authorization: Bearer {access_token}
-    ```
-
-    Tokens expire after **5 minutes**. Implement refresh logic in your client.
-
-    ## Idempotency
-
-    For POST requests, include an `Idempotency-Key` header to safely retry requests:
-    ```
-    Idempotency-Key: {unique-uuid}
-    ```
-
-  version: 1.0.0-release1
+  title: Venly Finance API
+  description: "REST API for the Venly Finance platform:\n- Party management (Individuals & Organisations)\n\
+    - Account management with party association\n- Wallet balances & token allowances on supported chains\
+    \ (Base, Avalanche)\n- Virtual bank account assignment for global payments (EUR SEPA)\n- Fiat-to-crypto\
+    \ payment sessions (pay-in)\n- Account-to-account fiat & crypto transfers\n- EIP-2612 permits and\
+    \ payment requests\n\n## Authentication\n\nAll endpoints use OAuth2 client credentials. Obtain a token\
+    \ first, then include it in every request:\n\n**Step 1 — Get a token:**\n```bash\ncurl -X POST https://login.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token\
+    \ \\\n  -H \"Content-Type: application/x-www-form-urlencoded\" \\\n  -d \"grant_type=client_credentials&client_id={CLIENT_ID}&client_secret={CLIENT_SECRET}\"\
+    \n```\n\n**Step 2 — Use the token:**\n```\nAuthorization: Bearer {access_token}\n```\n\nTokens expire\
+    \ after **5 minutes**. Implement refresh logic in your client.\n"
+  version: 1.1.0
   contact:
     name: Venly Support
     email: support@venly.io
@@ -45,76 +20,81 @@ info:
   x-logo:
     url: https://venlyfinance.com/logo.png
   x-security-contact: security@venly.io
-
 servers:
-  - url: https://api.venlyfinance.com/api/v1
-    description: Production
-  - url: https://api-staging.venlyfinance.com/api/v1
-    description: Staging
-
+- url: https://api.venlyfinance.com/v1
+  description: Production
+- url: https://api-staging.venlyfinance.com/v1
+  description: Staging
 security:
-  - OAuth2: []
-
+- OAuth2: []
 tags:
-  - name: Parties
-    description: Party management (Individuals & Organisations)
-  - name: Accounts
-    description: Account management with party association
-  - name: Wallets
-    description: Blockchain wallet operations
-  - name: Virtual Bank Accounts
-    description: Virtual bank account payment references for global payments
-  - name: Fiat-to-crypto Payment Links
-    description: Fiat-to-crypto Payment Links
-  - name: Account-to-Account Transfers
-    description: Transfer funds between accounts
-  - name: Payment Requests
-    description: Payment request management for card provider integrations
-  - name: Transfers
-    description: Fiat and crypto transfer operations between accounts
-  - name: Permits
-    description: EIP-712 permit signature management for token approvals
-  - name: Allowances
-    description: Token allowance management for wallets
-
+- name: Parties
+  description: Party management (Individuals & Organisations)
+- name: Accounts
+  description: Account management, party-role associations
+- name: Wallets
+  description: Blockchain wallet balances
+- name: Virtual Bank Accounts
+  description: Virtual bank account payment references for global payments
+- name: Fiat-to-crypto Payment Sessions
+  description: Fiat-to-crypto payment session creation
+- name: Payment Requests
+  description: Payment request management for card provider integrations
+- name: Transfers
+  description: Fiat and crypto transfer operations between accounts
+- name: Permits
+  description: EIP-712 permit signature management for token approvals
+- name: Allowances
+  description: Token allowance management for wallets
 paths:
-  # ==================== PARTY ENDPOINTS ====================
-
   /parties:
     get:
-      tags: [Parties]
+      tags:
+      - Parties
       summary: List all parties
-      description: |
-        **Step 1 of the Finance API Flow**
-        
-        Retrieves all parties (Individuals and Organisations) in your system. Parties are the foundation of the Finance API - they represent the people or organizations that will hold accounts.
-        
+      description: '**Step 1 of the Finance API Flow**
+
+
+        Retrieves all parties (Individuals and Organisations) in your system. Parties are the foundation
+        of the Finance API - they represent the people or organizations that will hold accounts.
+
+
         **Use this endpoint to:**
+
         - View all registered customers and organizations
+
         - Search for existing parties before creating accounts
+
         - Audit party records and their KYC/KYB status
-        
+
+
         **Next Step:** Use the party ID to create an account.
+
+        '
       operationId: listParties
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - $ref: '#/components/parameters/SortOn'
-        - $ref: '#/components/parameters/SortOrder'
-        - name: partyType
-          in: query
-          description: Filter by party type
-          schema:
-            $ref: '#/components/schemas/PartyType'
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/PartyStatus'
-        - name: externalId
-          in: query
-          description: Filter by external ID (exact match)
-          schema:
-            type: string
+      - name: partyType
+        in: query
+        description: Filter by party type
+        schema:
+          $ref: '#/components/schemas/PartyType'
+        example: INDIVIDUAL
+      - name: status
+        in: query
+        description: Filter by party status
+        schema:
+          $ref: '#/components/schemas/PartyStatus'
+        example: ACTIVE
+      - name: externalId
+        in: query
+        description: Filter by external ID (exact match)
+        schema:
+          type: string
+        example: user-12345
+      - $ref: '#/components/parameters/SortOn'
+      - $ref: '#/components/parameters/SortOrder'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
       responses:
         '200':
           description: List of parties
@@ -122,43 +102,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PartyListResponse'
+              example:
+                success: true
+                result:
+                - id: 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
+                  externalId: user-12345
+                  partyType: INDIVIDUAL
+                  status: ACTIVE
+                  firstName: Jane
+                  lastName: Doe
+                  createdAt: '2026-01-15T09:30:00'
+                pagination:
+                  pageNumber: 1
+                  pageSize: 20
+                  numberOfElements: 1
+                  numberOfPages: 1
+                  hasNextPage: false
+                  hasPreviousPage: false
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
     post:
-      tags: [Parties]
+      tags:
+      - Parties
       summary: Create a new party
-      description: |
-        **Step 1 of the Finance API Flow**
-        
-        Creates a new party (Individual or Organisation). This is the first step in onboarding a customer or organization to the Finance platform.
-        
+      description: '**Step 1 of the Finance API Flow**
+
+
+        Creates a new party (Individual or Organisation). This is the first step in onboarding a customer
+        or organization to the Finance platform.
+
+
         **Party Types:**
+
         - **INDIVIDUAL**: Natural persons. Requires firstName, lastName.
+
         - **ORGANISATION**: Companies or businesses. Requires name, optionally vatNumber.
-        
+
+
         **Next Step:** Use the returned party ID to create an account.
+
+        '
       operationId: createParty
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreatePartyRequest'
+            example:
+              partyType: INDIVIDUAL
+              externalId: user-12345
+              firstName: Jane
+              lastName: Doe
+              address:
+                addressLine1: 1 Example Street
+                city: Amsterdam
+                postalCode: 1011AB
+                country: NL
       responses:
         '201':
           description: Party created
@@ -166,38 +172,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SinglePartyResponse'
+              example:
+                success: true
+                result:
+                  id: 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
+                  externalId: user-12345
+                  partyType: INDIVIDUAL
+                  status: ACTIVE
+                  firstName: Jane
+                  lastName: Doe
+                  address:
+                    addressLine1: 1 Example Street
+                    city: Amsterdam
+                    postalCode: 1011AB
+                    country: NL
+                  createdAt: '2026-01-15T09:30:00'
+                  updatedAt: '2026-01-15T09:30:00'
+                  version: 0
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
         '409':
           $ref: '#/components/responses/Conflict'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
   /parties/{partyId}:
     get:
-      tags: [Parties]
+      tags:
+      - Parties
       summary: Get party details
-      description: |
-        Retrieves detailed information about a specific party by ID.
-        
+      description: 'Retrieves detailed information about a specific party by ID.
+
+
         **Returns:**
+
         - Complete party information including personal/organization details
+
         - Current KYC/KYB status
+
         - Address information
+
         - Party status (ACTIVE, SUSPENDED, BLOCKED)
+
+        '
       operationId: getParty
       parameters:
-        - $ref: '#/components/parameters/PartyId'
+      - $ref: '#/components/parameters/PartyId'
       responses:
         '200':
           description: Party details
@@ -205,38 +228,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SinglePartyResponse'
+              example:
+                success: true
+                result:
+                  id: 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
+                  externalId: user-12345
+                  partyType: INDIVIDUAL
+                  status: ACTIVE
+                  firstName: Jane
+                  lastName: Doe
+                  kycStatus: VERIFIED
+                  address:
+                    addressLine1: 1 Example Street
+                    city: Amsterdam
+                    postalCode: 1011AB
+                    country: NL
+                  createdAt: '2026-01-15T09:30:00'
+                  updatedAt: '2026-01-15T09:30:00'
+                  version: 0
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
     patch:
-      tags: [Parties]
+      tags:
+      - Parties
       summary: Update party details
-      description: |
-        Updates an existing party's information. Only provided fields will be updated.
-        
+      description: 'Updates an existing party''s information. Only provided fields will be updated.
+
+
         **For Individuals:** Can update firstName, lastName, and address
+
         **For Organisations:** Can update name, vatNumber, and address
-        
+
+
+        **Optimistic locking:** You must send the current `version` of the party. If the
+
+        version is stale the request fails with `409 concurrent-modification` — re-fetch and retry.
+
+
         **Note:** Cannot change partyType after creation. KYC/KYB status is managed separately.
+
+        '
       operationId: updateParty
       parameters:
-        - $ref: '#/components/parameters/PartyId'
+      - $ref: '#/components/parameters/PartyId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdatePartyRequest'
+            example:
+              version: 0
+              firstName: Janet
+              lastName: Doe
       responses:
         '200':
           description: Party updated
@@ -244,6 +294,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SinglePartyResponse'
+              example:
+                success: true
+                result:
+                  id: 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
+                  externalId: user-12345
+                  partyType: INDIVIDUAL
+                  status: ACTIVE
+                  firstName: Janet
+                  lastName: Doe
+                  address:
+                    addressLine1: 1 Example Street
+                    city: Amsterdam
+                    postalCode: 1011AB
+                    country: NL
+                  createdAt: '2026-01-15T09:30:00'
+                  updatedAt: '2026-01-15T09:30:00'
+                  version: 0
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -252,23 +319,24 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
     delete:
-      tags: [Parties]
+      tags:
+      - Parties
       summary: Delete party
-      description: |
-        Permanently deletes a party. Only allowed when:
+      description: 'Permanently deletes a party. Only allowed when:
+
         - Party has no associated accounts
+
         - Party is not in a blocked status
+
+        '
       operationId: deleteParty
       parameters:
-        - $ref: '#/components/parameters/PartyId'
+      - $ref: '#/components/parameters/PartyId'
       responses:
         '204':
           description: Party deleted
@@ -280,69 +348,31 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-  /parties/{partyId}/accounts:
-    get:
-      tags: [Parties]
-      summary: List accounts for a party
-      operationId: listPartyAccounts
-      parameters:
-        - $ref: '#/components/parameters/PartyId'
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-      responses:
-        '200':
-          description: List of accounts associated with the party
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccountListResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  # ==================== ACCOUNT ENDPOINTS ====================
-
   /accounts:
     get:
-      tags: [Accounts]
+      tags:
+      - Accounts
       summary: List all accounts
       operationId: listAccounts
       parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - $ref: '#/components/parameters/SortOn'
-        - $ref: '#/components/parameters/SortOrder'
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/AccountStatus'
-        - name: partyId
-          in: query
-          description: Filter by party ID
-          schema:
-            type: string
-            format: uuid
-        - name: externalId
-          in: query
-          description: Filter by external ID (exact match)
-          schema:
-            type: string
+      - name: externalId
+        in: query
+        description: Filter by external ID (exact match)
+        schema:
+          type: string
+        example: user-12345
+      - name: status
+        in: query
+        description: Filter by account status
+        schema:
+          $ref: '#/components/schemas/AccountStatus'
+        example: ACTIVE
+      - $ref: '#/components/parameters/SortOn'
+      - $ref: '#/components/parameters/SortOrder'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
       responses:
         '200':
           description: List of accounts
@@ -350,43 +380,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccountListResponse'
+              example:
+                success: true
+                result:
+                - id: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  externalId: user-12345
+                  name: Jane Doe — Main
+                  kycStatus: VERIFIED
+                  status: ACTIVE
+                  createdAt: '2026-01-15T09:30:00'
+                  version: 0
+                pagination:
+                  pageNumber: 1
+                  pageSize: 20
+                  numberOfElements: 1
+                  numberOfPages: 1
+                  hasNextPage: false
+                  hasPreviousPage: false
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
     post:
-      tags: [Accounts]
+      tags:
+      - Accounts
       summary: Create a new account
-      description: |
-        Creates a new account. Optionally auto-creates a wallet on the specified chain.
+      description: 'Creates a new account and auto-provisions a custodial wallet on the specified chain.
+
 
         **Party Association:**
+
         - Provide `partyId` to associate with an existing party
+
         - Provide `party` object to create a new party inline (Individual or Organisation)
-        - The party will be associated as ACCOUNT_HOLDER
+
+        - The party is associated as ACCOUNT_HOLDER
+
 
         When creating a party inline, specify `partyType: INDIVIDUAL` with firstName/lastName,
+
         or `partyType: ORGANISATION` with name/vatNumber.
+
+
+        **SELF_CUSTODY companies** must supply the wallet `address`; VENLY_MANAGED companies
+
+        leave it blank and Venly generates the wallet.
+
+        '
       operationId: createAccount
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateAccountRequest'
+            example:
+              externalId: user-12345
+              name: Jane Doe — Main
+              chain: BASE
+              address: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F'
+              partyId: 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
       responses:
         '201':
           description: Account created
@@ -394,30 +451,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SingleAccountResponse'
+              example:
+                success: true
+                result:
+                  id: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  externalId: user-12345
+                  name: Jane Doe — Main
+                  kycStatus: VERIFICATION_PENDING
+                  status: ACTIVE
+                  createdAt: '2026-01-15T09:30:00'
+                  version: 0
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
         '409':
           $ref: '#/components/responses/Conflict'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
   /accounts/{accountId}:
     get:
-      tags: [Accounts]
+      tags:
+      - Accounts
       summary: Get account details
       operationId: getAccount
       parameters:
-        - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/AccountId'
       responses:
         '200':
           description: Account details
@@ -425,157 +486,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SingleAccountResponse'
+              example:
+                success: true
+                result:
+                  id: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  externalId: user-12345
+                  name: Jane Doe — Main
+                  kycStatus: VERIFIED
+                  status: ACTIVE
+                  createdAt: '2026-01-15T09:30:00'
+                  version: 0
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-    patch:
-      tags: [Accounts]
-      summary: Update account details
-      operationId: updateAccount
-      parameters:
-        - $ref: '#/components/parameters/AccountId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateAccountRequest'
-      responses:
-        '200':
-          description: Account updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SingleAccountResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-    delete:
-      tags: [Accounts]
-      summary: Delete account
-      description: |
-        Permanently deletes an account. Only allowed when:
-        - All wallet balances are zero
-        - No pending transactions
-        - Account is not suspended/blocked
-      operationId: deleteAccount
-      parameters:
-        - $ref: '#/components/parameters/AccountId'
-      responses:
-        '204':
-          description: Account deleted
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /accounts/{accountId}/suspend:
-    post:
-      tags: [Accounts]
-      summary: Suspend account
-      operationId: suspendAccount
-      parameters:
-        - $ref: '#/components/parameters/AccountId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [reason]
-              properties:
-                reason:
-                  type: string
-                  maxLength: 500
-      responses:
-        '200':
-          description: Account suspended
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SingleAccountResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /accounts/{accountId}/reactivate:
-    post:
-      tags: [Accounts]
-      summary: Reactivate suspended account
-      operationId: reactivateAccount
-      parameters:
-        - $ref: '#/components/parameters/AccountId'
-      responses:
-        '200':
-          description: Account reactivated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SingleAccountResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
   /accounts/{accountId}/party-roles:
     get:
-      tags: [Accounts]
+      tags:
+      - Accounts
       summary: List party roles for an account
       description: Returns all parties associated with this account and their roles.
-      operationId: listAccountPartyRoles
+      operationId: listPartyRoles
       parameters:
-        - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/AccountId'
       responses:
         '200':
           description: List of party roles
@@ -583,35 +520,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PartyRoleListResponse'
+              example:
+                success: true
+                result:
+                - partyId: 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
+                  roleType: ACCOUNT_HOLDER
+                  status: ACTIVE
+                  createdAt: '2026-01-15T09:30:00'
+                  updatedAt: '2026-01-15T09:30:00'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
     post:
-      tags: [Accounts]
+      tags:
+      - Accounts
       summary: Add a party to an account
-      description: |
-        Associates an existing party with this account in a specific role.
+      description: 'Associates an existing party with this account in a specific role.
+
         A party can only have one role per account.
+
+        '
       operationId: addPartyRole
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/AccountId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AddPartyRoleRequest'
+            example:
+              partyId: 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
+              roleType: ACCOUNT_HOLDER
       responses:
         '201':
           description: Party role added
@@ -619,6 +564,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SinglePartyRoleResponse'
+              example:
+                success: true
+                result:
+                  partyId: 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
+                  roleType: ACCOUNT_HOLDER
+                  status: ACTIVE
+                  createdAt: '2026-01-15T09:30:00'
+                  updatedAt: '2026-01-15T09:30:00'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -627,32 +580,31 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
         '409':
           $ref: '#/components/responses/Conflict'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
   /accounts/{accountId}/party-roles/{partyId}:
     delete:
-      tags: [Accounts]
+      tags:
+      - Accounts
       summary: Remove a party from an account
-      description: |
-        Removes a party's role from this account.
+      description: 'Removes a party''s role from this account.
+
         Cannot remove the last ACCOUNT_HOLDER from an account.
+
+        '
       operationId: removePartyRole
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - name: partyId
-          in: path
-          required: true
-          description: The party ID to remove from the account
-          schema:
-            type: string
-            format: uuid
+      - $ref: '#/components/parameters/AccountId'
+      - name: partyId
+        in: path
+        required: true
+        description: The party ID to remove from the account
+        schema:
+          type: string
+          format: uuid
+        example: 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
       responses:
         '204':
           description: Party role removed
@@ -664,32 +616,23 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-  # ==================== WALLET ENDPOINTS ====================
-
   /accounts/{accountId}/wallets:
     get:
-      tags: [Wallets]
+      tags:
+      - Wallets
       summary: List wallets for an account
+      description: 'Lists the custodial wallets bound to an account, each with its per-asset balances
+
+        (total / available / reserved) and AML screening status.
+
+        '
       operationId: listWallets
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: chain
-          in: query
-          schema:
-            $ref: '#/components/schemas/BlockchainNetwork'
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/WalletStatus'
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
       responses:
         '200':
           description: List of wallets
@@ -697,103 +640,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WalletListResponse'
+              example:
+                success: true
+                result:
+                - id: 9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f
+                  chain: BASE
+                  type: SELF_CUSTODY
+                  address: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F'
+                  balances:
+                  - asset: USDC
+                    contractAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
+                    amount:
+                      total: '125.00'
+                      available: '100.00'
+                      reserved: '25.00'
+                  amlStatus: APPROVED
+                pagination:
+                  pageNumber: 1
+                  pageSize: 20
+                  numberOfElements: 1
+                  numberOfPages: 1
+                  hasNextPage: false
+                  hasPreviousPage: false
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-    post:
-      tags: [Wallets]
-      summary: Create a wallet
-      operationId: createWallet
-      parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateWalletRequest'
-      responses:
-        '201':
-          description: Wallet created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SingleWalletResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /accounts/{accountId}/wallets/{walletId}:
-    get:
-      tags: [Wallets]
-      summary: Get wallet details
-      operationId: getWallet
-      parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - $ref: '#/components/parameters/WalletId'
-      responses:
-        '200':
-          description: Wallet details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SingleWalletResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  # ==================== VIRTUAL BANK ACCOUNT ENDPOINTS ====================
-
   /accounts/{accountId}/virtual-bank-accounts:
     get:
-      tags: [Virtual Bank Accounts]
+      tags:
+      - Virtual Bank Accounts
       summary: List virtual bank accounts
       operationId: listVirtualBankAccounts
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: bankAccountType
-          in: query
-          schema:
-            $ref: '#/components/schemas/BankAccountType'
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/VirtualBankAccountStatus'
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/SortOn'
+      - $ref: '#/components/parameters/SortOrder'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
       responses:
         '200':
           description: List of virtual bank accounts
@@ -801,42 +689,72 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VirtualBankAccountListResponse'
+              example:
+                success: true
+                result:
+                - id: 4d5e6f70-8192-4a3b-9c4d-5e6f7081920a
+                  accountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  bankAccountType: EUR_SEPA
+                  name: EUR Payouts
+                  status: ACTIVE
+                  currency: EUR
+                  targetCryptocurrency: USDC
+                  iban: DE89370400440532013000
+                  bic: DEUTDEDB
+                  bankName: Example Bank
+                  beneficiaryName: Jane Doe
+                  referenceCode: VFY-7K2Q-931
+                  createdAt: '2026-01-15T09:30:00'
+                  updatedAt: '2026-01-15T09:30:00'
+                pagination:
+                  pageNumber: 1
+                  pageSize: 20
+                  numberOfElements: 1
+                  numberOfPages: 1
+                  hasNextPage: false
+                  hasPreviousPage: false
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
     post:
-      tags: [Virtual Bank Accounts]
+      tags:
+      - Virtual Bank Accounts
       summary: Create a virtual bank account
-      description: |
-        Creates a virtual bank account for the specified account.
+      description: 'Creates a virtual bank account for the specified account.
+
 
         The client provides a display name, the fiat currency to receive (inCurrency), and the
-        target cryptocurrency for conversion. The backend will provision the appropriate bank
+
+        target cryptocurrency for conversion. The backend provisions the appropriate bank
+
         account based on the currency.
 
-        **Release 1**: Only EUR (EUR_SEPA) is supported.
 
-        **Future releases**: USD_WIRE, USD_ACH, USD_SWIFT, GBP_FPS, GBP_CHAPS, and other payment rails.
+        **Requires** the account to be KYC `VERIFIED`.
+
+
+        **Currently supported:** EUR (provisions a EUR_SEPA account returning IBAN/BIC).
+
+        '
       operationId: createVirtualBankAccount
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/AccountId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateVirtualBankAccountRequest'
+            example:
+              name: EUR Payouts
+              inCurrency: EUR
+              targetCryptocurrency: USDC
+              idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
       responses:
         '201':
           description: Virtual bank account created
@@ -844,6 +762,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SingleVirtualBankAccountResponse'
+              example:
+                success: true
+                result:
+                  id: 4d5e6f70-8192-4a3b-9c4d-5e6f7081920a
+                  accountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  bankAccountType: EUR_SEPA
+                  name: EUR Payouts
+                  status: ACTIVE
+                  currency: EUR
+                  targetCryptocurrency: USDC
+                  iban: DE89370400440532013000
+                  bic: DEUTDEDB
+                  bankName: Example Bank
+                  beneficiaryName: Jane Doe
+                  referenceCode: VFY-7K2Q-931
+                  createdAt: '2026-01-15T09:30:00'
+                  updatedAt: '2026-01-15T09:30:00'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -852,23 +787,19 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
         '409':
           $ref: '#/components/responses/Conflict'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
   /accounts/{accountId}/virtual-bank-accounts/{virtualBankAccountId}:
     get:
-      tags: [Virtual Bank Accounts]
+      tags:
+      - Virtual Bank Accounts
       summary: Get virtual bank account details
       operationId: getVirtualBankAccount
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - $ref: '#/components/parameters/VirtualBankAccountId'
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/VirtualBankAccountId'
       responses:
         '200':
           description: Virtual bank account details
@@ -876,42 +807,89 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SingleVirtualBankAccountResponse'
+              example:
+                success: true
+                result:
+                  id: 4d5e6f70-8192-4a3b-9c4d-5e6f7081920a
+                  accountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  bankAccountType: EUR_SEPA
+                  name: EUR Payouts
+                  status: ACTIVE
+                  currency: EUR
+                  targetCryptocurrency: USDC
+                  iban: DE89370400440532013000
+                  bic: DEUTDEDB
+                  bankName: Example Bank
+                  beneficiaryName: Jane Doe
+                  referenceCode: VFY-7K2Q-931
+                  createdAt: '2026-01-15T09:30:00'
+                  updatedAt: '2026-01-15T09:30:00'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-  # ==================== PAYMENT LINK ENDPOINTS ====================
-
-  /accounts/{accountId}/fiat-to-crypto/payment-links:
+  /accounts/{accountId}/fiat-to-crypto/payment-sessions:
     post:
-      tags: [Fiat-to-crypto Payment Links]
-      summary: Create a fiat-to-crypto payment link
-      operationId: createPaymentLink
+      tags:
+      - Fiat-to-crypto Payment Sessions
+      summary: Create a fiat-to-crypto payment session
+      description: 'Creates a hosted pay-in session. The response includes a `paymentUrl` to redirect
+        the
+
+        payer to; on completion the incoming fiat is converted to the chosen cryptocurrency and
+
+        credited to the account''s wallet. `callbackUrl` and a UUID `idempotencyKey` are required.
+
+        '
+      operationId: createPayInSession
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/AccountId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreatePaymentLinkRequest'
+              $ref: '#/components/schemas/CreatePayInSessionRequest'
+            example:
+              inAmount: '100.00'
+              inCurrency: EUR
+              outCryptocurrency: USDC
+              callbackUrl: https://example.com/webhooks/pay-in
+              successRedirectUrl: https://example.com/pay-in/success
+              failureRedirectUrl: https://example.com/pay-in/failure
+              externalRef: order-67890
+              idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
       responses:
         '201':
-          description: Payment link created
+          description: Payment session created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SinglePaymentLinkResponse'
+                $ref: '#/components/schemas/SinglePaymentSessionResponse'
+              example:
+                success: true
+                result:
+                  id: 5e6f7081-92a3-4b4c-8d5e-6f708192a3b4
+                  accountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  status: CREATED
+                  inAmount: 100
+                  inCurrency: EUR
+                  outCryptocurrency: USDC
+                  paymentUrl: https://pay.example.com/session/5e6f708192a3b4c8
+                  externalRef: order-67890
+                  walletId: 9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f
+                  blockchainTxId: null
+                  cancellable: true
+                  expiresAt: '2026-01-15T10:30:00Z'
+                  metadata:
+                    orderId: '67890'
+                  idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  createdAt: '2026-01-15T09:30:00'
+                  updatedAt: '2026-01-15T09:30:00'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -920,10 +898,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           description: Unsupported currency pair or KYC required
           content:
@@ -932,25 +906,33 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-  # ==================== PAYMENT REQUEST ENDPOINTS ====================
-
   /payment-requests:
     post:
-      tags: [Payment Requests]
+      tags:
+      - Payment Requests
       summary: Create payment request by card provider
-      description: |
-        Creates a payment request initiated by a card provider. This endpoint is used for card provider integrations
-        to create payment requests with card provider references.
+      description: 'Creates a payment request without an account ID in the path: the account is resolved
+        from `cardProviderReference` (`type` + `referenceId`), then funds are reserved from that account''s
+        wallet exactly as the per-account endpoint does. The nested `paymentRequest` body matches `CreatePaymentRequestInput`.
+
+        '
       operationId: createPaymentRequestByCardProvider
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CardProviderPaymentRequestInput'
+            example:
+              cardProviderReference:
+                type: paymentology
+                referenceId: ACC-12345
+              paymentRequest:
+                amount: 25
+                currency: USD
+                externalId: order-67890
+                description: 'Order #67890'
+                idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
       responses:
         '201':
           description: Payment request created
@@ -958,6 +940,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SinglePaymentRequestResponse'
+              example:
+                success: true
+                result:
+                  id: d4e5f6a7-b8c9-4012-8345-6789abcdef01
+                  accountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  amount:
+                    fiat: 25
+                    crypto: '25.000000'
+                  originalAmount:
+                    fiat: 25
+                    crypto: '25.000000'
+                  currency: USD
+                  externalId: order-67890
+                  description: 'Order #67890'
+                  status: RESERVED
+                  executions:
+                  - id: e5f6a7b8-c9d0-4123-9456-789abcdef012
+                    walletPairId: f6a7b8c9-d0e1-4234-a567-89abcdef0123
+                    type: AUTHORIZATION
+                    chain: BASE
+                    asset: USDC
+                    amount: 25
+                    exchangeRate: 1
+                    status: RESERVED
+                    transactionHash: '0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2'
+                    createdAt: '2026-01-15T09:30:00Z'
+                    updatedAt: '2026-01-15T09:30:02Z'
+                  createdAt: '2026-01-15T09:30:00Z'
+                  updatedAt: '2026-01-15T09:30:02Z'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -966,33 +977,197 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
   /accounts/{accountId}/payment-requests:
     post:
-      tags: [Payment Requests]
+      tags:
+      - Payment Requests
       summary: Create payment request for account
-      description: |
-        Creates a payment request for a specific account. Payment requests represent a request to settle
-        a payment using the account's crypto assets.
+      description: 'Creates a payment request for an account, reserving funds from its wallet for the
+        payment. The response returns `status: RESERVED`, moves the reserved amount into the wallet''s
+        `reserved` balance, and includes an `executions` array — each entry carrying its on-chain `transactionHash`.
+        Send a unique `idempotencyKey` per request.
+
+        '
       operationId: createPaymentRequest
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/AccountId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreatePaymentRequestInput'
+            example:
+              amount: 25
+              currency: USD
+              externalId: order-67890
+              description: 'Order #67890'
+              idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
       responses:
         '201':
           description: Payment request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SinglePaymentRequestResponse'
+              example:
+                success: true
+                result:
+                  id: d4e5f6a7-b8c9-4012-8345-6789abcdef01
+                  accountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  amount:
+                    fiat: 25
+                    crypto: '25.000000'
+                  originalAmount:
+                    fiat: 25
+                    crypto: '25.000000'
+                  currency: USD
+                  externalId: order-67890
+                  description: 'Order #67890'
+                  status: RESERVED
+                  executions:
+                  - id: e5f6a7b8-c9d0-4123-9456-789abcdef012
+                    walletPairId: f6a7b8c9-d0e1-4234-a567-89abcdef0123
+                    type: AUTHORIZATION
+                    chain: BASE
+                    asset: USDC
+                    amount: 25
+                    exchangeRate: 1
+                    status: RESERVED
+                    transactionHash: '0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2'
+                    createdAt: '2026-01-15T09:30:00Z'
+                    updatedAt: '2026-01-15T09:30:02Z'
+                  createdAt: '2026-01-15T09:30:00Z'
+                  updatedAt: '2026-01-15T09:30:02Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /payment-requests/{paymentRequestId}/settlements:
+    post:
+      tags:
+      - Payment Requests
+      summary: Settle a payment request
+      description: 'Finalises a payment request: the settled amount moves from escrow to the company''s
+        settlement wallet. The call returns immediately with `status: SETTLING` and the settlement `executions`
+        in `PENDING`; the request reaches its terminal `SETTLED` state once those transfers confirm on-chain.
+
+
+        `amount` is the final settlement figure in the authorized fiat `currency`, and the executions
+        follow from how it compares to the authorized amount:
+
+
+        - Equal to the authorized amount: one `SETTLEMENT` execution.
+
+        - Below the authorized amount: a `SETTLEMENT` plus a `REFUND` that returns the difference from
+        escrow to the account wallet.
+
+        - Above the authorized amount: the full escrow settles, plus a `SETTLEMENT_OVERAGE` that collects
+        the extra from the account wallet.
+
+
+        Pass a unique `idempotencyKey`. Sending the same key with the same body again returns the original
+        result.
+
+        '
+      operationId: settlePaymentRequest
+      parameters:
+      - $ref: '#/components/parameters/PaymentRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettlePaymentRequestInput'
+            example:
+              amount: 25
+              currency: USD
+              idempotencyKey: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+      responses:
+        '202':
+          description: Settlement accepted; on-chain processing is asynchronous
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SinglePaymentRequestResponse'
+              example:
+                success: true
+                result:
+                  id: d4e5f6a7-b8c9-4012-8345-6789abcdef01
+                  accountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  amount:
+                    fiat: 25
+                    crypto: '25.000000'
+                  settlementAmount:
+                    fiat: 25
+                    crypto: '25.000000'
+                  currency: USD
+                  externalId: order-67890
+                  status: SETTLING
+                  executions:
+                  - id: a7b8c9d0-e1f2-4345-b678-9abcdef01234
+                    walletPairId: f6a7b8c9-d0e1-4234-a567-89abcdef0123
+                    type: SETTLEMENT
+                    chain: BASE
+                    asset: USDC
+                    amount: 25
+                    exchangeRate: 1
+                    status: PENDING
+                    createdAt: '2026-01-15T10:00:00Z'
+                    updatedAt: '2026-01-15T10:00:00Z'
+                  createdAt: '2026-01-15T09:30:00Z'
+                  updatedAt: '2026-01-15T10:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /payment-requests/settlements:
+    post:
+      tags:
+      - Payment Requests
+      summary: Settle a payment request by card-provider reference
+      description: 'Settles a payment request identified by its card-provider reference instead of a path
+        ID: the request is located from `paymentRequestReference.cardProviderReference` (`type` + `referenceId`)
+        and its `externalId`. Behaviour and response match [settle a payment request](#operation/settlePaymentRequest).
+
+        '
+      operationId: settlePaymentRequestByReference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettlePaymentRequestByReferenceInput'
+            example:
+              paymentRequestReference:
+                cardProviderReference:
+                  type: paymentology
+                  referenceId: ACC-12345
+                externalId: TID-67890
+              amount: 25
+              currency: USD
+              idempotencyKey: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+      responses:
+        '202':
+          description: Settlement accepted; on-chain processing is asynchronous
           content:
             application/json:
               schema:
@@ -1005,38 +1180,249 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /payment-requests/{paymentRequestId}/reversal:
+    post:
+      tags:
+      - Payment Requests
+      summary: Reverse a payment request
+      description: 'Unwinds a payment request and returns the entire escrow balance to the account wallet.
+        The call returns `status: REVERSING` with a `PENDING` `REVERSAL` execution; the request becomes
+        `REVERSED` once that transfer confirms on-chain. `REVERSED` is a final state, and `reason` is
+        recorded on the request.
 
-  # ==================== TRANSFER ENDPOINTS ====================
 
+        Pass a unique `idempotencyKey`. Sending the same key with the same body again returns the original
+        result.
+
+        '
+      operationId: reversePaymentRequest
+      parameters:
+      - $ref: '#/components/parameters/PaymentRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReversePaymentRequestInput'
+            example:
+              reason: CUSTOMER_CANCELLATION
+              description: Customer requested cancellation
+              idempotencyKey: 1b4e28ba-2fa1-11d2-883f-0016d3cca427
+      responses:
+        '202':
+          description: Reversal accepted; on-chain processing is asynchronous
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SinglePaymentRequestResponse'
+              example:
+                success: true
+                result:
+                  id: d4e5f6a7-b8c9-4012-8345-6789abcdef01
+                  accountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  amount:
+                    fiat: 25
+                    crypto: '25.000000'
+                  currency: USD
+                  status: REVERSING
+                  reversalReason: CUSTOMER_CANCELLATION
+                  reversalDescription: Customer requested cancellation
+                  executions:
+                  - id: b8c9d0e1-f2a3-4456-c789-abcdef012345
+                    walletPairId: f6a7b8c9-d0e1-4234-a567-89abcdef0123
+                    type: REVERSAL
+                    chain: BASE
+                    asset: USDC
+                    amount: 25
+                    exchangeRate: 1
+                    status: PENDING
+                    createdAt: '2026-01-15T10:05:00Z'
+                    updatedAt: '2026-01-15T10:05:00Z'
+                  createdAt: '2026-01-15T09:30:00Z'
+                  updatedAt: '2026-01-15T10:05:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /payment-requests/reversals:
+    post:
+      tags:
+      - Payment Requests
+      summary: Reverse a payment request by card-provider reference
+      description: 'Reverses a payment request identified by its card-provider reference instead of a
+        path ID: the request is located from `paymentRequestReference.cardProviderReference` (`type` +
+        `referenceId`) and its `externalId`. Behaviour and response match [reverse a payment request](#operation/reversePaymentRequest).
+
+        '
+      operationId: reversePaymentRequestByReference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReversePaymentRequestByReferenceInput'
+            example:
+              paymentRequestReference:
+                cardProviderReference:
+                  type: paymentology
+                  referenceId: ACC-12345
+                externalId: TID-67890
+              reason: NETWORK_DECLINE
+              description: Scheme declined after issuer approval
+              idempotencyKey: 1b4e28ba-2fa1-11d2-883f-0016d3cca427
+      responses:
+        '202':
+          description: Reversal accepted; on-chain processing is asynchronous
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SinglePaymentRequestResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /payment-requests/{paymentRequestId}:
+    patch:
+      tags:
+      - Payment Requests
+      summary: Update the authorized amount of a payment request
+      description: 'Sets a new absolute authorized `amount` on a payment request. The execution that runs
+        depends on how the new amount compares to the current one:
+
+
+        - A lower amount releases the difference from escrow back to the account wallet via an `AUTHORIZATION_ADJUSTMENT`
+        execution.
+
+        - A higher amount pulls the additional funds from the account wallet into escrow via an `INCREMENTAL_AUTHORIZATION`
+        execution.
+
+
+        The request keeps `status: RESERVED`, `amount` reflects the new value, and `originalAmount` preserves
+        the amount set at creation. Pass a unique `idempotencyKey`.
+
+        '
+      operationId: updatePaymentRequest
+      parameters:
+      - $ref: '#/components/parameters/PaymentRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePaymentRequestInput'
+            example:
+              amount: 20
+              currency: USD
+              idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+      responses:
+        '200':
+          description: Amount adjustment accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SinglePaymentRequestResponse'
+              example:
+                success: true
+                result:
+                  id: d4e5f6a7-b8c9-4012-8345-6789abcdef01
+                  accountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  amount:
+                    fiat: 20
+                    crypto: '20.000000'
+                  originalAmount:
+                    fiat: 25
+                    crypto: '25.000000'
+                  currency: USD
+                  status: RESERVED
+                  executions:
+                  - id: c9d0e1f2-a3b4-4567-d89a-bcdef0123456
+                    walletPairId: f6a7b8c9-d0e1-4234-a567-89abcdef0123
+                    type: AUTHORIZATION_ADJUSTMENT
+                    chain: BASE
+                    asset: USDC
+                    amount: 5
+                    exchangeRate: 1
+                    status: PENDING
+                    createdAt: '2026-01-15T09:45:00Z'
+                    updatedAt: '2026-01-15T09:45:00Z'
+                  createdAt: '2026-01-15T09:30:00Z'
+                  updatedAt: '2026-01-15T09:45:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
   /accounts/{senderAccountId}/transfers/fiat:
     post:
-      tags: [Transfers]
+      tags:
+      - Transfers
       summary: Create fiat transfer
-      description: |
-        Creates a fiat-to-crypto transfer from the sender account to a receiver account.
-        The fiat amount is converted to cryptocurrency and transferred.
+      description: 'Creates a fiat-denominated transfer from the sender account to a receiver account.
+
+        The fiat amount is resolved to the underlying crypto asset and settled on-chain; the
+
+        response carries a `fiatOrigin` block with the original currency, amount and exchange rate.
+
+        '
       operationId: createFiatTransfer
       parameters:
-        - name: senderAccountId
-          in: path
-          required: true
-          description: The account ID initiating the transfer
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - name: senderAccountId
+        in: path
+        required: true
+        description: The account ID initiating the transfer
+        schema:
+          type: string
+          format: uuid
+        example: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateFiatTransferInput'
+            example:
+              receiverAccountId: c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60
+              currency: USD
+              amount: 25
+              description: Invoice settlement
+              idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
       responses:
         '201':
           description: Fiat transfer created
@@ -1044,6 +1430,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SingleTransferResponse'
+              example:
+                success: true
+                result:
+                  id: a1b2c3d4-e5f6-4789-9abc-def012345678
+                  senderAccountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  receiverAccountId: c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60
+                  chain: BASE
+                  asset: USDC
+                  amount: 25
+                  fiatOrigin:
+                    currency: USD
+                    amount: 25
+                    exchangeRate: 1
+                  description: Invoice settlement
+                  idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  status: COMPLETED
+                  transactionHash: '0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2'
+                  createdAt: '2026-01-15T09:30:00Z'
+                  updatedAt: '2026-01-15T09:30:02Z'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1052,36 +1457,49 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          description: Validation failed (e.g. receiver KYC not verified, insufficient balance)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
   /accounts/{senderAccountId}/transfers/crypto:
     post:
-      tags: [Transfers]
+      tags:
+      - Transfers
       summary: Create crypto transfer
-      description: |
-        Creates a cryptocurrency transfer from the sender account to a receiver account.
-        Transfers crypto assets directly between accounts on the specified blockchain.
+      description: 'Creates a cryptocurrency transfer from the sender account to a receiver account,
+
+        moving crypto assets directly between accounts on the specified blockchain.
+
+        Retries with the same `idempotencyKey` return the original transfer (no double-spend).
+
+        '
       operationId: createCryptoTransfer
       parameters:
-        - name: senderAccountId
-          in: path
-          required: true
-          description: The account ID initiating the transfer
-          schema:
-            type: string
-            format: uuid
-        - $ref: '#/components/parameters/IdempotencyKey'
+      - name: senderAccountId
+        in: path
+        required: true
+        description: The account ID initiating the transfer
+        schema:
+          type: string
+          format: uuid
+        example: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateCryptoTransferInput'
+            example:
+              receiverAccountId: c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60
+              chain: BASE
+              asset: USDC
+              amount: 25
+              description: Invoice settlement
+              idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
       responses:
         '201':
           description: Crypto transfer created
@@ -1089,6 +1507,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SingleTransferResponse'
+              example:
+                success: true
+                result:
+                  id: a1b2c3d4-e5f6-4789-9abc-def012345678
+                  senderAccountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  receiverAccountId: c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60
+                  chain: BASE
+                  asset: USDC
+                  amount: 25
+                  description: Invoice settlement
+                  idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  status: COMPLETED
+                  transactionHash: '0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2'
+                  createdAt: '2026-01-15T09:30:00Z'
+                  updatedAt: '2026-01-15T09:30:02Z'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1097,38 +1530,47 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          description: Validation failed (e.g. receiver KYC not verified, insufficient balance/allowance)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
   /accounts/{accountId}/transfers:
     get:
-      tags: [Transfers]
+      tags:
+      - Transfers
       summary: List transfers for account
-      description: |
-        Retrieves all transfers associated with an account. Can filter by account role (sender/receiver)
-        and transfer status.
+      description: 'Retrieves all transfers associated with an account (both sent and received, fiat and
+        crypto).
+
+        Can filter by account role (sender/receiver) and transfer status.
+
+        '
       operationId: listTransfers
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - name: accountRole
-          in: query
-          description: Filter by account role in the transfer
-          schema:
-            type: string
-            enum: [SENDER, RECEIVER]
-        - name: status
-          in: query
-          description: Filter by transfer status
-          schema:
-            $ref: '#/components/schemas/TransferStatus'
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - $ref: '#/components/parameters/SortOn'
-        - $ref: '#/components/parameters/SortOrder'
+      - $ref: '#/components/parameters/AccountId'
+      - name: accountRole
+        in: query
+        description: Filter by the account's role in the transfer
+        schema:
+          type: string
+          enum:
+          - SENDER
+          - RECEIVER
+        example: SENDER
+      - name: status
+        in: query
+        description: Filter by transfer status
+        schema:
+          $ref: '#/components/schemas/TransferStatus'
+        example: COMPLETED
+      - $ref: '#/components/parameters/SortOn'
+      - $ref: '#/components/parameters/SortOrder'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
       responses:
         '200':
           description: List of transfers
@@ -1136,6 +1578,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TransferListResponse'
+              example:
+                success: true
+                result:
+                - id: a1b2c3d4-e5f6-4789-9abc-def012345678
+                  senderAccountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  receiverAccountId: c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60
+                  chain: BASE
+                  asset: USDC
+                  amount: 25
+                  description: Invoice settlement
+                  idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  status: COMPLETED
+                  transactionHash: '0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2'
+                  createdAt: '2026-01-15T09:30:00Z'
+                  updatedAt: '2026-01-15T09:30:02Z'
+                - id: b2c3d4e5-f6a7-4890-abcd-ef0123456789
+                  senderAccountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  receiverAccountId: c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60
+                  chain: BASE
+                  asset: USDC
+                  amount: 10
+                  description: Invoice settlement
+                  idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  status: COMPLETED
+                  transactionHash: '0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2'
+                  createdAt: '2026-01-15T09:30:00Z'
+                  updatedAt: '2026-01-15T09:30:02Z'
+                pagination:
+                  pageNumber: 1
+                  pageSize: 20
+                  numberOfElements: 2
+                  numberOfPages: 1
+                  hasNextPage: false
+                  hasPreviousPage: false
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1144,29 +1620,29 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
   /accounts/{accountId}/transfers/{transferId}:
     get:
-      tags: [Transfers]
+      tags:
+      - Transfers
       summary: Get transfer details
-      description: |
-        Retrieves detailed information about a specific transfer.
+      description: 'Retrieves detailed information about a specific transfer. The account must be the
+
+        sender or receiver of the transfer, otherwise a 404 is returned.
+
+        '
       operationId: getTransfer
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - name: transferId
-          in: path
-          required: true
-          description: The transfer ID
-          schema:
-            type: string
-            format: uuid
+      - $ref: '#/components/parameters/AccountId'
+      - name: transferId
+        in: path
+        required: true
+        description: The transfer ID
+        schema:
+          type: string
+          format: uuid
+        example: a1b2c3d4-e5f6-4789-9abc-def012345678
       responses:
         '200':
           description: Transfer details
@@ -1174,6 +1650,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SingleTransferResponse'
+              example:
+                success: true
+                result:
+                  id: a1b2c3d4-e5f6-4789-9abc-def012345678
+                  senderAccountId: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                  receiverAccountId: c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60
+                  chain: BASE
+                  asset: USDC
+                  amount: 25
+                  description: Invoice settlement
+                  idempotencyKey: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  status: COMPLETED
+                  transactionHash: '0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2'
+                  createdAt: '2026-01-15T09:30:00Z'
+                  updatedAt: '2026-01-15T09:30:02Z'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1182,26 +1673,30 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-  # ==================== PERMIT ENDPOINTS ====================
-
   /accounts/{accountId}/wallets/{walletId}/permits:
     get:
-      tags: [Permits]
+      tags:
+      - Permits
       summary: Get permit messages for wallet
-      description: |
-        Retrieves EIP-712 typed permit messages for a wallet. These messages can be signed by the wallet owner
-        to grant token spending permissions without requiring an on-chain transaction.
+      description: 'Retrieves the EIP-712 permit messages a self-custody wallet must sign to grant the
+        orchestration wallet an allowance. Returns one entry per supported asset, each with a `supportedAssetId`
+        and the `typedData` to sign.
+
+
+        Sign `typedData` with the wallet **owner''s** key (the signature must recover to `owner`), then
+        submit it via POST.
+
+
+        **Note:** Applies to SELF_CUSTODY companies only — VENLY_MANAGED wallets (and all escrow wallets)
+        are permitted automatically by Venly.
+
+        '
       operationId: getPermitMessages
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - $ref: '#/components/parameters/WalletId'
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/WalletId'
       responses:
         '200':
           description: List of permit messages
@@ -1209,6 +1704,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PermitMessageListResponse'
+              example:
+                success: true
+                result:
+                - supportedAssetId: aabbccdd-1122-4334-9556-7788990011ab
+                  asset: USDC
+                  contractAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
+                  status: CONFIRMED
+                  typedData:
+                    types:
+                      EIP712Domain:
+                      - name: name
+                        type: string
+                      - name: version
+                        type: string
+                      - name: chainId
+                        type: uint256
+                      - name: verifyingContract
+                        type: address
+                      Permit:
+                      - name: owner
+                        type: address
+                      - name: spender
+                        type: address
+                      - name: value
+                        type: uint256
+                      - name: nonce
+                        type: uint256
+                      - name: deadline
+                        type: uint256
+                    primaryType: Permit
+                    domain:
+                      name: USDC
+                      version: '2'
+                      chainId: 84532
+                      verifyingContract: '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
+                    message:
+                      owner: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F'
+                      spender: '0x5B38Da6a701c568545dCfcB03FcB875f56beddC4'
+                      value: '115792089237316195423570985008687907853269984665640564039457584007913129639935'
+                      nonce: 0
+                      deadline: '4102444800'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1217,30 +1753,39 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
     post:
-      tags: [Permits]
+      tags:
+      - Permits
       summary: Submit signed permit
-      description: |
-        Submits a signed EIP-712 permit message to grant token spending permissions.
-        The permit allows the platform to spend tokens on behalf of the wallet without requiring
-        a separate approval transaction.
+      description: 'Submits a signed EIP-712 permit for on-chain execution by the orchestration wallet
+        (which pays the gas). The signature **must recover to the wallet `owner`** — otherwise the permit
+        settles as `FAILED`.
+
+
+        Returns HTTP 200 with the permit `status`: `SUBMITTED` while it settles on-chain, then `CONFIRMED`.
+        Poll `GET .../permits` for the transition. When all of a wallet''s permits are `CONFIRMED`, the
+        wallet becomes `ACTIVE` and can send transfers/payments. Re-submitting an already-confirmed permit
+        returns `409`.
+
+        '
       operationId: submitPermit
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - $ref: '#/components/parameters/WalletId'
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/WalletId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/SubmitPermitRequest'
+            example:
+              supportedAssetId: aabbccdd-1122-4334-9556-7788990011ab
+              signature:
+                v: '28'
+                r: '0x1111111111111111111111111111111111111111111111111111111111111111'
+                s: '0x2222222222222222222222222222222222222222222222222222222222222222'
       responses:
         '200':
           description: Permit submitted successfully
@@ -1248,6 +1793,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SinglePermitResultResponse'
+              example:
+                success: true
+                result:
+                  id: 11aa22bb-33cc-4dd4-9ee5-66ff77aa88bb
+                  supportedAssetId: aabbccdd-1122-4334-9556-7788990011ab
+                  asset: USDC
+                  contractAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
+                  status: SUBMITTED
+                  permitTxId: 0a9f8e7d-6c5b-4a39-8271-6a5b4c3d2e1f
+                  skipped: false
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1256,32 +1811,34 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-  # ==================== ALLOWANCE ENDPOINTS ====================
-
   /accounts/{accountId}/wallets/{walletId}/allowances:
     get:
-      tags: [Allowances]
+      tags:
+      - Allowances
       summary: Get wallet token allowances
-      description: |
-        Retrieves the current token allowances for a wallet. Shows which tokens have been approved
+      description: 'Retrieves the current token allowances for a wallet — which tokens have been approved
+
         for spending by the orchestration wallet and the approved amounts.
+
+
+        **Note:** Allowances apply to SELF_CUSTODY companies only.
+
+        '
       operationId: getWalletAllowances
       parameters:
-        - $ref: '#/components/parameters/AccountId'
-        - $ref: '#/components/parameters/WalletId'
-        - name: asset
-          in: query
-          description: Filter by specific asset
-          required: false
-          schema:
-            type: string
+      - $ref: '#/components/parameters/AccountId'
+      - $ref: '#/components/parameters/WalletId'
+      - name: asset
+        in: query
+        description: Filter by a specific asset (e.g. USDC)
+        required: false
+        schema:
+          type: string
+        example: USDC
       responses:
         '200':
           description: List of token allowances
@@ -1289,6 +1846,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AllowanceListResponse'
+              example:
+                success: true
+                result:
+                - asset:
+                    name: USDC
+                    contractAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e'
+                    decimals: 6
+                  allowance: '100.000000'
+                  orchestrationWallet: '0x5B38Da6a701c568545dCfcB03FcB875f56beddC4'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1297,96 +1863,23 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
         '500':
           $ref: '#/components/responses/InternalServerError'
-
-  # ==================== ACCOUNT-TO-ACCOUNT TRANSFER ENDPOINTS ====================
-
-  /account-to-account-transfers:
-    get:
-      tags:
-        - Account-to-Account Transfers
-      summary: List account-to-account transfers
-      operationId: listAccountToAccountTransfers
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - name: sourceAccountId
-          in: query
-          schema:
-            type: string
-            format: uuid
-        - name: destinationAccountId
-          in: query
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: List of account-to-account transfers
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccountToAccountTransferListResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-    post:
-      tags:
-        - Account-to-Account Transfers
-      summary: Create an account-to-account transfer
-      operationId: createAccountToAccountTransfer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateAccountToAccountTransferRequest'
-      responses:
-        '201':
-          description: Account-to-account transfer created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SingleAccountToAccountTransferResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '405':
-          $ref: '#/components/responses/MethodNotAllowed'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
 components:
   securitySchemes:
     OAuth2:
       type: oauth2
+      description: 'OAuth2 client credentials flow. Token endpoints:
+
+        - Staging: https://login-staging.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token
+
+        - Production: https://login.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token
+
+        '
       flows:
         clientCredentials:
-          tokenUrl: https://login.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token
+          tokenUrl: https://login-staging.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token
           scopes: {}
-
   parameters:
     PartyId:
       name: partyId
@@ -1396,23 +1889,34 @@ components:
       schema:
         type: string
         format: uuid
-
+      example: 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
     AccountId:
       name: accountId
       in: path
       required: true
+      description: Unique account identifier
       schema:
         type: string
         format: uuid
-
+      example: b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+    PaymentRequestId:
+      name: paymentRequestId
+      in: path
+      required: true
+      description: Unique payment request identifier
+      schema:
+        type: string
+        format: uuid
+      example: d4e5f6a7-b8c9-4012-8345-6789abcdef01
     WalletId:
       name: walletId
       in: path
       required: true
+      description: Unique wallet identifier
       schema:
         type: string
         format: uuid
-
+      example: 9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f
     VirtualBankAccountId:
       name: virtualBankAccountId
       in: path
@@ -1421,7 +1925,7 @@ components:
       schema:
         type: string
         format: uuid
-
+      example: 4d5e6f70-8192-4a3b-9c4d-5e6f7081920a
     Page:
       name: page
       in: query
@@ -1433,7 +1937,6 @@ components:
         default: 1
         minimum: 1
       example: 1
-
     Size:
       name: size
       in: query
@@ -1444,8 +1947,7 @@ components:
         format: int32
         default: 100
         minimum: 1
-      example: 100
-
+      example: 20
     SortOn:
       name: sortOn
       in: query
@@ -1454,7 +1956,7 @@ components:
       schema:
         type: string
         default: createdAt
-
+      example: createdAt
     SortOrder:
       name: sortOrder
       in: query
@@ -1464,17 +1966,9 @@ components:
         type: string
         default: ASC
         enum:
-          - ASC
-          - DESC
-
-    IdempotencyKey:
-      name: Idempotency-Key
-      in: header
-      description: Unique key for idempotent requests (UUID recommended)
-      schema:
-        type: string
-        format: uuid
-
+        - ASC
+        - DESC
+      example: DESC
   responses:
     BadRequest:
       description: Request validation failed (400)
@@ -1485,9 +1979,8 @@ components:
           example:
             success: false
             errors:
-              - code: VALIDATION_ERROR
-                message: "The request contains invalid parameters."
-
+            - code: invalid-request
+              message: The request contains invalid parameters.
     Unauthorized:
       description: Authentication required or failed (401)
       content:
@@ -1497,11 +1990,10 @@ components:
           example:
             success: false
             errors:
-              - code: UNAUTHORIZED
-                message: "Missing or invalid authentication token."
-
+            - code: unauthenticated
+              message: Please authenticate to perform this action.
     Forbidden:
-      description: User lacks required permissions (403)
+      description: Caller lacks the required authority/role (403)
       content:
         application/json:
           schema:
@@ -1509,9 +2001,8 @@ components:
           example:
             success: false
             errors:
-              - code: FORBIDDEN
-                message: "User does not have permission to access this resource."
-
+            - code: forbidden
+              message: You do not have permission to access this resource.
     NotFound:
       description: Resource not found (404)
       content:
@@ -1521,23 +2012,10 @@ components:
           example:
             success: false
             errors:
-              - code: NOT_FOUND
-                message: "The requested resource was not found."
-
-    MethodNotAllowed:
-      description: HTTP method not supported (405)
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            success: false
-            errors:
-              - code: METHOD_NOT_SUPPORTED
-                message: "HttpMethod is not supported. Supported methods are [GET, POST]."
-
+            - code: account-not-found
+              message: The requested resource was not found.
     Conflict:
-      description: Resource conflict (409)
+      description: Resource conflict / optimistic-lock failure (409)
       content:
         application/json:
           schema:
@@ -1545,11 +2023,10 @@ components:
           example:
             success: false
             errors:
-              - code: CONFLICT
-                message: "A resource with the specified identifier already exists."
-
-    UnsupportedMediaType:
-      description: Request body is not valid JSON or wrong media type (415)
+            - code: concurrent-modification
+              message: This request has been modified by another user. Please refresh and try again.
+    PaymentRequired:
+      description: Funds or allowance insufficient to complete the operation (402)
       content:
         application/json:
           schema:
@@ -1557,24 +2034,11 @@ components:
           example:
             success: false
             errors:
-              - code: INVALID_MEDIA_TYPE
-                message: "Request must be application/json."
-
-    TooManyRequests:
-      description: Rate limit exceeded (429)
-      headers:
-        Retry-After:
-          schema:
-            type: integer
-        X-RateLimit-Limit:
-          schema:
-            type: integer
-        X-RateLimit-Remaining:
-          schema:
-            type: integer
-        X-RateLimit-Reset:
-          schema:
-            type: integer
+            - code: insufficient-funds
+              message: The account wallet balance is insufficient to complete this operation.
+    UnprocessableEntity:
+      description: Idempotency conflict — the key was reused with a different body, or replays an operation
+        that originally failed (422)
       content:
         application/json:
           schema:
@@ -1582,9 +2046,8 @@ components:
           example:
             success: false
             errors:
-              - code: RATE_LIMITED
-                message: "Too many requests. Please retry after the specified time."
-
+            - code: idempotency-conflict
+              message: This idempotency key was already used with a different request.
     InternalServerError:
       description: Unexpected server error (500)
       content:
@@ -1594,93 +2057,186 @@ components:
           example:
             success: false
             errors:
-              - code: INTERNAL_SERVER_ERROR
-                message: "An unexpected error occurred. Please try again later."
-
+            - code: internal-error
+              message: An unexpected error occurred. Please try again later.
   schemas:
-    # ==================== ENUMS ====================
-
     PartyType:
       type: string
       description: Type of party
-      enum: [INDIVIDUAL, ORGANISATION]
-
+      enum:
+      - INDIVIDUAL
+      - ORGANISATION
     PartyStatus:
       type: string
       description: Status of a party
-      enum: [ACTIVE, SUSPENDED, BLOCKED]
-
+      enum:
+      - ACTIVE
+      - SUSPENDED
+      - BLOCKED
     PartyRoleType:
       type: string
-      description: Role type for party-account relationship
-      enum: [ACCOUNT_HOLDER]
-
+      description: Role type for the party-account relationship
+      enum:
+      - ACCOUNT_HOLDER
     PartyRoleStatus:
       type: string
       description: Status of a party role
-      enum: [ACTIVE, INACTIVE]
-
+      enum:
+      - ACTIVE
+      - INACTIVE
     AccountStatus:
       type: string
-      enum: [ACTIVE, SUSPENDED, BLOCKED]
-
-    WalletStatus:
+      description: Status of an account
+      enum:
+      - ACTIVE
+      - SUSPENDED
+      - CLOSED
+    WalletType:
       type: string
-      enum: [ACTIVE, SUSPENDED, BLOCKED]
-
+      description: Custody model of the wallet
+      enum:
+      - VENLY_MANAGED
+      - SELF_CUSTODY
     VirtualBankAccountStatus:
       type: string
-      enum: [ACTIVE, EXPIRED, SUSPENDED]
+      description: Status of a virtual bank account
+      enum:
+      - ACTIVE
+      - CLOSED
+    BankAccountType:
+      type: string
+      description: 'Type of bank account, determining the payment rails.
 
+        Currently only EUR_SEPA is provisioned. Future rails (USD_WIRE, USD_ACH, GBP_FPS, …)
+
+        will be added in later releases.
+
+        '
+      enum:
+      - EUR_SEPA
     BlockchainNetwork:
       type: string
-      description: 'Supported blockchain networks for Finance API. Sourced from live /v3/api-docs (2026-04-25).'
-      enum: [AVALANCHE, BASE, SOLANA]
-
+      description: Supported blockchain network
+      enum:
+      - AVALANCHE
+      - BASE
+      - POLYGON
     Cryptocurrency:
       type: string
-      enum: [USDC, EURC, USDT]
-
+      description: Supported cryptocurrency / stablecoin asset
+      enum:
+      - USDC
+      - EURC
+      - USDT
+      - USDS
     FiatCurrency:
       type: string
-      description: Supported fiat currencies. For virtual bank accounts in Release 1, only EUR is supported.
-      enum: [EUR, GBP, USD]
-
+      description: Supported fiat currencies. Virtual bank accounts currently support EUR only.
+      enum:
+      - EUR
+      - GBP
+      - USD
     KycStatus:
       type: string
-      enum: [PENDING, IN_PROGRESS, VERIFIED, REJECTED, MANUAL_REVIEW]
-
-    KycLevel:
-      type: string
-      enum: [NONE, BASIC, STANDARD, ENHANCED, FULL]
-
-    PaymentLinkStatus:
-      type: string
+      description: KYC verification status (Individuals & accounts)
       enum:
-        - CREATED
-        - PENDING_PAYMENT
-        - PAYMENT_RECEIVED
-        - CONVERTING
-        - MINTING
-        - COMPLETED
-        - FAILED
-        - EXPIRED
-        - CANCELLED
-        - REFUNDING
-        - REFUNDED
-
-    # ==================== BASE SCHEMAS ====================
-
+      - VERIFICATION_PENDING
+      - VERIFIED
+      - REJECTED
+    KybStatus:
+      type: string
+      description: KYB verification status (Organisations)
+      enum:
+      - PENDING
+      - VERIFIED
+      - DENIED
+    AmlStatus:
+      type: string
+      description: AML screening status of a wallet
+      enum:
+      - PENDING
+      - APPROVED
+      - REJECTED
+    TransferStatus:
+      type: string
+      description: Status of a transfer
+      enum:
+      - PENDING
+      - COMPLETED
+      - FAILED
+    PaymentRequestStatus:
+      type: string
+      description: Status of a payment request
+      enum:
+      - PENDING
+      - RESERVED
+      - SETTLING
+      - SETTLED
+      - SETTLED_WITH_SHORTFALL
+      - REVERSING
+      - REVERSED
+      - FAILED
+    PaymentExecutionStatus:
+      type: string
+      description: Status of a single payment-request execution
+      enum:
+      - PENDING
+      - RESERVED
+      - SETTLED
+      - REVERSED
+      - FAILED
+    PaymentExecutionType:
+      type: string
+      description: The role an execution plays in a payment request's lifecycle.
+      enum:
+      - AUTHORIZATION
+      - INCREMENTAL_AUTHORIZATION
+      - AUTHORIZATION_ADJUSTMENT
+      - SETTLEMENT
+      - SETTLEMENT_OVERAGE
+      - REFUND
+      - REVERSAL
+    ReversalReason:
+      type: string
+      description: Why a payment request was reversed (recorded for audit).
+      enum:
+      - CUSTOMER_CANCELLATION
+      - MERCHANT_VOID
+      - ACQUIRER_FAILURE
+      - NETWORK_DECLINE
+      - OTHER
+    PermitStatus:
+      type: string
+      description: Status of an EIP-712 permit
+      enum:
+      - PENDING
+      - SUBMITTED
+      - CONFIRMED
+      - FAILED
+    PaymentSessionStatus:
+      type: string
+      description: Status of a fiat-to-crypto payment session
+      enum:
+      - CREATED
+      - PENDING_PAYMENT
+      - PAYMENT_RECEIVED
+      - CONVERTING
+      - MINTING
+      - COMPLETED
+      - FAILED
+      - EXPIRED
+      - CANCELLED
+      - REFUNDING
+      - REFUNDED
     BaseResponse:
       type: object
       properties:
         success:
           type: boolean
           description: Indicates whether the request was successful
-
     Pagination:
       type: object
-      description: Pagination metadata
+      description: Pagination metadata (top-level sibling of `result`)
       properties:
         pageNumber:
           type: integer
@@ -1700,41 +2256,17 @@ components:
           description: Total number of pages
         hasNextPage:
           type: boolean
-          description: Whether there's a next page
+          description: Whether there is a next page
         hasPreviousPage:
           type: boolean
-          description: Whether there's a previous page
-
-    Sort:
-      type: object
-      description: Sort configuration
-      properties:
-        orders:
-          type: array
-          items:
-            $ref: '#/components/schemas/SortOrderItem'
-
-    SortOrderItem:
-      type: object
-      properties:
-        weight:
-          type: integer
-          format: int32
-        property:
-          type: string
-        direction:
-          type: string
-          enum:
-            - ASC
-            - DESC
-
+          description: Whether there is a previous page
     ErrorResponse:
       type: object
       description: Error response wrapper
       properties:
         success:
           type: boolean
-          description: Indicates whether the request was successful
+          description: Always false for error responses
           example: false
         errors:
           type: array
@@ -1744,8 +2276,7 @@ components:
         result:
           type: object
           nullable: true
-          description: Present only if success == true. Set to null or omitted when success == false.
-
+          description: Null or omitted when success is false
     ErrorBody:
       type: object
       description: Individual error details
@@ -1753,411 +2284,14 @@ components:
         code:
           type: string
           description: Machine-readable error code
-          example: "VALIDATION_ERROR"
+          example: invalid-request
         message:
           type: string
           description: Human-readable error message
-          example: "The request contains invalid parameters."
-        traceCode:
-          type: string
-          description: Unique identifier for tracing the error in logs
-
-    # ==================== PARTY SCHEMAS ====================
-
-    Party:
-      type: object
-      description: |
-        A party represents an Individual or Organisation that can hold accounts.
-        The partyType field determines which additional fields are present.
-      properties:
-        id:
-          type: string
-          format: uuid
-        externalId:
-          type: string
-          description: External reference ID
-        partyType:
-          $ref: '#/components/schemas/PartyType'
-        status:
-          $ref: '#/components/schemas/PartyStatus'
-        # Individual fields
-        firstName:
-          type: string
-          description: First name (Individual only)
-        lastName:
-          type: string
-          description: Last name (Individual only)
-        kycStatus:
-          $ref: '#/components/schemas/KycStatus'
-        # Organisation fields
-        name:
-          type: string
-          description: Organisation name (Organisation only)
-        vatNumber:
-          type: string
-          description: VAT number (Organisation only)
-        kybStatus:
-          $ref: '#/components/schemas/KycStatus'
-        # Common fields
-        address:
-          $ref: '#/components/schemas/Address'
-
-    CreatePartyRequest:
-      type: object
-      required: [partyType]
-      discriminator:
-        propertyName: partyType
-        mapping:
-          INDIVIDUAL: '#/components/schemas/CreateIndividualPartyRequest'
-          ORGANISATION: '#/components/schemas/CreateOrganisationPartyRequest'
-      properties:
-        partyType:
-          $ref: '#/components/schemas/PartyType'
-        externalId:
-          type: string
-          maxLength: 255
-          description: Optional external reference ID
-        address:
-          $ref: '#/components/schemas/Address'
-      oneOf:
-        - $ref: '#/components/schemas/CreateIndividualPartyRequest'
-        - $ref: '#/components/schemas/CreateOrganisationPartyRequest'
-
-    CreateIndividualPartyRequest:
-      allOf:
-        - type: object
-          required:
-            - partyType
-            - firstName
-            - lastName
-          properties:
-            partyType:
-              type: string
-              enum: [INDIVIDUAL]
-            externalId:
-              type: string
-              maxLength: 255
-            firstName:
-              type: string
-              maxLength: 100
-            lastName:
-              type: string
-              maxLength: 100
-            address:
-              $ref: '#/components/schemas/Address'
-      example:
-        partyType: INDIVIDUAL
-        firstName: "John"
-        lastName: "Doe"
-        address:
-          addressLine1: "123 Main Street"
-          city: "Amsterdam"
-          postalCode: "1012AB"
-          country: "NL"
-
-    CreateOrganisationPartyRequest:
-      allOf:
-        - type: object
-          required:
-            - partyType
-            - name
-          properties:
-            partyType:
-              type: string
-              enum: [ORGANISATION]
-            externalId:
-              type: string
-              maxLength: 255
-            name:
-              type: string
-              maxLength: 255
-              description: Organisation name
-            vatNumber:
-              type: string
-              maxLength: 50
-            address:
-              $ref: '#/components/schemas/Address'
-      example:
-        partyType: ORGANISATION
-        name: "Acme Corporation"
-        vatNumber: "NL123456789B01"
-        address:
-          addressLine1: "456 Business Park"
-          city: "Rotterdam"
-          postalCode: "3011AA"
-          country: "NL"
-
-    UpdatePartyRequest:
-      type: object
-      description: |
-        Update party details. Only fields applicable to the party type can be updated.
-        For Individuals: firstName, lastName, address
-        For Organisations: name, vatNumber, address
-      properties:
-        firstName:
-          type: string
-          maxLength: 100
-          description: First name (Individual only)
-        lastName:
-          type: string
-          maxLength: 100
-          description: Last name (Individual only)
-        name:
-          type: string
-          maxLength: 255
-          description: Organisation name (Organisation only)
-        vatNumber:
-          type: string
-          maxLength: 50
-          description: VAT number (Organisation only)
-        address:
-          $ref: '#/components/schemas/Address'
-
-    SinglePartyResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              $ref: '#/components/schemas/Party'
-
-    PartyListResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              type: array
-              items:
-                $ref: '#/components/schemas/Party'
-            pagination:
-              $ref: '#/components/schemas/Pagination'
-
-    # ==================== PARTY ROLE SCHEMAS ====================
-
-    PartyRole:
-      type: object
-      description: Represents the relationship between a Party and an Account
-      properties:
-        partyId:
-          type: string
-          format: uuid
-        roleType:
-          $ref: '#/components/schemas/PartyRoleType'
-        status:
-          $ref: '#/components/schemas/PartyRoleStatus'
-        party:
-          $ref: '#/components/schemas/Party'
-
-    AddPartyRoleRequest:
-      type: object
-      required: [partyId, roleType]
-      properties:
-        partyId:
-          type: string
-          format: uuid
-          description: ID of the party to add to the account
-        roleType:
-          $ref: '#/components/schemas/PartyRoleType'
-
-    SinglePartyRoleResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              $ref: '#/components/schemas/PartyRole'
-
-    PartyRoleListResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              type: array
-              items:
-                $ref: '#/components/schemas/PartyRole'
-
-    # ==================== ACCOUNT SCHEMAS ====================
-
-    Account:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        externalId:
-          type: string
-        status:
-          $ref: '#/components/schemas/AccountStatus'
-        partyRoles:
-          type: array
-          description: Parties associated with this account and their roles
-          items:
-            $ref: '#/components/schemas/PartyRole'
-
-    CreateAccountRequest:
-      type: object
-      required: [externalId]
-      description: |
-        Create a new account. You can either:
-        - Reference an existing party by providing `partyId`
-        - Create a new party inline by providing `party` object with full party details
-
-        If neither is provided, an account without a party association will be created.
-      properties:
-        externalId:
-          type: string
-          maxLength: 255
-          description: Unique external reference for this account
-        partyId:
-          type: string
-          format: uuid
-          description: ID of an existing party to associate as account holder
-        party:
-          $ref: '#/components/schemas/CreatePartyRequest'
-        autoCreateWallet:
-          type: boolean
-          default: true
-          description: Automatically create a wallet for this account
-        defaultChain:
-          $ref: '#/components/schemas/BlockchainNetwork'
-      example:
-        externalId: "user-12345"
-        party:
-          partyType: "INDIVIDUAL"
-          firstName: "John"
-          lastName: "Doe"
-          address:
-            addressLine1: "123 Main Street"
-            city: "Amsterdam"
-            postalCode: "1012AB"
-            country: "NL"
-        autoCreateWallet: true
-        defaultChain: "BASE"
-
-    UpdateAccountRequest:
-      type: object
-      description: Update account details. Party details should be updated via the Party endpoints.
-      properties:
-        externalId:
-          type: string
-          maxLength: 255
-
-    SingleAccountResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              $ref: '#/components/schemas/Account'
-
-    AccountListResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              type: array
-              items:
-                $ref: '#/components/schemas/Account'
-            pagination:
-              $ref: '#/components/schemas/Pagination'
-
-    # ==================== WALLET SCHEMAS ====================
-
-    Wallet:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        accountId:
-          type: string
-          format: uuid
-        chain:
-          $ref: '#/components/schemas/BlockchainNetwork'
-        address:
-          type: string
-        status:
-          $ref: '#/components/schemas/WalletStatus'
-        balances:
-          type: array
-          items:
-            $ref: '#/components/schemas/TokenBalance'
-
-    TokenBalance:
-      type: object
-      properties:
-        token:
-          $ref: '#/components/schemas/Cryptocurrency'
-        balance:
-          type: string
-        availableBalance:
-          type: string
-        pendingBalance:
-          type: string
-
-    CreateWalletRequest:
-      type: object
-      required: [chain]
-      properties:
-        chain:
-          $ref: '#/components/schemas/BlockchainNetwork'
-
-    SingleWalletResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              $ref: '#/components/schemas/Wallet'
-
-    WalletListResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              type: array
-              items:
-                $ref: '#/components/schemas/Wallet'
-            pagination:
-              $ref: '#/components/schemas/Pagination'
-
-    # ==================== VIRTUAL BANK ACCOUNT SCHEMAS ====================
-
-    BankAccountType:
-      type: string
-      description: |
-        Type of bank account determining the payment rails.
-        Release 1: Only EUR_SEPA is supported.
-        Future releases will add USD_WIRE, USD_ACH, USD_SWIFT, GBP_FPS, GBP_CHAPS, OTHER_SWIFT.
-      enum:
-        - EUR_SEPA
-        - USD_WIRE
-        - USD_ACH
-        - USD_SWIFT
-        - GBP_FPS
-        - GBP_CHAPS
-        - OTHER_SWIFT
-
-    BankAccountRampType:
-      type: string
-      description: Supported transaction direction for the bank account
-      enum:
-        - ON_RAMP
-        - OFF_RAMP
-        - ON_AND_OFF_RAMP
-
+          example: The request contains invalid parameters.
     Address:
       type: object
       description: Standardized address format used across all endpoints
-      required:
-        - addressLine1
-        - city
-        - postalCode
-        - country
       properties:
         addressLine1:
           type: string
@@ -2176,29 +2310,336 @@ components:
           maxLength: 20
         country:
           type: string
-          pattern: "^[A-Z]{2}$"
+          pattern: ^[A-Z]{2}$
           description: ISO 3166-1 alpha-2 country code
-
-    IntermediaryBankDetails:
+    Party:
       type: object
-      description: Intermediary bank details for SWIFT transfers
+      description: 'A party represents an Individual or Organisation that can hold accounts.
+
+        The partyType field determines which additional fields are present.
+
+        '
       properties:
-        bankName:
+        id:
+          type: string
+          format: uuid
+        externalId:
+          type: string
+          description: External reference ID
+        partyType:
+          $ref: '#/components/schemas/PartyType'
+        status:
+          $ref: '#/components/schemas/PartyStatus'
+        firstName:
+          type: string
+          description: First name (Individual only)
+        lastName:
+          type: string
+          description: Last name (Individual only)
+        kycStatus:
+          $ref: '#/components/schemas/KycStatus'
+        name:
+          type: string
+          description: Organisation name (Organisation only)
+        vatNumber:
+          type: string
+          description: VAT number (Organisation only)
+        kybStatus:
+          $ref: '#/components/schemas/KybStatus'
+        address:
+          $ref: '#/components/schemas/Address'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+          description: Optimistic-locking version, required when updating
+    CreatePartyRequest:
+      type: object
+      required:
+      - partyType
+      properties:
+        partyType:
+          $ref: '#/components/schemas/PartyType'
+        externalId:
           type: string
           maxLength: 255
-        bic:
+          description: Optional external reference ID
+        firstName:
           type: string
-          pattern: "^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$"
-        accountNumber:
+          maxLength: 100
+          description: Required for INDIVIDUAL parties
+        lastName:
           type: string
-          maxLength: 34
+          maxLength: 100
+          description: Required for INDIVIDUAL parties
+        name:
+          type: string
+          maxLength: 255
+          description: Organisation name. Required for ORGANISATION parties
+        vatNumber:
+          type: string
+          maxLength: 50
+          description: VAT number. ORGANISATION parties only
+        address:
+          $ref: '#/components/schemas/Address'
+      example:
+        partyType: INDIVIDUAL
+        firstName: John
+        lastName: Doe
+        address:
+          addressLine1: 123 Main Street
+          city: Amsterdam
+          postalCode: 1012AB
+          country: NL
+    UpdatePartyRequest:
+      type: object
+      required:
+      - version
+      description: 'Update party details. Only fields applicable to the party type can be updated.
 
+        For Individuals: firstName, lastName, address.
+
+        For Organisations: name, vatNumber, address.
+
+        '
+      properties:
+        version:
+          type: integer
+          format: int64
+          description: Current version of the party for optimistic locking
+        firstName:
+          type: string
+          maxLength: 100
+          description: First name (Individual only)
+        lastName:
+          type: string
+          maxLength: 100
+          description: Last name (Individual only)
+        name:
+          type: string
+          maxLength: 255
+          description: Organisation name (Organisation only)
+        vatNumber:
+          type: string
+          maxLength: 50
+          description: VAT number (Organisation only)
+        address:
+          $ref: '#/components/schemas/Address'
+    SinglePartyResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            $ref: '#/components/schemas/Party'
+    PartyListResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            type: array
+            items:
+              $ref: '#/components/schemas/PartyListItem'
+          pagination:
+            $ref: '#/components/schemas/Pagination'
+    PartyRole:
+      type: object
+      description: Represents the relationship between a Party and an Account
+      properties:
+        partyId:
+          type: string
+          format: uuid
+        roleType:
+          $ref: '#/components/schemas/PartyRoleType'
+        status:
+          $ref: '#/components/schemas/PartyRoleStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AddPartyRoleRequest:
+      type: object
+      required:
+      - partyId
+      - roleType
+      properties:
+        partyId:
+          type: string
+          format: uuid
+          description: ID of the party to add to the account
+        roleType:
+          $ref: '#/components/schemas/PartyRoleType'
+    SinglePartyRoleResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            $ref: '#/components/schemas/PartyRole'
+    PartyRoleListResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            type: array
+            description: Party roles for the account (not paginated)
+            items:
+              $ref: '#/components/schemas/PartyRole'
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        externalId:
+          type: string
+        name:
+          type: string
+          description: Display name for the account
+        kycStatus:
+          $ref: '#/components/schemas/KycStatus'
+        status:
+          $ref: '#/components/schemas/AccountStatus'
+        createdAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+          description: Optimistic-locking version
+    CreateAccountRequest:
+      type: object
+      required:
+      - externalId
+      - chain
+      description: 'Create a new account. You can either:
+
+        - Reference an existing party by providing `partyId`
+
+        - Create a new party inline by providing the `party` object
+
+
+        SELF_CUSTODY companies must also supply the wallet `address`.
+
+        '
+      properties:
+        externalId:
+          type: string
+          minLength: 1
+          description: Unique external reference for this account
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: Display name for the account
+        chain:
+          $ref: '#/components/schemas/BlockchainNetwork'
+        address:
+          type: string
+          description: Wallet address. Required for SELF_CUSTODY companies
+        partyId:
+          type: string
+          format: uuid
+          description: ID of an existing party to associate as account holder
+        party:
+          $ref: '#/components/schemas/CreatePartyRequest'
+        cardProviderReference:
+          $ref: '#/components/schemas/CardProviderReference'
+      example:
+        externalId: user-12345
+        name: John Doe Account
+        chain: BASE
+        party:
+          partyType: INDIVIDUAL
+          firstName: John
+          lastName: Doe
+          address:
+            addressLine1: 123 Main Street
+            city: Amsterdam
+            postalCode: 1012AB
+            country: NL
+    SingleAccountResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            $ref: '#/components/schemas/Account'
+    AccountListResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            type: array
+            items:
+              $ref: '#/components/schemas/Account'
+          pagination:
+            $ref: '#/components/schemas/Pagination'
+    CryptoBalance:
+      type: object
+      description: Balance breakdown for a single asset, as decimal strings
+      properties:
+        total:
+          type: string
+        available:
+          type: string
+        reserved:
+          type: string
+    TokenBalance:
+      type: object
+      properties:
+        asset:
+          type: string
+          description: Asset symbol (e.g. USDC)
+        contractAddress:
+          type: string
+          description: ERC-20 contract address of the asset
+        amount:
+          $ref: '#/components/schemas/CryptoBalance'
+    Wallet:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        chain:
+          $ref: '#/components/schemas/BlockchainNetwork'
+        type:
+          $ref: '#/components/schemas/WalletType'
+        address:
+          type: string
+        balances:
+          type: array
+          items:
+            $ref: '#/components/schemas/TokenBalance'
+        amlStatus:
+          $ref: '#/components/schemas/AmlStatus'
+    WalletListResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            type: array
+            items:
+              $ref: '#/components/schemas/Wallet'
+          pagination:
+            $ref: '#/components/schemas/Pagination'
     VirtualBankAccount:
       type: object
-      description: |
-        Virtual bank account for receiving payments. The fields returned depend on the
-        bankAccountType. EUR_SEPA accounts return iban/bic, while USD accounts (future)
-        return accountNumber/routingNumber.
+      description: 'Virtual bank account for receiving payments. EUR_SEPA accounts return iban/bic.
+
+        '
       properties:
         id:
           type: string
@@ -2219,23 +2660,14 @@ components:
         targetCryptocurrency:
           $ref: '#/components/schemas/Cryptocurrency'
           description: Cryptocurrency that incoming fiat is converted to
-        # EUR_SEPA fields (Release 1)
         iban:
           type: string
           description: IBAN for EUR_SEPA accounts
-          example: "DE89370400440532013000"
+          example: DE89370400440532013000
         bic:
           type: string
           description: BIC/SWIFT code for EUR_SEPA accounts
-          example: "DEUTDEDB"
-        # USD fields (future releases)
-        accountNumber:
-          type: string
-          description: Bank account number for USD_WIRE/USD_ACH accounts (future)
-        routingNumber:
-          type: string
-          description: Routing number for USD_WIRE/USD_ACH accounts (future)
-        # Common fields
+          example: DEUTDEDB
         bankName:
           type: string
           description: Name of the bank
@@ -2251,56 +2683,59 @@ components:
         updatedAt:
           type: string
           format: date-time
-
-    # Base request with common fields
     CreateVirtualBankAccountRequest:
       type: object
-      description: |
-        Request to create a virtual bank account. The backend provisions the appropriate
-        bank account type based on the inCurrency (e.g., EUR creates a EUR_SEPA account).
+      description: 'Request to create a virtual bank account. The backend provisions the appropriate
+
+        bank account type based on inCurrency (e.g. EUR -> EUR_SEPA).
+
+        '
       required:
-        - name
-        - inCurrency
-        - targetCryptocurrency
+      - name
+      - inCurrency
+      - targetCryptocurrency
+      - idempotencyKey
       properties:
         name:
           type: string
           maxLength: 255
           description: Display name for the bank account
         inCurrency:
-          $ref: '#/components/schemas/FiatCurrency'
-          description: Fiat currency to receive. Determines the bank account type (e.g., EUR -> EUR_SEPA)
+          type: string
+          pattern: ^[A-Z]{3}$
+          description: Fiat currency to receive (ISO 4217). Determines the bank account type (EUR -> EUR_SEPA)
         targetCryptocurrency:
-          $ref: '#/components/schemas/Cryptocurrency'
-          description: Cryptocurrency to convert incoming fiat payments to
+          type: string
+          pattern: ^[A-Za-z0-9]{2,10}$
+          description: Cryptocurrency to convert incoming fiat payments to (e.g. USDC)
+        idempotencyKey:
+          type: string
+          maxLength: 255
+          description: Unique key to prevent duplicate operations on retry
       example:
-        name: "My EUR Deposit Account"
-        inCurrency: "EUR"
-        targetCryptocurrency: "USDC"
-
+        name: My EUR Deposit Account
+        inCurrency: EUR
+        targetCryptocurrency: USDC
+        idempotencyKey: a1b2c3d4-e5f6-7890-abcd-ef1234567890
     SingleVirtualBankAccountResponse:
       allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              $ref: '#/components/schemas/VirtualBankAccount'
-
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            $ref: '#/components/schemas/VirtualBankAccount'
     VirtualBankAccountListResponse:
       allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              type: array
-              items:
-                $ref: '#/components/schemas/VirtualBankAccount'
-            pagination:
-              $ref: '#/components/schemas/Pagination'
-
-    # ==================== PAYMENT LINK SCHEMAS ====================
-
-    PaymentLink:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            type: array
+            items:
+              $ref: '#/components/schemas/VirtualBankAccount'
+          pagination:
+            $ref: '#/components/schemas/Pagination'
+    PaymentSession:
       type: object
       properties:
         id:
@@ -2309,134 +2744,370 @@ components:
         accountId:
           type: string
           format: uuid
+        status:
+          $ref: '#/components/schemas/PaymentSessionStatus'
+        inAmount:
+          type: number
+          description: Fiat amount to be paid in
+        inCurrency:
+          type: string
+          description: Fiat currency of the incoming payment
+        outCryptocurrency:
+          type: string
+          description: Cryptocurrency the incoming fiat is converted to
         paymentUrl:
           type: string
           format: uri
+          description: Hosted URL to redirect the payer to
         externalRef:
           type: string
-        status:
-          $ref: '#/components/schemas/PaymentLinkStatus'
         walletId:
           type: string
           format: uuid
         blockchainTxId:
           type: string
           nullable: true
-        failureReason:
-          type: string
-          nullable: true
-        failureCode:
-          $ref: '#/components/schemas/ErrorCode'
         cancellable:
           type: boolean
         expiresAt:
           type: string
           format: date-time
-
-    CreatePaymentLinkRequest:
-      type: object
-      properties:
-        inAmount:
-          type: string
-          pattern: "^\\d+(\\.\\d{1,2})?$"
-        inCurrency:
-          $ref: '#/components/schemas/FiatCurrency'
-        outCryptocurrency:
-          $ref: '#/components/schemas/Cryptocurrency'
-        redirectUrl:
-          type: string
-          format: uri
-        externalRef:
-          type: string
-          maxLength: 255
         metadata:
           type: object
           additionalProperties:
             type: string
-
-    SinglePaymentLinkResponse:
+        idempotencyKey:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreatePayInSessionRequest:
+      type: object
+      required:
+      - inAmount
+      - inCurrency
+      - outCryptocurrency
+      - callbackUrl
+      - idempotencyKey
+      properties:
+        inAmount:
+          type: string
+          pattern: ^\d+(\.\d{1,2})?$
+          description: Fiat amount to pay in
+        inCurrency:
+          type: string
+          minLength: 1
+          description: Fiat currency of the incoming payment (e.g. EUR)
+        outCryptocurrency:
+          type: string
+          minLength: 1
+          description: Cryptocurrency to convert the incoming fiat to (e.g. USDC)
+        callbackUrl:
+          type: string
+          pattern: ^https://.*
+          description: HTTPS URL to receive payment status callbacks
+        successRedirectUrl:
+          type: string
+          description: URL to redirect the user to on successful payment
+        failureRedirectUrl:
+          type: string
+          description: URL to redirect the user to on failed payment
+        externalRef:
+          type: string
+          maxLength: 255
+          description: Optional external reference
+        idempotencyKey:
+          type: string
+          format: uuid
+          description: Unique UUID key to prevent duplicate operations on retry
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    SinglePaymentSessionResponse:
       allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              $ref: '#/components/schemas/PaymentLink'
-
-    # ==================== ACCOUNT-TO-ACCOUNT TRANSFER SCHEMAS ====================
-
-    AccountToAccountTransferStatus:
-      type: string
-      enum: [PENDING, COMPLETED, FAILED]
-
-    AccountToAccountTransfer:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            $ref: '#/components/schemas/PaymentSession'
+    PaymentExecution:
+      type: object
+      description: A single on-chain settlement attempt for a payment request
+      properties:
+        id:
+          type: string
+          format: uuid
+        walletPairId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/PaymentExecutionType'
+        chain:
+          $ref: '#/components/schemas/BlockchainNetwork'
+        asset:
+          type: string
+        amount:
+          type: number
+        exchangeRate:
+          type: number
+        status:
+          $ref: '#/components/schemas/PaymentExecutionStatus'
+        transactionHash:
+          type: string
+        errorMessage:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PaymentRequestAmount:
+      type: object
+      description: Payment amount, expressed in both the request fiat currency and the settled crypto
+        amount. `amount` is the request's current value; `originalAmount` preserves the value at creation
+        time (the two can diverge after an adjustment).
+      properties:
+        fiat:
+          type: number
+          description: Amount in the request `currency` (e.g. USD)
+        crypto:
+          type: string
+          description: Settled crypto amount as a decimal string (e.g. USDC)
+    PaymentRequest:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        sourceAccountId:
-          type: string
-          format: uuid
-        destinationAccountId:
+        accountId:
           type: string
           format: uuid
         amount:
+          $ref: '#/components/schemas/PaymentRequestAmount'
+        originalAmount:
+          $ref: '#/components/schemas/PaymentRequestAmount'
+        settlementAmount:
+          $ref: '#/components/schemas/PaymentRequestAmount'
+        settledAmount:
+          $ref: '#/components/schemas/PaymentRequestAmount'
+        shortfallAmount:
+          $ref: '#/components/schemas/PaymentRequestAmount'
+        currency:
           type: string
-        cryptocurrency:
-          $ref: '#/components/schemas/Cryptocurrency'
+        externalId:
+          type: string
+        description:
+          type: string
         status:
-          $ref: '#/components/schemas/AccountToAccountTransferStatus'
-
-    CreateAccountToAccountTransferRequest:
+          $ref: '#/components/schemas/PaymentRequestStatus'
+        settledAt:
+          type: string
+          format: date-time
+          description: When settlement completed (terminal SETTLED / SETTLED_WITH_SHORTFALL)
+        reversalReason:
+          $ref: '#/components/schemas/ReversalReason'
+        reversalDescription:
+          type: string
+          description: Optional free-text reason supplied on reversal
+        reversedAt:
+          type: string
+          format: date-time
+          description: When the reversal completed
+        executions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentExecution'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreatePaymentRequestInput:
       type: object
       required:
-        - sourceAccountId
-        - destinationAccountId
-        - amount
-        - cryptocurrency
+      - amount
+      - currency
+      - idempotencyKey
       properties:
-        sourceAccountId:
-          type: string
-          format: uuid
-        destinationAccountId:
-          type: string
-          format: uuid
         amount:
+          type: number
+          description: Payment amount
+        currency:
           type: string
-          pattern: "^\\d+(\\.\\d{1,6})?$"
-        cryptocurrency:
-          $ref: '#/components/schemas/Cryptocurrency'
-        chain:
-          $ref: '#/components/schemas/BlockchainNetwork'
-          description: Optional blockchain network. If not specified, defaults to the account's primary chain.
-
-    SingleAccountToAccountTransferResponse:
+          minLength: 1
+          description: Currency code (e.g. EUR, USD)
+        externalId:
+          type: string
+          description: Optional external reference ID
+        description:
+          type: string
+          description: Optional payment description
+        idempotencyKey:
+          type: string
+          minLength: 1
+          description: Unique key to prevent duplicate operations on retry
+    CardProviderReference:
+      type: object
+      required:
+      - type
+      - referenceId
+      properties:
+        type:
+          type: string
+          minLength: 1
+          description: Card provider type identifier (case-sensitive)
+        referenceId:
+          type: string
+          minLength: 1
+          description: Unique reference ID from the card provider
+    CardProviderPaymentRequestInput:
+      type: object
+      required:
+      - cardProviderReference
+      - paymentRequest
+      properties:
+        cardProviderReference:
+          $ref: '#/components/schemas/CardProviderReference'
+        paymentRequest:
+          $ref: '#/components/schemas/CreatePaymentRequestInput'
+    SinglePaymentRequestResponse:
       allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              $ref: '#/components/schemas/AccountToAccountTransfer'
-
-    AccountToAccountTransferListResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              type: array
-              items:
-                $ref: '#/components/schemas/AccountToAccountTransfer'
-            pagination:
-              $ref: '#/components/schemas/Pagination'
-
-    # ==================== TRANSFER SCHEMAS ====================
-    # Source: live /v3/api-docs (api-staging.venlyfinance.com), reconciled 2026-04-25.
-    # CreateFiatTransferInput is a stub: live backend has no /transfers/fiat endpoint annotated.
-
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            $ref: '#/components/schemas/PaymentRequest'
+    PaymentRequestReference:
+      type: object
+      required:
+      - cardProviderReference
+      - externalId
+      description: Identifies a payment request by the card-provider reference of its account plus the
+        request's `externalId` — used by the "by reference" settle/reverse endpoints.
+      properties:
+        cardProviderReference:
+          $ref: '#/components/schemas/CardProviderReference'
+        externalId:
+          type: string
+          minLength: 1
+          description: The payment request's externalId (e.g. the card-provider TID)
+    SettlePaymentRequestInput:
+      type: object
+      required:
+      - amount
+      - currency
+      - idempotencyKey
+      properties:
+        amount:
+          type: number
+          description: Final settlement amount, in the authorized fiat currency
+        currency:
+          type: string
+          maxLength: 10
+          description: Must match the authorized currency
+        idempotencyKey:
+          type: string
+          maxLength: 255
+          description: Unique key to prevent duplicate operations on retry
+    SettlePaymentRequestByReferenceInput:
+      type: object
+      required:
+      - paymentRequestReference
+      - amount
+      - currency
+      - idempotencyKey
+      description: Settles a payment request identified by its card-provider reference.
+      properties:
+        paymentRequestReference:
+          $ref: '#/components/schemas/PaymentRequestReference'
+        amount:
+          type: number
+          description: Final settlement amount, in the authorized fiat currency
+        currency:
+          type: string
+          minLength: 1
+          description: Must match the authorized currency
+        idempotencyKey:
+          type: string
+          minLength: 1
+          description: Unique key to prevent duplicate operations on retry
+    ReversePaymentRequestInput:
+      type: object
+      required:
+      - reason
+      - idempotencyKey
+      properties:
+        reason:
+          $ref: '#/components/schemas/ReversalReason'
+        description:
+          type: string
+          maxLength: 1000
+          description: Optional free-text reason for the reversal
+        idempotencyKey:
+          type: string
+          maxLength: 255
+          description: Unique key to prevent duplicate operations on retry
+    ReversePaymentRequestByReferenceInput:
+      type: object
+      required:
+      - paymentRequestReference
+      - reason
+      - idempotencyKey
+      description: Reverses a payment request identified by its card-provider reference.
+      properties:
+        paymentRequestReference:
+          $ref: '#/components/schemas/PaymentRequestReference'
+        reason:
+          $ref: '#/components/schemas/ReversalReason'
+        description:
+          type: string
+          maxLength: 1000
+          description: Optional free-text reason for the reversal
+        idempotencyKey:
+          type: string
+          maxLength: 255
+          description: Unique key to prevent duplicate operations on retry
+    UpdatePaymentRequestInput:
+      type: object
+      required:
+      - amount
+      - currency
+      - idempotencyKey
+      description: Sets a new absolute authorized amount on a payment request. A lower amount releases
+        the difference from escrow back to the account wallet; a higher amount pulls the additional funds
+        from the account wallet into escrow.
+      properties:
+        amount:
+          type: number
+          minimum: 0
+          description: New absolute authorized amount, in the authorized fiat currency
+        currency:
+          type: string
+          minLength: 1
+          description: Must match the authorized currency
+        idempotencyKey:
+          type: string
+          maxLength: 255
+          description: Unique key to prevent duplicate operations on retry
+    FiatOrigin:
+      type: object
+      description: Fiat origin details for a fiat-denominated transfer
+      properties:
+        currency:
+          type: string
+        amount:
+          type: number
+        exchangeRate:
+          type: number
     Transfer:
       type: object
-      description: 'Transfer entity. Mirrors live TransferRequestDto.'
       properties:
         id:
           type: string
@@ -2473,156 +3144,111 @@ components:
         updatedAt:
           type: string
           format: date-time
-
-    TransferStatus:
-      type: string
-      description: 'Transfer lifecycle states. Source: live TransferRequestDto.status enum.'
-      enum: [PENDING, COMPLETED, FAILED]
-
-    FiatOrigin:
+    CreateFiatTransferInput:
       type: object
-      description: 'Fiat origin details for a settled transfer. Source: live FiatOriginDto.'
-      properties:
-        amount:
-          type: number
-        currency:
-          $ref: '#/components/schemas/FiatCurrency'
-
-    CreateCryptoTransferInput:
-      type: object
-      description: 'Source: live /v3/api-docs verbatim.'
+      required:
+      - currency
+      - amount
+      - idempotencyKey
       properties:
         receiverAccountId:
           type: string
           format: uuid
+          description: ID of the receiving account
         receiverExternalId:
           type: string
+          description: External ID of the receiving account (alternative to receiverAccountId)
+        currency:
+          type: string
+          minLength: 1
+          description: Fiat currency code (e.g. EUR, USD)
+        amount:
+          type: number
+          description: Transfer amount
+        description:
+          type: string
+          description: Optional transfer description
+        merchantReference:
+          type: string
+          description: Optional merchant reference
+        idempotencyKey:
+          type: string
+          minLength: 1
+          description: Unique key to prevent duplicate operations on retry
+    CreateCryptoTransferInput:
+      type: object
+      required:
+      - chain
+      - asset
+      - amount
+      - idempotencyKey
+      properties:
+        receiverAccountId:
+          type: string
+          format: uuid
+          description: ID of the receiving account
+        receiverExternalId:
+          type: string
+          description: External ID of the receiving account (alternative to receiverAccountId)
         chain:
           $ref: '#/components/schemas/BlockchainNetwork'
         asset:
           type: string
           minLength: 1
+          description: Cryptocurrency asset identifier (e.g. USDC)
         amount:
           type: number
+          description: Transfer amount
         description:
           type: string
+          description: Optional transfer description
         merchantReference:
           type: string
+          description: Optional merchant reference
         idempotencyKey:
           type: string
           minLength: 1
-      required: [amount, asset, chain, idempotencyKey]
-
-    CreateFiatTransferInput:
-      type: object
-      description: |
-        STUB. The /accounts/{senderAccountId}/transfers/fiat endpoint is documented in
-        the rebuild but does not exist in the live /v3/api-docs as of 2026-04-25.
-        Field names mirror the cross-border-payout guide. Replace with live schema once
-        the Finance team annotates the endpoint.
-      properties:
-        receiverAccountId:
-          type: string
-          format: uuid
-        receiverExternalId:
-          type: string
-        fiatAmount:
-          type: string
-        fiatCurrency:
-          $ref: '#/components/schemas/FiatCurrency'
-        cryptocurrency:
-          $ref: '#/components/schemas/Cryptocurrency'
-        description:
-          type: string
-        merchantReference:
-          type: string
-      required: [receiverAccountId, fiatAmount, fiatCurrency]
-
+          description: Unique key to prevent duplicate operations on retry
     SingleTransferResponse:
       allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              $ref: '#/components/schemas/Transfer'
-
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            $ref: '#/components/schemas/Transfer'
     TransferListResponse:
       allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              type: array
-              items:
-                $ref: '#/components/schemas/Transfer'
-            pagination:
-              $ref: '#/components/schemas/Pagination'
-
-    # ==================== PERMIT / ALLOWANCE SCHEMAS ====================
-    # Source: live /v3/api-docs verbatim.
-
-    SubmitPermitRequest:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            type: array
+            items:
+              $ref: '#/components/schemas/Transfer'
+          pagination:
+            $ref: '#/components/schemas/Pagination'
+    Eip712TypeEntry:
       type: object
       properties:
-        supportedAssetId:
+        name:
           type: string
-          format: uuid
-        signature:
-          $ref: '#/components/schemas/PermitSignature'
-      required: [signature, supportedAssetId]
-
-    PermitMessage:
-      type: object
-      description: 'Source: live PermitMessageDto.'
-      properties:
-        supportedAssetId:
+        type:
           type: string
-          format: uuid
-        asset:
-          type: string
-        contractAddress:
-          type: string
-        status:
-          type: string
-          enum: [PENDING, SUBMITTED, CONFIRMED, FAILED]
-        typedData:
-          $ref: '#/components/schemas/Eip712PermitMessage'
-
-    PermitResult:
-      type: object
-      description: 'Source: live PermitResultDto.'
-      properties:
-        id:
-          type: string
-          format: uuid
-        supportedAssetId:
-          type: string
-          format: uuid
-        asset:
-          type: string
-        contractAddress:
-          type: string
-        status:
-          type: string
-          enum: [PENDING, SUBMITTED, CONFIRMED, FAILED]
-        permitTxId:
-          type: string
-
-    PermitSignature:
+    Eip712Domain:
       type: object
       properties:
-        v:
+        name:
           type: string
-        r:
+        version:
           type: string
-          pattern: '^0x[0-9a-fA-F]{64}$'
-        s:
+        chainId:
+          type: integer
+          format: int32
+        verifyingContract:
           type: string
-          pattern: '^0x[0-9a-fA-F]{64}$'
-      required: [r, s, v]
-
     PermitData:
       type: object
+      description: EIP-2612 permit message payload
       properties:
         owner:
           type: string
@@ -2635,9 +3261,9 @@ components:
           format: int64
         deadline:
           type: string
-
     Eip712PermitMessage:
       type: object
+      description: EIP-712 typed-data structure to sign
       properties:
         types:
           type: object
@@ -2651,219 +3277,144 @@ components:
           $ref: '#/components/schemas/Eip712Domain'
         message:
           $ref: '#/components/schemas/PermitData'
-
-    Eip712Domain:
+    PermitMessage:
+      type: object
+      properties:
+        supportedAssetId:
+          type: string
+          format: uuid
+        asset:
+          type: string
+        contractAddress:
+          type: string
+        status:
+          $ref: '#/components/schemas/PermitStatus'
+        typedData:
+          $ref: '#/components/schemas/Eip712PermitMessage'
+    PermitSignature:
+      type: object
+      required:
+      - v
+      - r
+      - s
+      properties:
+        v:
+          type: string
+          description: Recovery byte of the signature
+        r:
+          type: string
+          pattern: ^0x[0-9a-fA-F]{64}$
+          description: First 32 bytes of the signature
+        s:
+          type: string
+          pattern: ^0x[0-9a-fA-F]{64}$
+          description: Second 32 bytes of the signature
+    SubmitPermitRequest:
+      type: object
+      required:
+      - supportedAssetId
+      - signature
+      properties:
+        supportedAssetId:
+          type: string
+          format: uuid
+          description: ID of the supported asset to grant spending permission for
+        signature:
+          $ref: '#/components/schemas/PermitSignature'
+    PermitResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        supportedAssetId:
+          type: string
+          format: uuid
+        asset:
+          type: string
+        contractAddress:
+          type: string
+        status:
+          $ref: '#/components/schemas/PermitStatus'
+        permitTxId:
+          type: string
+          description: Internal permit transaction identifier (UUID, not an on-chain hash)
+        skipped:
+          type: boolean
+          description: True if the permit was a no-op (e.g. allowance already granted)
+    PermitMessageListResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            type: array
+            items:
+              $ref: '#/components/schemas/PermitMessage'
+    SinglePermitResultResponse:
+      allOf:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            $ref: '#/components/schemas/PermitResult'
+    SettlementAsset:
       type: object
       properties:
         name:
           type: string
-        version:
+          description: Asset symbol (e.g. USDC)
+        contractAddress:
           type: string
-        chainId:
+        decimals:
           type: integer
           format: int32
-        verifyingContract:
-          type: string
-
-    Eip712TypeEntry:
-      type: object
-      properties:
-        name:
-          type: string
-        type:
-          type: string
-
     Allowance:
       type: object
-      description: 'Source: live AllowanceInfo.'
       properties:
         asset:
           $ref: '#/components/schemas/SettlementAsset'
         allowance:
           type: string
+          description: Approved amount as a decimal string (uint256-max indicates unlimited)
         orchestrationWallet:
           type: string
-
-    SettlementAsset:
-      type: object
-      description: |
-        STUB. SettlementAssetDto exists in live spec but its inner shape is not
-        annotated in /v3/api-docs as of 2026-04-25. Replace when Finance team ships
-        proper coverage.
-      properties:
-        supportedAssetId:
-          type: string
-          format: uuid
-        symbol:
-          type: string
-        chain:
-          $ref: '#/components/schemas/BlockchainNetwork'
-
-    PermitMessageListResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              type: array
-              items:
-                $ref: '#/components/schemas/PermitMessage'
-
-    SinglePermitResultResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              $ref: '#/components/schemas/PermitResult'
-
+          description: Address of the orchestration wallet approved as spender
     AllowanceListResponse:
       allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              type: array
-              items:
-                $ref: '#/components/schemas/Allowance'
-
-    # ==================== PAYMENT REQUEST SCHEMAS ====================
-    # Source: live /v3/api-docs verbatim.
-
-    PaymentRequest:
+      - $ref: '#/components/schemas/BaseResponse'
+      - type: object
+        properties:
+          result:
+            type: array
+            items:
+              $ref: '#/components/schemas/Allowance'
+    PartyListItem:
       type: object
-      description: 'Source: live PaymentRequestDto.'
+      description: Slim party representation returned in list responses. A single-party fetch returns
+        more fields (address, kycStatus/kybStatus, updatedAt, version).
       properties:
         id:
           type: string
           format: uuid
-        accountId:
-          type: string
-          format: uuid
-        amount:
-          type: number
-        currency:
-          type: string
         externalId:
           type: string
-        description:
-          type: string
+        partyType:
+          $ref: '#/components/schemas/PartyType'
         status:
+          $ref: '#/components/schemas/PartyStatus'
+        firstName:
           type: string
-          enum: [PENDING, RESERVED, SETTLED, REVERSED, FAILED]
-        idempotencyKey:
+          description: Individual parties only
+        lastName:
           type: string
-        executions:
-          type: array
-          items:
-            $ref: '#/components/schemas/PaymentExecution'
+          description: Individual parties only
+        name:
+          type: string
+          description: Organisation parties only
+        vatNumber:
+          type: string
+          description: Organisation parties only
         createdAt:
           type: string
           format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    PaymentExecution:
-      type: object
-      description: 'Source: live PaymentExecutionDto.'
-      properties:
-        id:
-          type: string
-          format: uuid
-        walletPairId:
-          type: string
-          format: uuid
-        chain:
-          $ref: '#/components/schemas/BlockchainNetwork'
-        asset:
-          type: string
-        amount:
-          type: number
-        exchangeRate:
-          type: number
-        status:
-          type: string
-          enum: [PENDING, RESERVED, FAILED]
-        transactionHash:
-          type: string
-        errorMessage:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    CreatePaymentRequestInput:
-      type: object
-      properties:
-        amount:
-          type: number
-        currency:
-          type: string
-          minLength: 1
-        externalId:
-          type: string
-        description:
-          type: string
-        idempotencyKey:
-          type: string
-          minLength: 1
-      required: [amount, currency, idempotencyKey]
-
-    CardProviderPaymentRequestInput:
-      type: object
-      properties:
-        cardProviderReference:
-          $ref: '#/components/schemas/CardProviderReference'
-        paymentRequest:
-          $ref: '#/components/schemas/CreatePaymentRequestInput'
-      required: [cardProviderReference, paymentRequest]
-
-    CardProviderReference:
-      type: object
-      properties:
-        type:
-          type: string
-          minLength: 1
-        referenceId:
-          type: string
-          minLength: 1
-      required: [referenceId, type]
-
-    SinglePaymentRequestResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            result:
-              $ref: '#/components/schemas/PaymentRequest'
-
-    # ==================== ERROR CODE ENUM ====================
-
-    ErrorCode:
-      type: string
-      description: 'Machine-readable error codes. Documented subset of the live catalogue.'
-      enum:
-        - RAMP_REQUEST_NOT_IN_APPROVABLE_STATE
-        - RAMP_REQUEST_NOT_IN_REJECTABLE_STATE
-        - RAMP_REQUEST_NOT_IN_CANCELLABLE_STATE
-        - RAMP_REQUEST_NOT_IN_EDITABLE_STATE
-        - UNSUPPORTED_CURRENCY_PAIR
-        - AMOUNT_BELOW_MINIMUM
-        - AMOUNT_ABOVE_MAXIMUM
-        - KYB_NOT_VERIFIED
-        - BANK_ACCOUNT_NOT_VERIFIED
-        - WALLET_NOT_VERIFIED
-        - INSUFFICIENT_SCOPE
-        - SOURCE_IP_NOT_ALLOWED
-        - INVALID_BANK_ACCOUNT_TYPE
-        - OPTIMISTIC_LOCK_EXCEPTION
-        - VERSION_CONFLICT
-        - INVALID_IDEMPOTENCY_KEY
-        - COMPANY_USER_ALREADY_EXISTS
-        - RATE_LIMIT_EXCEEDED
-        - UPSTREAM_RAIL_UNAVAILABLE
-        - PARTNER_RESPONSE_TIMEOUT

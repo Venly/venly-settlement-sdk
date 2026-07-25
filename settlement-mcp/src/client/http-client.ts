@@ -24,11 +24,11 @@ import {
 import type {
   Account,
   CreateFiatTransferInput,
-  CreatePaymentLinkRequest,
+  CreatePayInSessionRequest,
   ListRampRequestsParams,
   OptimisticLockingBody,
   Party,
-  PaymentLink,
+  PaymentSession,
   RampRequestDto,
   RampRequestListItem,
   Transfer,
@@ -225,14 +225,14 @@ export class HttpVenlyClient implements VenlyClient {
       body,
     });
   }
-  createPaymentLink(
+  createPayInSession(
     accountId: string,
-    body: CreatePaymentLinkRequest,
-  ): Promise<PaymentLink> {
+    body: CreatePayInSessionRequest,
+  ): Promise<PaymentSession> {
     return this.request(
       this.financeBaseUrl,
       "POST",
-      `/accounts/${accountId}/fiat-to-crypto/payment-links`,
+      `/accounts/${accountId}/fiat-to-crypto/payment-sessions`,
       { body },
     );
   }

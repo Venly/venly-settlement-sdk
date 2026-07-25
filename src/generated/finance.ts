@@ -81,26 +81,12 @@ export interface paths {
          *     **For Individuals:** Can update firstName, lastName, and address
          *     **For Organisations:** Can update name, vatNumber, and address
          *
+         *     **Optimistic locking:** You must send the current `version` of the party. If the
+         *     version is stale the request fails with `409 concurrent-modification` — re-fetch and retry.
+         *
          *     **Note:** Cannot change partyType after creation. KYC/KYB status is managed separately.
          */
         patch: operations["updateParty"];
-        trace?: never;
-    };
-    "/parties/{partyId}/accounts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List accounts for a party */
-        get: operations["listPartyAccounts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/accounts": {
@@ -115,15 +101,18 @@ export interface paths {
         put?: never;
         /**
          * Create a new account
-         * @description Creates a new account. Optionally auto-creates a wallet on the specified chain.
+         * @description Creates a new account and auto-provisions a custodial wallet on the specified chain.
          *
          *     **Party Association:**
          *     - Provide `partyId` to associate with an existing party
          *     - Provide `party` object to create a new party inline (Individual or Organisation)
-         *     - The party will be associated as ACCOUNT_HOLDER
+         *     - The party is associated as ACCOUNT_HOLDER
          *
          *     When creating a party inline, specify `partyType: INDIVIDUAL` with firstName/lastName,
          *     or `partyType: ORGANISATION` with name/vatNumber.
+         *
+         *     **SELF_CUSTODY companies** must supply the wallet `address`; VENLY_MANAGED companies
+         *     leave it blank and Venly generates the wallet.
          */
         post: operations["createAccount"];
         delete?: never;
@@ -143,48 +132,6 @@ export interface paths {
         get: operations["getAccount"];
         put?: never;
         post?: never;
-        /**
-         * Delete account
-         * @description Permanently deletes an account. Only allowed when:
-         *     - All wallet balances are zero
-         *     - No pending transactions
-         *     - Account is not suspended/blocked
-         */
-        delete: operations["deleteAccount"];
-        options?: never;
-        head?: never;
-        /** Update account details */
-        patch: operations["updateAccount"];
-        trace?: never;
-    };
-    "/accounts/{accountId}/suspend": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Suspend account */
-        post: operations["suspendAccount"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/accounts/{accountId}/reactivate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reactivate suspended account */
-        post: operations["reactivateAccount"];
         delete?: never;
         options?: never;
         head?: never;
@@ -202,7 +149,7 @@ export interface paths {
          * List party roles for an account
          * @description Returns all parties associated with this account and their roles.
          */
-        get: operations["listAccountPartyRoles"];
+        get: operations["listPartyRoles"];
         put?: never;
         /**
          * Add a party to an account
@@ -244,26 +191,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List wallets for an account */
+        /**
+         * List wallets for an account
+         * @description Lists the custodial wallets bound to an account, each with its per-asset balances
+         *     (total / available / reserved) and AML screening status.
+         */
         get: operations["listWallets"];
-        put?: never;
-        /** Create a wallet */
-        post: operations["createWallet"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/accounts/{accountId}/wallets/{walletId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get wallet details */
-        get: operations["getWallet"];
         put?: never;
         post?: never;
         delete?: never;
@@ -287,12 +220,12 @@ export interface paths {
          * @description Creates a virtual bank account for the specified account.
          *
          *     The client provides a display name, the fiat currency to receive (inCurrency), and the
-         *     target cryptocurrency for conversion. The backend will provision the appropriate bank
+         *     target cryptocurrency for conversion. The backend provisions the appropriate bank
          *     account based on the currency.
          *
-         *     **Release 1**: Only EUR (EUR_SEPA) is supported.
+         *     **Requires** the account to be KYC `VERIFIED`.
          *
-         *     **Future releases**: USD_WIRE, USD_ACH, USD_SWIFT, GBP_FPS, GBP_CHAPS, and other payment rails.
+         *     **Currently supported:** EUR (provisions a EUR_SEPA account returning IBAN/BIC).
          */
         post: operations["createVirtualBankAccount"];
         delete?: never;
@@ -318,7 +251,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/accounts/{accountId}/fiat-to-crypto/payment-links": {
+    "/accounts/{accountId}/fiat-to-crypto/payment-sessions": {
         parameters: {
             query?: never;
             header?: never;
@@ -327,8 +260,13 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a fiat-to-crypto payment link */
-        post: operations["createPaymentLink"];
+        /**
+         * Create a fiat-to-crypto payment session
+         * @description Creates a hosted pay-in session. The response includes a `paymentUrl` to redirect the
+         *     payer to; on completion the incoming fiat is converted to the chosen cryptocurrency and
+         *     credited to the account's wallet. `callbackUrl` and a UUID `idempotencyKey` are required.
+         */
+        post: operations["createPayInSession"];
         delete?: never;
         options?: never;
         head?: never;
@@ -346,8 +284,7 @@ export interface paths {
         put?: never;
         /**
          * Create payment request by card provider
-         * @description Creates a payment request initiated by a card provider. This endpoint is used for card provider integrations
-         *     to create payment requests with card provider references.
+         * @description Creates a payment request without an account ID in the path: the account is resolved from `cardProviderReference` (`type` + `referenceId`), then funds are reserved from that account's wallet exactly as the per-account endpoint does. The nested `paymentRequest` body matches `CreatePaymentRequestInput`.
          */
         post: operations["createPaymentRequestByCardProvider"];
         delete?: never;
@@ -367,14 +304,128 @@ export interface paths {
         put?: never;
         /**
          * Create payment request for account
-         * @description Creates a payment request for a specific account. Payment requests represent a request to settle
-         *     a payment using the account's crypto assets.
+         * @description Creates a payment request for an account, reserving funds from its wallet for the payment. The response returns `status: RESERVED`, moves the reserved amount into the wallet's `reserved` balance, and includes an `executions` array — each entry carrying its on-chain `transactionHash`. Send a unique `idempotencyKey` per request.
          */
         post: operations["createPaymentRequest"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/payment-requests/{paymentRequestId}/settlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settle a payment request
+         * @description Finalises a payment request: the settled amount moves from escrow to the company's settlement wallet. The call returns immediately with `status: SETTLING` and the settlement `executions` in `PENDING`; the request reaches its terminal `SETTLED` state once those transfers confirm on-chain.
+         *
+         *     `amount` is the final settlement figure in the authorized fiat `currency`, and the executions follow from how it compares to the authorized amount:
+         *
+         *     - Equal to the authorized amount: one `SETTLEMENT` execution.
+         *     - Below the authorized amount: a `SETTLEMENT` plus a `REFUND` that returns the difference from escrow to the account wallet.
+         *     - Above the authorized amount: the full escrow settles, plus a `SETTLEMENT_OVERAGE` that collects the extra from the account wallet.
+         *
+         *     Pass a unique `idempotencyKey`. Sending the same key with the same body again returns the original result.
+         */
+        post: operations["settlePaymentRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payment-requests/settlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settle a payment request by card-provider reference
+         * @description Settles a payment request identified by its card-provider reference instead of a path ID: the request is located from `paymentRequestReference.cardProviderReference` (`type` + `referenceId`) and its `externalId`. Behaviour and response match [settle a payment request](#operation/settlePaymentRequest).
+         */
+        post: operations["settlePaymentRequestByReference"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payment-requests/{paymentRequestId}/reversal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reverse a payment request
+         * @description Unwinds a payment request and returns the entire escrow balance to the account wallet. The call returns `status: REVERSING` with a `PENDING` `REVERSAL` execution; the request becomes `REVERSED` once that transfer confirms on-chain. `REVERSED` is a final state, and `reason` is recorded on the request.
+         *
+         *     Pass a unique `idempotencyKey`. Sending the same key with the same body again returns the original result.
+         */
+        post: operations["reversePaymentRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payment-requests/reversals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reverse a payment request by card-provider reference
+         * @description Reverses a payment request identified by its card-provider reference instead of a path ID: the request is located from `paymentRequestReference.cardProviderReference` (`type` + `referenceId`) and its `externalId`. Behaviour and response match [reverse a payment request](#operation/reversePaymentRequest).
+         */
+        post: operations["reversePaymentRequestByReference"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payment-requests/{paymentRequestId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update the authorized amount of a payment request
+         * @description Sets a new absolute authorized `amount` on a payment request. The execution that runs depends on how the new amount compares to the current one:
+         *
+         *     - A lower amount releases the difference from escrow back to the account wallet via an `AUTHORIZATION_ADJUSTMENT` execution.
+         *     - A higher amount pulls the additional funds from the account wallet into escrow via an `INCREMENTAL_AUTHORIZATION` execution.
+         *
+         *     The request keeps `status: RESERVED`, `amount` reflects the new value, and `originalAmount` preserves the amount set at creation. Pass a unique `idempotencyKey`.
+         */
+        patch: operations["updatePaymentRequest"];
         trace?: never;
     };
     "/accounts/{senderAccountId}/transfers/fiat": {
@@ -388,8 +439,9 @@ export interface paths {
         put?: never;
         /**
          * Create fiat transfer
-         * @description Creates a fiat-to-crypto transfer from the sender account to a receiver account.
-         *     The fiat amount is converted to cryptocurrency and transferred.
+         * @description Creates a fiat-denominated transfer from the sender account to a receiver account.
+         *     The fiat amount is resolved to the underlying crypto asset and settled on-chain; the
+         *     response carries a `fiatOrigin` block with the original currency, amount and exchange rate.
          */
         post: operations["createFiatTransfer"];
         delete?: never;
@@ -409,8 +461,9 @@ export interface paths {
         put?: never;
         /**
          * Create crypto transfer
-         * @description Creates a cryptocurrency transfer from the sender account to a receiver account.
-         *     Transfers crypto assets directly between accounts on the specified blockchain.
+         * @description Creates a cryptocurrency transfer from the sender account to a receiver account,
+         *     moving crypto assets directly between accounts on the specified blockchain.
+         *     Retries with the same `idempotencyKey` return the original transfer (no double-spend).
          */
         post: operations["createCryptoTransfer"];
         delete?: never;
@@ -428,8 +481,8 @@ export interface paths {
         };
         /**
          * List transfers for account
-         * @description Retrieves all transfers associated with an account. Can filter by account role (sender/receiver)
-         *     and transfer status.
+         * @description Retrieves all transfers associated with an account (both sent and received, fiat and crypto).
+         *     Can filter by account role (sender/receiver) and transfer status.
          */
         get: operations["listTransfers"];
         put?: never;
@@ -449,7 +502,8 @@ export interface paths {
         };
         /**
          * Get transfer details
-         * @description Retrieves detailed information about a specific transfer.
+         * @description Retrieves detailed information about a specific transfer. The account must be the
+         *     sender or receiver of the transfer, otherwise a 404 is returned.
          */
         get: operations["getTransfer"];
         put?: never;
@@ -469,16 +523,19 @@ export interface paths {
         };
         /**
          * Get permit messages for wallet
-         * @description Retrieves EIP-712 typed permit messages for a wallet. These messages can be signed by the wallet owner
-         *     to grant token spending permissions without requiring an on-chain transaction.
+         * @description Retrieves the EIP-712 permit messages a self-custody wallet must sign to grant the orchestration wallet an allowance. Returns one entry per supported asset, each with a `supportedAssetId` and the `typedData` to sign.
+         *
+         *     Sign `typedData` with the wallet **owner's** key (the signature must recover to `owner`), then submit it via POST.
+         *
+         *     **Note:** Applies to SELF_CUSTODY companies only — VENLY_MANAGED wallets (and all escrow wallets) are permitted automatically by Venly.
          */
         get: operations["getPermitMessages"];
         put?: never;
         /**
          * Submit signed permit
-         * @description Submits a signed EIP-712 permit message to grant token spending permissions.
-         *     The permit allows the platform to spend tokens on behalf of the wallet without requiring
-         *     a separate approval transaction.
+         * @description Submits a signed EIP-712 permit for on-chain execution by the orchestration wallet (which pays the gas). The signature **must recover to the wallet `owner`** — otherwise the permit settles as `FAILED`.
+         *
+         *     Returns HTTP 200 with the permit `status`: `SUBMITTED` while it settles on-chain, then `CONFIRMED`. Poll `GET .../permits` for the transition. When all of a wallet's permits are `CONFIRMED`, the wallet becomes `ACTIVE` and can send transfers/payments. Re-submitting an already-confirmed permit returns `409`.
          */
         post: operations["submitPermit"];
         delete?: never;
@@ -496,30 +553,14 @@ export interface paths {
         };
         /**
          * Get wallet token allowances
-         * @description Retrieves the current token allowances for a wallet. Shows which tokens have been approved
+         * @description Retrieves the current token allowances for a wallet — which tokens have been approved
          *     for spending by the orchestration wallet and the approved amounts.
+         *
+         *     **Note:** Allowances apply to SELF_CUSTODY companies only.
          */
         get: operations["getWalletAllowances"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/account-to-account-transfers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List account-to-account transfers */
-        get: operations["listAccountToAccountTransfers"];
-        put?: never;
-        /** Create an account-to-account transfer */
-        post: operations["createAccountToAccountTransfer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -541,7 +582,7 @@ export interface components {
          */
         PartyStatus: "ACTIVE" | "SUSPENDED" | "BLOCKED";
         /**
-         * @description Role type for party-account relationship
+         * @description Role type for the party-account relationship
          * @enum {string}
          */
         PartyRoleType: "ACCOUNT_HOLDER";
@@ -550,35 +591,98 @@ export interface components {
          * @enum {string}
          */
         PartyRoleStatus: "ACTIVE" | "INACTIVE";
-        /** @enum {string} */
-        AccountStatus: "ACTIVE" | "SUSPENDED" | "BLOCKED";
-        /** @enum {string} */
-        WalletStatus: "ACTIVE" | "SUSPENDED" | "BLOCKED";
-        /** @enum {string} */
-        VirtualBankAccountStatus: "ACTIVE" | "EXPIRED" | "SUSPENDED";
         /**
-         * @description Supported blockchain networks for Finance API. Sourced from live /v3/api-docs (2026-04-25).
+         * @description Status of an account
          * @enum {string}
          */
-        BlockchainNetwork: "AVALANCHE" | "BASE" | "SOLANA";
-        /** @enum {string} */
-        Cryptocurrency: "USDC" | "EURC" | "USDT";
+        AccountStatus: "ACTIVE" | "SUSPENDED" | "CLOSED";
         /**
-         * @description Supported fiat currencies. For virtual bank accounts in Release 1, only EUR is supported.
+         * @description Custody model of the wallet
+         * @enum {string}
+         */
+        WalletType: "VENLY_MANAGED" | "SELF_CUSTODY";
+        /**
+         * @description Status of a virtual bank account
+         * @enum {string}
+         */
+        VirtualBankAccountStatus: "ACTIVE" | "CLOSED";
+        /**
+         * @description Type of bank account, determining the payment rails.
+         *     Currently only EUR_SEPA is provisioned. Future rails (USD_WIRE, USD_ACH, GBP_FPS, …)
+         *     will be added in later releases.
+         * @enum {string}
+         */
+        BankAccountType: "EUR_SEPA";
+        /**
+         * @description Supported blockchain network
+         * @enum {string}
+         */
+        BlockchainNetwork: "AVALANCHE" | "BASE" | "POLYGON";
+        /**
+         * @description Supported cryptocurrency / stablecoin asset
+         * @enum {string}
+         */
+        Cryptocurrency: "USDC" | "EURC" | "USDT" | "USDS";
+        /**
+         * @description Supported fiat currencies. Virtual bank accounts currently support EUR only.
          * @enum {string}
          */
         FiatCurrency: "EUR" | "GBP" | "USD";
-        /** @enum {string} */
-        KycStatus: "PENDING" | "IN_PROGRESS" | "VERIFIED" | "REJECTED" | "MANUAL_REVIEW";
-        /** @enum {string} */
-        KycLevel: "NONE" | "BASIC" | "STANDARD" | "ENHANCED" | "FULL";
-        /** @enum {string} */
-        PaymentLinkStatus: "CREATED" | "PENDING_PAYMENT" | "PAYMENT_RECEIVED" | "CONVERTING" | "MINTING" | "COMPLETED" | "FAILED" | "EXPIRED" | "CANCELLED" | "REFUNDING" | "REFUNDED";
+        /**
+         * @description KYC verification status (Individuals & accounts)
+         * @enum {string}
+         */
+        KycStatus: "VERIFICATION_PENDING" | "VERIFIED" | "REJECTED";
+        /**
+         * @description KYB verification status (Organisations)
+         * @enum {string}
+         */
+        KybStatus: "PENDING" | "VERIFIED" | "DENIED";
+        /**
+         * @description AML screening status of a wallet
+         * @enum {string}
+         */
+        AmlStatus: "PENDING" | "APPROVED" | "REJECTED";
+        /**
+         * @description Status of a transfer
+         * @enum {string}
+         */
+        TransferStatus: "PENDING" | "COMPLETED" | "FAILED";
+        /**
+         * @description Status of a payment request
+         * @enum {string}
+         */
+        PaymentRequestStatus: "PENDING" | "RESERVED" | "SETTLING" | "SETTLED" | "SETTLED_WITH_SHORTFALL" | "REVERSING" | "REVERSED" | "FAILED";
+        /**
+         * @description Status of a single payment-request execution
+         * @enum {string}
+         */
+        PaymentExecutionStatus: "PENDING" | "RESERVED" | "SETTLED" | "REVERSED" | "FAILED";
+        /**
+         * @description The role an execution plays in a payment request's lifecycle.
+         * @enum {string}
+         */
+        PaymentExecutionType: "AUTHORIZATION" | "INCREMENTAL_AUTHORIZATION" | "AUTHORIZATION_ADJUSTMENT" | "SETTLEMENT" | "SETTLEMENT_OVERAGE" | "REFUND" | "REVERSAL";
+        /**
+         * @description Why a payment request was reversed (recorded for audit).
+         * @enum {string}
+         */
+        ReversalReason: "CUSTOMER_CANCELLATION" | "MERCHANT_VOID" | "ACQUIRER_FAILURE" | "NETWORK_DECLINE" | "OTHER";
+        /**
+         * @description Status of an EIP-712 permit
+         * @enum {string}
+         */
+        PermitStatus: "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED";
+        /**
+         * @description Status of a fiat-to-crypto payment session
+         * @enum {string}
+         */
+        PaymentSessionStatus: "CREATED" | "PENDING_PAYMENT" | "PAYMENT_RECEIVED" | "CONVERTING" | "MINTING" | "COMPLETED" | "FAILED" | "EXPIRED" | "CANCELLED" | "REFUNDING" | "REFUNDED";
         BaseResponse: {
             /** @description Indicates whether the request was successful */
             success?: boolean;
         };
-        /** @description Pagination metadata */
+        /** @description Pagination metadata (top-level sibling of `result`) */
         Pagination: {
             /**
              * Format: int32
@@ -600,39 +704,28 @@ export interface components {
              * @description Total number of pages
              */
             numberOfPages?: number;
-            /** @description Whether there's a next page */
+            /** @description Whether there is a next page */
             hasNextPage?: boolean;
-            /** @description Whether there's a previous page */
+            /** @description Whether there is a previous page */
             hasPreviousPage?: boolean;
-        };
-        /** @description Sort configuration */
-        Sort: {
-            orders?: components["schemas"]["SortOrderItem"][];
-        };
-        SortOrderItem: {
-            /** Format: int32 */
-            weight?: number;
-            property?: string;
-            /** @enum {string} */
-            direction?: "ASC" | "DESC";
         };
         /** @description Error response wrapper */
         ErrorResponse: {
             /**
-             * @description Indicates whether the request was successful
+             * @description Always false for error responses
              * @example false
              */
             success?: boolean;
             /** @description List of errors that occurred */
             errors?: components["schemas"]["ErrorBody"][];
-            /** @description Present only if success == true. Set to null or omitted when success == false. */
+            /** @description Null or omitted when success is false */
             result?: Record<string, never> | null;
         };
         /** @description Individual error details */
         ErrorBody: {
             /**
              * @description Machine-readable error code
-             * @example VALIDATION_ERROR
+             * @example invalid-request
              */
             code?: string;
             /**
@@ -640,8 +733,16 @@ export interface components {
              * @example The request contains invalid parameters.
              */
             message?: string;
-            /** @description Unique identifier for tracing the error in logs */
-            traceCode?: string;
+        };
+        /** @description Standardized address format used across all endpoints */
+        Address: {
+            addressLine1?: string;
+            addressLine2?: string;
+            city?: string;
+            state?: string;
+            postalCode?: string;
+            /** @description ISO 3166-1 alpha-2 country code */
+            country?: string;
         };
         /**
          * @description A party represents an Individual or Organisation that can hold accounts.
@@ -663,15 +764,18 @@ export interface components {
             name?: string;
             /** @description VAT number (Organisation only) */
             vatNumber?: string;
-            kybStatus?: components["schemas"]["KycStatus"];
+            kybStatus?: components["schemas"]["KybStatus"];
             address?: components["schemas"]["Address"];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            /**
+             * Format: int64
+             * @description Optimistic-locking version, required when updating
+             */
+            version?: number;
         };
-        CreatePartyRequest: {
-            partyType: components["schemas"]["PartyType"];
-            /** @description Optional external reference ID */
-            externalId?: string;
-            address?: components["schemas"]["Address"];
-        } & (components["schemas"]["CreateIndividualPartyRequest"] | components["schemas"]["CreateOrganisationPartyRequest"]);
         /**
          * @example {
          *       "partyType": "INDIVIDUAL",
@@ -685,54 +789,31 @@ export interface components {
          *       }
          *     }
          */
-        CreateIndividualPartyRequest: {
-            /** @enum {string} */
-            partyType: "INDIVIDUAL";
+        CreatePartyRequest: {
+            partyType: components["schemas"]["PartyType"];
+            /** @description Optional external reference ID */
             externalId?: string;
-            firstName: string;
-            lastName: string;
-            address?: components["schemas"]["Address"];
-        } & {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            partyType: "INDIVIDUAL";
-        };
-        /**
-         * @example {
-         *       "partyType": "ORGANISATION",
-         *       "name": "Acme Corporation",
-         *       "vatNumber": "NL123456789B01",
-         *       "address": {
-         *         "addressLine1": "456 Business Park",
-         *         "city": "Rotterdam",
-         *         "postalCode": "3011AA",
-         *         "country": "NL"
-         *       }
-         *     }
-         */
-        CreateOrganisationPartyRequest: {
-            /** @enum {string} */
-            partyType: "ORGANISATION";
-            externalId?: string;
-            /** @description Organisation name */
-            name: string;
+            /** @description Required for INDIVIDUAL parties */
+            firstName?: string;
+            /** @description Required for INDIVIDUAL parties */
+            lastName?: string;
+            /** @description Organisation name. Required for ORGANISATION parties */
+            name?: string;
+            /** @description VAT number. ORGANISATION parties only */
             vatNumber?: string;
             address?: components["schemas"]["Address"];
-        } & {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            partyType: "ORGANISATION";
         };
         /**
          * @description Update party details. Only fields applicable to the party type can be updated.
-         *     For Individuals: firstName, lastName, address
-         *     For Organisations: name, vatNumber, address
+         *     For Individuals: firstName, lastName, address.
+         *     For Organisations: name, vatNumber, address.
          */
         UpdatePartyRequest: {
+            /**
+             * Format: int64
+             * @description Current version of the party for optimistic locking
+             */
+            version: number;
             /** @description First name (Individual only) */
             firstName?: string;
             /** @description Last name (Individual only) */
@@ -747,7 +828,7 @@ export interface components {
             result?: components["schemas"]["Party"];
         };
         PartyListResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["Party"][];
+            result?: components["schemas"]["PartyListItem"][];
             pagination?: components["schemas"]["Pagination"];
         };
         /** @description Represents the relationship between a Party and an Account */
@@ -756,7 +837,10 @@ export interface components {
             partyId?: string;
             roleType?: components["schemas"]["PartyRoleType"];
             status?: components["schemas"]["PartyRoleStatus"];
-            party?: components["schemas"]["Party"];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
         };
         AddPartyRoleRequest: {
             /**
@@ -770,24 +854,35 @@ export interface components {
             result?: components["schemas"]["PartyRole"];
         };
         PartyRoleListResponse: components["schemas"]["BaseResponse"] & {
+            /** @description Party roles for the account (not paginated) */
             result?: components["schemas"]["PartyRole"][];
         };
         Account: {
             /** Format: uuid */
             id?: string;
             externalId?: string;
+            /** @description Display name for the account */
+            name?: string;
+            kycStatus?: components["schemas"]["KycStatus"];
             status?: components["schemas"]["AccountStatus"];
-            /** @description Parties associated with this account and their roles */
-            partyRoles?: components["schemas"]["PartyRole"][];
+            /** Format: date-time */
+            createdAt?: string;
+            /**
+             * Format: int64
+             * @description Optimistic-locking version
+             */
+            version?: number;
         };
         /**
          * @description Create a new account. You can either:
          *     - Reference an existing party by providing `partyId`
-         *     - Create a new party inline by providing `party` object with full party details
+         *     - Create a new party inline by providing the `party` object
          *
-         *     If neither is provided, an account without a party association will be created.
+         *     SELF_CUSTODY companies must also supply the wallet `address`.
          * @example {
          *       "externalId": "user-12345",
+         *       "name": "John Doe Account",
+         *       "chain": "BASE",
          *       "party": {
          *         "partyType": "INDIVIDUAL",
          *         "firstName": "John",
@@ -798,30 +893,24 @@ export interface components {
          *           "postalCode": "1012AB",
          *           "country": "NL"
          *         }
-         *       },
-         *       "autoCreateWallet": true,
-         *       "defaultChain": "BASE"
+         *       }
          *     }
          */
         CreateAccountRequest: {
             /** @description Unique external reference for this account */
             externalId: string;
+            /** @description Display name for the account */
+            name?: string;
+            chain: components["schemas"]["BlockchainNetwork"];
+            /** @description Wallet address. Required for SELF_CUSTODY companies */
+            address?: string;
             /**
              * Format: uuid
              * @description ID of an existing party to associate as account holder
              */
             partyId?: string;
             party?: components["schemas"]["CreatePartyRequest"];
-            /**
-             * @description Automatically create a wallet for this account
-             * @default true
-             */
-            autoCreateWallet: boolean;
-            defaultChain?: components["schemas"]["BlockchainNetwork"];
-        };
-        /** @description Update account details. Party details should be updated via the Party endpoints. */
-        UpdateAccountRequest: {
-            externalId?: string;
+            cardProviderReference?: components["schemas"]["CardProviderReference"];
         };
         SingleAccountResponse: components["schemas"]["BaseResponse"] & {
             result?: components["schemas"]["Account"];
@@ -830,65 +919,33 @@ export interface components {
             result?: components["schemas"]["Account"][];
             pagination?: components["schemas"]["Pagination"];
         };
+        /** @description Balance breakdown for a single asset, as decimal strings */
+        CryptoBalance: {
+            total?: string;
+            available?: string;
+            reserved?: string;
+        };
+        TokenBalance: {
+            /** @description Asset symbol (e.g. USDC) */
+            asset?: string;
+            /** @description ERC-20 contract address of the asset */
+            contractAddress?: string;
+            amount?: components["schemas"]["CryptoBalance"];
+        };
         Wallet: {
             /** Format: uuid */
             id?: string;
-            /** Format: uuid */
-            accountId?: string;
             chain?: components["schemas"]["BlockchainNetwork"];
+            type?: components["schemas"]["WalletType"];
             address?: string;
-            status?: components["schemas"]["WalletStatus"];
             balances?: components["schemas"]["TokenBalance"][];
-        };
-        TokenBalance: {
-            token?: components["schemas"]["Cryptocurrency"];
-            balance?: string;
-            availableBalance?: string;
-            pendingBalance?: string;
-        };
-        CreateWalletRequest: {
-            chain: components["schemas"]["BlockchainNetwork"];
-        };
-        SingleWalletResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["Wallet"];
+            amlStatus?: components["schemas"]["AmlStatus"];
         };
         WalletListResponse: components["schemas"]["BaseResponse"] & {
             result?: components["schemas"]["Wallet"][];
             pagination?: components["schemas"]["Pagination"];
         };
-        /**
-         * @description Type of bank account determining the payment rails.
-         *     Release 1: Only EUR_SEPA is supported.
-         *     Future releases will add USD_WIRE, USD_ACH, USD_SWIFT, GBP_FPS, GBP_CHAPS, OTHER_SWIFT.
-         * @enum {string}
-         */
-        BankAccountType: "EUR_SEPA" | "USD_WIRE" | "USD_ACH" | "USD_SWIFT" | "GBP_FPS" | "GBP_CHAPS" | "OTHER_SWIFT";
-        /**
-         * @description Supported transaction direction for the bank account
-         * @enum {string}
-         */
-        BankAccountRampType: "ON_RAMP" | "OFF_RAMP" | "ON_AND_OFF_RAMP";
-        /** @description Standardized address format used across all endpoints */
-        Address: {
-            addressLine1: string;
-            addressLine2?: string;
-            city: string;
-            state?: string;
-            postalCode: string;
-            /** @description ISO 3166-1 alpha-2 country code */
-            country: string;
-        };
-        /** @description Intermediary bank details for SWIFT transfers */
-        IntermediaryBankDetails: {
-            bankName?: string;
-            bic?: string;
-            accountNumber?: string;
-        };
-        /**
-         * @description Virtual bank account for receiving payments. The fields returned depend on the
-         *     bankAccountType. EUR_SEPA accounts return iban/bic, while USD accounts (future)
-         *     return accountNumber/routingNumber.
-         */
+        /** @description Virtual bank account for receiving payments. EUR_SEPA accounts return iban/bic. */
         VirtualBankAccount: {
             /** Format: uuid */
             id?: string;
@@ -912,10 +969,6 @@ export interface components {
              * @example DEUTDEDB
              */
             bic?: string;
-            /** @description Bank account number for USD_WIRE/USD_ACH accounts (future) */
-            accountNumber?: string;
-            /** @description Routing number for USD_WIRE/USD_ACH accounts (future) */
-            routingNumber?: string;
             /** @description Name of the bank */
             bankName?: string;
             /** @description Name of the account beneficiary */
@@ -929,20 +982,23 @@ export interface components {
         };
         /**
          * @description Request to create a virtual bank account. The backend provisions the appropriate
-         *     bank account type based on the inCurrency (e.g., EUR creates a EUR_SEPA account).
+         *     bank account type based on inCurrency (e.g. EUR -> EUR_SEPA).
          * @example {
          *       "name": "My EUR Deposit Account",
          *       "inCurrency": "EUR",
-         *       "targetCryptocurrency": "USDC"
+         *       "targetCryptocurrency": "USDC",
+         *       "idempotencyKey": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
          *     }
          */
         CreateVirtualBankAccountRequest: {
             /** @description Display name for the bank account */
             name: string;
-            /** @description Fiat currency to receive. Determines the bank account type (e.g., EUR -> EUR_SEPA) */
-            inCurrency: components["schemas"]["FiatCurrency"];
-            /** @description Cryptocurrency to convert incoming fiat payments to */
-            targetCryptocurrency: components["schemas"]["Cryptocurrency"];
+            /** @description Fiat currency to receive (ISO 4217). Determines the bank account type (EUR -> EUR_SEPA) */
+            inCurrency: string;
+            /** @description Cryptocurrency to convert incoming fiat payments to (e.g. USDC) */
+            targetCryptocurrency: string;
+            /** @description Unique key to prevent duplicate operations on retry */
+            idempotencyKey: string;
         };
         SingleVirtualBankAccountResponse: components["schemas"]["BaseResponse"] & {
             result?: components["schemas"]["VirtualBankAccount"];
@@ -951,69 +1007,206 @@ export interface components {
             result?: components["schemas"]["VirtualBankAccount"][];
             pagination?: components["schemas"]["Pagination"];
         };
-        PaymentLink: {
+        PaymentSession: {
             /** Format: uuid */
             id?: string;
             /** Format: uuid */
             accountId?: string;
-            /** Format: uri */
+            status?: components["schemas"]["PaymentSessionStatus"];
+            /** @description Fiat amount to be paid in */
+            inAmount?: number;
+            /** @description Fiat currency of the incoming payment */
+            inCurrency?: string;
+            /** @description Cryptocurrency the incoming fiat is converted to */
+            outCryptocurrency?: string;
+            /**
+             * Format: uri
+             * @description Hosted URL to redirect the payer to
+             */
             paymentUrl?: string;
             externalRef?: string;
-            status?: components["schemas"]["PaymentLinkStatus"];
             /** Format: uuid */
             walletId?: string;
             blockchainTxId?: string | null;
-            failureReason?: string | null;
-            failureCode?: components["schemas"]["ErrorCode"];
             cancellable?: boolean;
             /** Format: date-time */
             expiresAt?: string;
+            metadata?: {
+                [key: string]: string;
+            };
+            /** Format: uuid */
+            idempotencyKey?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
         };
-        CreatePaymentLinkRequest: {
-            inAmount?: string;
-            inCurrency?: components["schemas"]["FiatCurrency"];
-            outCryptocurrency?: components["schemas"]["Cryptocurrency"];
-            /** Format: uri */
-            redirectUrl?: string;
+        CreatePayInSessionRequest: {
+            /** @description Fiat amount to pay in */
+            inAmount: string;
+            /** @description Fiat currency of the incoming payment (e.g. EUR) */
+            inCurrency: string;
+            /** @description Cryptocurrency to convert the incoming fiat to (e.g. USDC) */
+            outCryptocurrency: string;
+            /** @description HTTPS URL to receive payment status callbacks */
+            callbackUrl: string;
+            /** @description URL to redirect the user to on successful payment */
+            successRedirectUrl?: string;
+            /** @description URL to redirect the user to on failed payment */
+            failureRedirectUrl?: string;
+            /** @description Optional external reference */
             externalRef?: string;
+            /**
+             * Format: uuid
+             * @description Unique UUID key to prevent duplicate operations on retry
+             */
+            idempotencyKey: string;
             metadata?: {
                 [key: string]: string;
             };
         };
-        SinglePaymentLinkResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["PaymentLink"];
+        SinglePaymentSessionResponse: components["schemas"]["BaseResponse"] & {
+            result?: components["schemas"]["PaymentSession"];
         };
-        /** @enum {string} */
-        AccountToAccountTransferStatus: "PENDING" | "COMPLETED" | "FAILED";
-        AccountToAccountTransfer: {
+        /** @description A single on-chain settlement attempt for a payment request */
+        PaymentExecution: {
             /** Format: uuid */
             id?: string;
             /** Format: uuid */
-            sourceAccountId?: string;
-            /** Format: uuid */
-            destinationAccountId?: string;
-            amount?: string;
-            cryptocurrency?: components["schemas"]["Cryptocurrency"];
-            status?: components["schemas"]["AccountToAccountTransferStatus"];
-        };
-        CreateAccountToAccountTransferRequest: {
-            /** Format: uuid */
-            sourceAccountId: string;
-            /** Format: uuid */
-            destinationAccountId: string;
-            amount: string;
-            cryptocurrency: components["schemas"]["Cryptocurrency"];
-            /** @description Optional blockchain network. If not specified, defaults to the account's primary chain. */
+            walletPairId?: string;
+            type?: components["schemas"]["PaymentExecutionType"];
             chain?: components["schemas"]["BlockchainNetwork"];
+            asset?: string;
+            amount?: number;
+            exchangeRate?: number;
+            status?: components["schemas"]["PaymentExecutionStatus"];
+            transactionHash?: string;
+            errorMessage?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
         };
-        SingleAccountToAccountTransferResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["AccountToAccountTransfer"];
+        /** @description Payment amount, expressed in both the request fiat currency and the settled crypto amount. `amount` is the request's current value; `originalAmount` preserves the value at creation time (the two can diverge after an adjustment). */
+        PaymentRequestAmount: {
+            /** @description Amount in the request `currency` (e.g. USD) */
+            fiat?: number;
+            /** @description Settled crypto amount as a decimal string (e.g. USDC) */
+            crypto?: string;
         };
-        AccountToAccountTransferListResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["AccountToAccountTransfer"][];
-            pagination?: components["schemas"]["Pagination"];
+        PaymentRequest: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            accountId?: string;
+            amount?: components["schemas"]["PaymentRequestAmount"];
+            originalAmount?: components["schemas"]["PaymentRequestAmount"];
+            settlementAmount?: components["schemas"]["PaymentRequestAmount"];
+            settledAmount?: components["schemas"]["PaymentRequestAmount"];
+            shortfallAmount?: components["schemas"]["PaymentRequestAmount"];
+            currency?: string;
+            externalId?: string;
+            description?: string;
+            status?: components["schemas"]["PaymentRequestStatus"];
+            /**
+             * Format: date-time
+             * @description When settlement completed (terminal SETTLED / SETTLED_WITH_SHORTFALL)
+             */
+            settledAt?: string;
+            reversalReason?: components["schemas"]["ReversalReason"];
+            /** @description Optional free-text reason supplied on reversal */
+            reversalDescription?: string;
+            /**
+             * Format: date-time
+             * @description When the reversal completed
+             */
+            reversedAt?: string;
+            executions?: components["schemas"]["PaymentExecution"][];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
         };
-        /** @description Transfer entity. Mirrors live TransferRequestDto. */
+        CreatePaymentRequestInput: {
+            /** @description Payment amount */
+            amount: number;
+            /** @description Currency code (e.g. EUR, USD) */
+            currency: string;
+            /** @description Optional external reference ID */
+            externalId?: string;
+            /** @description Optional payment description */
+            description?: string;
+            /** @description Unique key to prevent duplicate operations on retry */
+            idempotencyKey: string;
+        };
+        CardProviderReference: {
+            /** @description Card provider type identifier (case-sensitive) */
+            type: string;
+            /** @description Unique reference ID from the card provider */
+            referenceId: string;
+        };
+        CardProviderPaymentRequestInput: {
+            cardProviderReference: components["schemas"]["CardProviderReference"];
+            paymentRequest: components["schemas"]["CreatePaymentRequestInput"];
+        };
+        SinglePaymentRequestResponse: components["schemas"]["BaseResponse"] & {
+            result?: components["schemas"]["PaymentRequest"];
+        };
+        /** @description Identifies a payment request by the card-provider reference of its account plus the request's `externalId` — used by the "by reference" settle/reverse endpoints. */
+        PaymentRequestReference: {
+            cardProviderReference: components["schemas"]["CardProviderReference"];
+            /** @description The payment request's externalId (e.g. the card-provider TID) */
+            externalId: string;
+        };
+        SettlePaymentRequestInput: {
+            /** @description Final settlement amount, in the authorized fiat currency */
+            amount: number;
+            /** @description Must match the authorized currency */
+            currency: string;
+            /** @description Unique key to prevent duplicate operations on retry */
+            idempotencyKey: string;
+        };
+        /** @description Settles a payment request identified by its card-provider reference. */
+        SettlePaymentRequestByReferenceInput: {
+            paymentRequestReference: components["schemas"]["PaymentRequestReference"];
+            /** @description Final settlement amount, in the authorized fiat currency */
+            amount: number;
+            /** @description Must match the authorized currency */
+            currency: string;
+            /** @description Unique key to prevent duplicate operations on retry */
+            idempotencyKey: string;
+        };
+        ReversePaymentRequestInput: {
+            reason: components["schemas"]["ReversalReason"];
+            /** @description Optional free-text reason for the reversal */
+            description?: string;
+            /** @description Unique key to prevent duplicate operations on retry */
+            idempotencyKey: string;
+        };
+        /** @description Reverses a payment request identified by its card-provider reference. */
+        ReversePaymentRequestByReferenceInput: {
+            paymentRequestReference: components["schemas"]["PaymentRequestReference"];
+            reason: components["schemas"]["ReversalReason"];
+            /** @description Optional free-text reason for the reversal */
+            description?: string;
+            /** @description Unique key to prevent duplicate operations on retry */
+            idempotencyKey: string;
+        };
+        /** @description Sets a new absolute authorized amount on a payment request. A lower amount releases the difference from escrow back to the account wallet; a higher amount pulls the additional funds from the account wallet into escrow. */
+        UpdatePaymentRequestInput: {
+            /** @description New absolute authorized amount, in the authorized fiat currency */
+            amount: number;
+            /** @description Must match the authorized currency */
+            currency: string;
+            /** @description Unique key to prevent duplicate operations on retry */
+            idempotencyKey: string;
+        };
+        /** @description Fiat origin details for a fiat-denominated transfer */
+        FiatOrigin: {
+            currency?: string;
+            amount?: number;
+            exchangeRate?: number;
+        };
         Transfer: {
             /** Format: uuid */
             id?: string;
@@ -1036,43 +1229,44 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
-        /**
-         * @description Transfer lifecycle states. Source: live TransferRequestDto.status enum.
-         * @enum {string}
-         */
-        TransferStatus: "PENDING" | "COMPLETED" | "FAILED";
-        /** @description Fiat origin details for a settled transfer. Source: live FiatOriginDto. */
-        FiatOrigin: {
-            amount?: number;
-            currency?: components["schemas"]["FiatCurrency"];
-        };
-        /** @description Source: live /v3/api-docs verbatim. */
-        CreateCryptoTransferInput: {
-            /** Format: uuid */
+        CreateFiatTransferInput: {
+            /**
+             * Format: uuid
+             * @description ID of the receiving account
+             */
             receiverAccountId?: string;
+            /** @description External ID of the receiving account (alternative to receiverAccountId) */
             receiverExternalId?: string;
-            chain: components["schemas"]["BlockchainNetwork"];
-            asset: string;
+            /** @description Fiat currency code (e.g. EUR, USD) */
+            currency: string;
+            /** @description Transfer amount */
             amount: number;
+            /** @description Optional transfer description */
             description?: string;
+            /** @description Optional merchant reference */
             merchantReference?: string;
+            /** @description Unique key to prevent duplicate operations on retry */
             idempotencyKey: string;
         };
-        /**
-         * @description STUB. The /accounts/{senderAccountId}/transfers/fiat endpoint is documented in
-         *     the rebuild but does not exist in the live /v3/api-docs as of 2026-04-25.
-         *     Field names mirror the cross-border-payout guide. Replace with live schema once
-         *     the Finance team annotates the endpoint.
-         */
-        CreateFiatTransferInput: {
-            /** Format: uuid */
-            receiverAccountId: string;
+        CreateCryptoTransferInput: {
+            /**
+             * Format: uuid
+             * @description ID of the receiving account
+             */
+            receiverAccountId?: string;
+            /** @description External ID of the receiving account (alternative to receiverAccountId) */
             receiverExternalId?: string;
-            fiatAmount: string;
-            fiatCurrency: components["schemas"]["FiatCurrency"];
-            cryptocurrency?: components["schemas"]["Cryptocurrency"];
+            chain: components["schemas"]["BlockchainNetwork"];
+            /** @description Cryptocurrency asset identifier (e.g. USDC) */
+            asset: string;
+            /** @description Transfer amount */
+            amount: number;
+            /** @description Optional transfer description */
             description?: string;
+            /** @description Optional merchant reference */
             merchantReference?: string;
+            /** @description Unique key to prevent duplicate operations on retry */
+            idempotencyKey: string;
         };
         SingleTransferResponse: components["schemas"]["BaseResponse"] & {
             result?: components["schemas"]["Transfer"];
@@ -1081,53 +1275,9 @@ export interface components {
             result?: components["schemas"]["Transfer"][];
             pagination?: components["schemas"]["Pagination"];
         };
-        SubmitPermitRequest: {
-            /** Format: uuid */
-            supportedAssetId: string;
-            signature: components["schemas"]["PermitSignature"];
-        };
-        /** @description Source: live PermitMessageDto. */
-        PermitMessage: {
-            /** Format: uuid */
-            supportedAssetId?: string;
-            asset?: string;
-            contractAddress?: string;
-            /** @enum {string} */
-            status?: "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED";
-            typedData?: components["schemas"]["Eip712PermitMessage"];
-        };
-        /** @description Source: live PermitResultDto. */
-        PermitResult: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            supportedAssetId?: string;
-            asset?: string;
-            contractAddress?: string;
-            /** @enum {string} */
-            status?: "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED";
-            permitTxId?: string;
-        };
-        PermitSignature: {
-            v: string;
-            r: string;
-            s: string;
-        };
-        PermitData: {
-            owner?: string;
-            spender?: string;
-            value?: string;
-            /** Format: int64 */
-            nonce?: number;
-            deadline?: string;
-        };
-        Eip712PermitMessage: {
-            types?: {
-                [key: string]: components["schemas"]["Eip712TypeEntry"][];
-            };
-            primaryType?: string;
-            domain?: components["schemas"]["Eip712Domain"];
-            message?: components["schemas"]["PermitData"];
+        Eip712TypeEntry: {
+            name?: string;
+            type?: string;
         };
         Eip712Domain: {
             name?: string;
@@ -1136,26 +1286,60 @@ export interface components {
             chainId?: number;
             verifyingContract?: string;
         };
-        Eip712TypeEntry: {
-            name?: string;
-            type?: string;
+        /** @description EIP-2612 permit message payload */
+        PermitData: {
+            owner?: string;
+            spender?: string;
+            value?: string;
+            /** Format: int64 */
+            nonce?: number;
+            deadline?: string;
         };
-        /** @description Source: live AllowanceInfo. */
-        Allowance: {
-            asset?: components["schemas"]["SettlementAsset"];
-            allowance?: string;
-            orchestrationWallet?: string;
+        /** @description EIP-712 typed-data structure to sign */
+        Eip712PermitMessage: {
+            types?: {
+                [key: string]: components["schemas"]["Eip712TypeEntry"][];
+            };
+            primaryType?: string;
+            domain?: components["schemas"]["Eip712Domain"];
+            message?: components["schemas"]["PermitData"];
         };
-        /**
-         * @description STUB. SettlementAssetDto exists in live spec but its inner shape is not
-         *     annotated in /v3/api-docs as of 2026-04-25. Replace when Finance team ships
-         *     proper coverage.
-         */
-        SettlementAsset: {
+        PermitMessage: {
             /** Format: uuid */
             supportedAssetId?: string;
-            symbol?: string;
-            chain?: components["schemas"]["BlockchainNetwork"];
+            asset?: string;
+            contractAddress?: string;
+            status?: components["schemas"]["PermitStatus"];
+            typedData?: components["schemas"]["Eip712PermitMessage"];
+        };
+        PermitSignature: {
+            /** @description Recovery byte of the signature */
+            v: string;
+            /** @description First 32 bytes of the signature */
+            r: string;
+            /** @description Second 32 bytes of the signature */
+            s: string;
+        };
+        SubmitPermitRequest: {
+            /**
+             * Format: uuid
+             * @description ID of the supported asset to grant spending permission for
+             */
+            supportedAssetId: string;
+            signature: components["schemas"]["PermitSignature"];
+        };
+        PermitResult: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            supportedAssetId?: string;
+            asset?: string;
+            contractAddress?: string;
+            status?: components["schemas"]["PermitStatus"];
+            /** @description Internal permit transaction identifier (UUID, not an on-chain hash) */
+            permitTxId?: string;
+            /** @description True if the permit was a no-op (e.g. allowance already granted) */
+            skipped?: boolean;
         };
         PermitMessageListResponse: components["schemas"]["BaseResponse"] & {
             result?: components["schemas"]["PermitMessage"][];
@@ -1163,70 +1347,41 @@ export interface components {
         SinglePermitResultResponse: components["schemas"]["BaseResponse"] & {
             result?: components["schemas"]["PermitResult"];
         };
+        SettlementAsset: {
+            /** @description Asset symbol (e.g. USDC) */
+            name?: string;
+            contractAddress?: string;
+            /** Format: int32 */
+            decimals?: number;
+        };
+        Allowance: {
+            asset?: components["schemas"]["SettlementAsset"];
+            /** @description Approved amount as a decimal string (uint256-max indicates unlimited) */
+            allowance?: string;
+            /** @description Address of the orchestration wallet approved as spender */
+            orchestrationWallet?: string;
+        };
         AllowanceListResponse: components["schemas"]["BaseResponse"] & {
             result?: components["schemas"]["Allowance"][];
         };
-        /** @description Source: live PaymentRequestDto. */
-        PaymentRequest: {
+        /** @description Slim party representation returned in list responses. A single-party fetch returns more fields (address, kycStatus/kybStatus, updatedAt, version). */
+        PartyListItem: {
             /** Format: uuid */
             id?: string;
-            /** Format: uuid */
-            accountId?: string;
-            amount?: number;
-            currency?: string;
             externalId?: string;
-            description?: string;
-            /** @enum {string} */
-            status?: "PENDING" | "RESERVED" | "SETTLED" | "REVERSED" | "FAILED";
-            idempotencyKey?: string;
-            executions?: components["schemas"]["PaymentExecution"][];
+            partyType?: components["schemas"]["PartyType"];
+            status?: components["schemas"]["PartyStatus"];
+            /** @description Individual parties only */
+            firstName?: string;
+            /** @description Individual parties only */
+            lastName?: string;
+            /** @description Organisation parties only */
+            name?: string;
+            /** @description Organisation parties only */
+            vatNumber?: string;
             /** Format: date-time */
             createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
         };
-        /** @description Source: live PaymentExecutionDto. */
-        PaymentExecution: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            walletPairId?: string;
-            chain?: components["schemas"]["BlockchainNetwork"];
-            asset?: string;
-            amount?: number;
-            exchangeRate?: number;
-            /** @enum {string} */
-            status?: "PENDING" | "RESERVED" | "FAILED";
-            transactionHash?: string;
-            errorMessage?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        CreatePaymentRequestInput: {
-            amount: number;
-            currency: string;
-            externalId?: string;
-            description?: string;
-            idempotencyKey: string;
-        };
-        CardProviderPaymentRequestInput: {
-            cardProviderReference: components["schemas"]["CardProviderReference"];
-            paymentRequest: components["schemas"]["CreatePaymentRequestInput"];
-        };
-        CardProviderReference: {
-            type: string;
-            referenceId: string;
-        };
-        SinglePaymentRequestResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["PaymentRequest"];
-        };
-        /**
-         * @description Machine-readable error codes. Documented subset of the live catalogue.
-         * @enum {string}
-         */
-        ErrorCode: "RAMP_REQUEST_NOT_IN_APPROVABLE_STATE" | "RAMP_REQUEST_NOT_IN_REJECTABLE_STATE" | "RAMP_REQUEST_NOT_IN_CANCELLABLE_STATE" | "RAMP_REQUEST_NOT_IN_EDITABLE_STATE" | "UNSUPPORTED_CURRENCY_PAIR" | "AMOUNT_BELOW_MINIMUM" | "AMOUNT_ABOVE_MAXIMUM" | "KYB_NOT_VERIFIED" | "BANK_ACCOUNT_NOT_VERIFIED" | "WALLET_NOT_VERIFIED" | "INSUFFICIENT_SCOPE" | "SOURCE_IP_NOT_ALLOWED" | "INVALID_BANK_ACCOUNT_TYPE" | "OPTIMISTIC_LOCK_EXCEPTION" | "VERSION_CONFLICT" | "INVALID_IDEMPOTENCY_KEY" | "COMPANY_USER_ALREADY_EXISTS" | "RATE_LIMIT_EXCEEDED" | "UPSTREAM_RAIL_UNAVAILABLE" | "PARTNER_RESPONSE_TIMEOUT";
     };
     responses: {
         /** @description Request validation failed (400) */
@@ -1240,7 +1395,7 @@ export interface components {
                  *       "success": false,
                  *       "errors": [
                  *         {
-                 *           "code": "VALIDATION_ERROR",
+                 *           "code": "invalid-request",
                  *           "message": "The request contains invalid parameters."
                  *         }
                  *       ]
@@ -1260,8 +1415,8 @@ export interface components {
                  *       "success": false,
                  *       "errors": [
                  *         {
-                 *           "code": "UNAUTHORIZED",
-                 *           "message": "Missing or invalid authentication token."
+                 *           "code": "unauthenticated",
+                 *           "message": "Please authenticate to perform this action."
                  *         }
                  *       ]
                  *     }
@@ -1269,7 +1424,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description User lacks required permissions (403) */
+        /** @description Caller lacks the required authority/role (403) */
         Forbidden: {
             headers: {
                 [name: string]: unknown;
@@ -1280,8 +1435,8 @@ export interface components {
                  *       "success": false,
                  *       "errors": [
                  *         {
-                 *           "code": "FORBIDDEN",
-                 *           "message": "User does not have permission to access this resource."
+                 *           "code": "forbidden",
+                 *           "message": "You do not have permission to access this resource."
                  *         }
                  *       ]
                  *     }
@@ -1300,7 +1455,7 @@ export interface components {
                  *       "success": false,
                  *       "errors": [
                  *         {
-                 *           "code": "NOT_FOUND",
+                 *           "code": "account-not-found",
                  *           "message": "The requested resource was not found."
                  *         }
                  *       ]
@@ -1309,27 +1464,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description HTTP method not supported (405) */
-        MethodNotAllowed: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "success": false,
-                 *       "errors": [
-                 *         {
-                 *           "code": "METHOD_NOT_SUPPORTED",
-                 *           "message": "HttpMethod is not supported. Supported methods are [GET, POST]."
-                 *         }
-                 *       ]
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description Resource conflict (409) */
+        /** @description Resource conflict / optimistic-lock failure (409) */
         Conflict: {
             headers: {
                 [name: string]: unknown;
@@ -1340,8 +1475,8 @@ export interface components {
                  *       "success": false,
                  *       "errors": [
                  *         {
-                 *           "code": "CONFLICT",
-                 *           "message": "A resource with the specified identifier already exists."
+                 *           "code": "concurrent-modification",
+                 *           "message": "This request has been modified by another user. Please refresh and try again."
                  *         }
                  *       ]
                  *     }
@@ -1349,8 +1484,8 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description Request body is not valid JSON or wrong media type (415) */
-        UnsupportedMediaType: {
+        /** @description Funds or allowance insufficient to complete the operation (402) */
+        PaymentRequired: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1360,8 +1495,8 @@ export interface components {
                  *       "success": false,
                  *       "errors": [
                  *         {
-                 *           "code": "INVALID_MEDIA_TYPE",
-                 *           "message": "Request must be application/json."
+                 *           "code": "insufficient-funds",
+                 *           "message": "The account wallet balance is insufficient to complete this operation."
                  *         }
                  *       ]
                  *     }
@@ -1369,13 +1504,9 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description Rate limit exceeded (429) */
-        TooManyRequests: {
+        /** @description Idempotency conflict — the key was reused with a different body, or replays an operation that originally failed (422) */
+        UnprocessableEntity: {
             headers: {
-                "Retry-After"?: number;
-                "X-RateLimit-Limit"?: number;
-                "X-RateLimit-Remaining"?: number;
-                "X-RateLimit-Reset"?: number;
                 [name: string]: unknown;
             };
             content: {
@@ -1384,8 +1515,8 @@ export interface components {
                  *       "success": false,
                  *       "errors": [
                  *         {
-                 *           "code": "RATE_LIMITED",
-                 *           "message": "Too many requests. Please retry after the specified time."
+                 *           "code": "idempotency-conflict",
+                 *           "message": "This idempotency key was already used with a different request."
                  *         }
                  *       ]
                  *     }
@@ -1404,7 +1535,7 @@ export interface components {
                  *       "success": false,
                  *       "errors": [
                  *         {
-                 *           "code": "INTERNAL_SERVER_ERROR",
+                 *           "code": "internal-error",
                  *           "message": "An unexpected error occurred. Please try again later."
                  *         }
                  *       ]
@@ -1415,11 +1546,30 @@ export interface components {
         };
     };
     parameters: {
-        /** @description Unique party identifier */
+        /**
+         * @description Unique party identifier
+         * @example 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
+         */
         PartyId: string;
+        /**
+         * @description Unique account identifier
+         * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+         */
         AccountId: string;
+        /**
+         * @description Unique payment request identifier
+         * @example d4e5f6a7-b8c9-4012-8345-6789abcdef01
+         */
+        PaymentRequestId: string;
+        /**
+         * @description Unique wallet identifier
+         * @example 9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f
+         */
         WalletId: string;
-        /** @description Unique virtual bank account identifier */
+        /**
+         * @description Unique virtual bank account identifier
+         * @example 4d5e6f70-8192-4a3b-9c4d-5e6f7081920a
+         */
         VirtualBankAccountId: string;
         /**
          * @description Page number (1-based indexing)
@@ -1428,15 +1578,19 @@ export interface components {
         Page: number;
         /**
          * @description Number of items per page
-         * @example 100
+         * @example 20
          */
         Size: number;
-        /** @description Field to sort by */
+        /**
+         * @description Field to sort by
+         * @example createdAt
+         */
         SortOn: string;
-        /** @description Sort direction */
+        /**
+         * @description Sort direction
+         * @example DESC
+         */
         SortOrder: "ASC" | "DESC";
-        /** @description Unique key for idempotent requests (UUID recommended) */
-        IdempotencyKey: string;
     };
     requestBodies: never;
     headers: never;
@@ -1448,24 +1602,40 @@ export interface operations {
         parameters: {
             query?: {
                 /**
+                 * @description Filter by party type
+                 * @example INDIVIDUAL
+                 */
+                partyType?: components["schemas"]["PartyType"];
+                /**
+                 * @description Filter by party status
+                 * @example ACTIVE
+                 */
+                status?: components["schemas"]["PartyStatus"];
+                /**
+                 * @description Filter by external ID (exact match)
+                 * @example user-12345
+                 */
+                externalId?: string;
+                /**
+                 * @description Field to sort by
+                 * @example createdAt
+                 */
+                sortOn?: components["parameters"]["SortOn"];
+                /**
+                 * @description Sort direction
+                 * @example DESC
+                 */
+                sortOrder?: components["parameters"]["SortOrder"];
+                /**
                  * @description Page number (1-based indexing)
                  * @example 1
                  */
                 page?: components["parameters"]["Page"];
                 /**
                  * @description Number of items per page
-                 * @example 100
+                 * @example 20
                  */
                 size?: components["parameters"]["Size"];
-                /** @description Field to sort by */
-                sortOn?: components["parameters"]["SortOn"];
-                /** @description Sort direction */
-                sortOrder?: components["parameters"]["SortOrder"];
-                /** @description Filter by party type */
-                partyType?: components["schemas"]["PartyType"];
-                status?: components["schemas"]["PartyStatus"];
-                /** @description Filter by external ID (exact match) */
-                externalId?: string;
             };
             header?: never;
             path?: never;
@@ -1479,30 +1649,62 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": [
+                     *         {
+                     *           "id": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
+                     *           "externalId": "user-12345",
+                     *           "partyType": "INDIVIDUAL",
+                     *           "status": "ACTIVE",
+                     *           "firstName": "Jane",
+                     *           "lastName": "Doe",
+                     *           "createdAt": "2026-01-15T09:30:00"
+                     *         }
+                     *       ],
+                     *       "pagination": {
+                     *         "pageNumber": 1,
+                     *         "pageSize": 20,
+                     *         "numberOfElements": 1,
+                     *         "numberOfPages": 1,
+                     *         "hasNextPage": false,
+                     *         "hasPreviousPage": false
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["PartyListResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
         };
     };
     createParty: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Unique key for idempotent requests (UUID recommended) */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
+                /**
+                 * @example {
+                 *       "partyType": "INDIVIDUAL",
+                 *       "externalId": "user-12345",
+                 *       "firstName": "Jane",
+                 *       "lastName": "Doe",
+                 *       "address": {
+                 *         "addressLine1": "1 Example Street",
+                 *         "city": "Amsterdam",
+                 *         "postalCode": "1011AB",
+                 *         "country": "NL"
+                 *       }
+                 *     }
+                 */
                 "application/json": components["schemas"]["CreatePartyRequest"];
             };
         };
@@ -1513,16 +1715,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
+                     *         "externalId": "user-12345",
+                     *         "partyType": "INDIVIDUAL",
+                     *         "status": "ACTIVE",
+                     *         "firstName": "Jane",
+                     *         "lastName": "Doe",
+                     *         "address": {
+                     *           "addressLine1": "1 Example Street",
+                     *           "city": "Amsterdam",
+                     *           "postalCode": "1011AB",
+                     *           "country": "NL"
+                     *         },
+                     *         "createdAt": "2026-01-15T09:30:00",
+                     *         "updatedAt": "2026-01-15T09:30:00",
+                     *         "version": 0
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SinglePartyResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
-            405: components["responses"]["MethodNotAllowed"];
             409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -1531,7 +1752,10 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique party identifier */
+                /**
+                 * @description Unique party identifier
+                 * @example 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
+                 */
                 partyId: components["parameters"]["PartyId"];
             };
             cookie?: never;
@@ -1544,14 +1768,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
+                     *         "externalId": "user-12345",
+                     *         "partyType": "INDIVIDUAL",
+                     *         "status": "ACTIVE",
+                     *         "firstName": "Jane",
+                     *         "lastName": "Doe",
+                     *         "kycStatus": "VERIFIED",
+                     *         "address": {
+                     *           "addressLine1": "1 Example Street",
+                     *           "city": "Amsterdam",
+                     *           "postalCode": "1011AB",
+                     *           "country": "NL"
+                     *         },
+                     *         "createdAt": "2026-01-15T09:30:00",
+                     *         "updatedAt": "2026-01-15T09:30:00",
+                     *         "version": 0
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SinglePartyResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -1560,7 +1805,10 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique party identifier */
+                /**
+                 * @description Unique party identifier
+                 * @example 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
+                 */
                 partyId: components["parameters"]["PartyId"];
             };
             cookie?: never;
@@ -1578,8 +1826,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -1588,13 +1834,23 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Unique party identifier */
+                /**
+                 * @description Unique party identifier
+                 * @example 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
+                 */
                 partyId: components["parameters"]["PartyId"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
+                /**
+                 * @example {
+                 *       "version": 0,
+                 *       "firstName": "Janet",
+                 *       "lastName": "Doe"
+                 *     }
+                 */
                 "application/json": components["schemas"]["UpdatePartyRequest"];
             };
         };
@@ -1605,6 +1861,28 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
+                     *         "externalId": "user-12345",
+                     *         "partyType": "INDIVIDUAL",
+                     *         "status": "ACTIVE",
+                     *         "firstName": "Janet",
+                     *         "lastName": "Doe",
+                     *         "address": {
+                     *           "addressLine1": "1 Example Street",
+                     *           "city": "Amsterdam",
+                     *           "postalCode": "1011AB",
+                     *           "country": "NL"
+                     *         },
+                     *         "createdAt": "2026-01-15T09:30:00",
+                     *         "updatedAt": "2026-01-15T09:30:00",
+                     *         "version": 0
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SinglePartyResponse"];
                 };
             };
@@ -1612,48 +1890,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    listPartyAccounts: {
-        parameters: {
-            query?: {
-                /**
-                 * @description Page number (1-based indexing)
-                 * @example 1
-                 */
-                page?: components["parameters"]["Page"];
-                /**
-                 * @description Number of items per page
-                 * @example 100
-                 */
-                size?: components["parameters"]["Size"];
-            };
-            header?: never;
-            path: {
-                /** @description Unique party identifier */
-                partyId: components["parameters"]["PartyId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of accounts associated with the party */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccountListResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
+            409: components["responses"]["Conflict"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -1661,24 +1898,35 @@ export interface operations {
         parameters: {
             query?: {
                 /**
+                 * @description Filter by external ID (exact match)
+                 * @example user-12345
+                 */
+                externalId?: string;
+                /**
+                 * @description Filter by account status
+                 * @example ACTIVE
+                 */
+                status?: components["schemas"]["AccountStatus"];
+                /**
+                 * @description Field to sort by
+                 * @example createdAt
+                 */
+                sortOn?: components["parameters"]["SortOn"];
+                /**
+                 * @description Sort direction
+                 * @example DESC
+                 */
+                sortOrder?: components["parameters"]["SortOrder"];
+                /**
                  * @description Page number (1-based indexing)
                  * @example 1
                  */
                 page?: components["parameters"]["Page"];
                 /**
                  * @description Number of items per page
-                 * @example 100
+                 * @example 20
                  */
                 size?: components["parameters"]["Size"];
-                /** @description Field to sort by */
-                sortOn?: components["parameters"]["SortOn"];
-                /** @description Sort direction */
-                sortOrder?: components["parameters"]["SortOrder"];
-                status?: components["schemas"]["AccountStatus"];
-                /** @description Filter by party ID */
-                partyId?: string;
-                /** @description Filter by external ID (exact match) */
-                externalId?: string;
             };
             header?: never;
             path?: never;
@@ -1692,30 +1940,57 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": [
+                     *         {
+                     *           "id": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *           "externalId": "user-12345",
+                     *           "name": "Jane Doe — Main",
+                     *           "kycStatus": "VERIFIED",
+                     *           "status": "ACTIVE",
+                     *           "createdAt": "2026-01-15T09:30:00",
+                     *           "version": 0
+                     *         }
+                     *       ],
+                     *       "pagination": {
+                     *         "pageNumber": 1,
+                     *         "pageSize": 20,
+                     *         "numberOfElements": 1,
+                     *         "numberOfPages": 1,
+                     *         "hasNextPage": false,
+                     *         "hasPreviousPage": false
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["AccountListResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
         };
     };
     createAccount: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Unique key for idempotent requests (UUID recommended) */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
+                /**
+                 * @example {
+                 *       "externalId": "user-12345",
+                 *       "name": "Jane Doe — Main",
+                 *       "chain": "BASE",
+                 *       "address": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+                 *       "partyId": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22"
+                 *     }
+                 */
                 "application/json": components["schemas"]["CreateAccountRequest"];
             };
         };
@@ -1726,16 +2001,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "externalId": "user-12345",
+                     *         "name": "Jane Doe — Main",
+                     *         "kycStatus": "VERIFICATION_PENDING",
+                     *         "status": "ACTIVE",
+                     *         "createdAt": "2026-01-15T09:30:00",
+                     *         "version": 0
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SingleAccountResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
-            405: components["responses"]["MethodNotAllowed"];
             409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -1744,6 +2030,10 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
             };
             cookie?: never;
@@ -1756,145 +2046,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "externalId": "user-12345",
+                     *         "name": "Jane Doe — Main",
+                     *         "kycStatus": "VERIFIED",
+                     *         "status": "ACTIVE",
+                     *         "createdAt": "2026-01-15T09:30:00",
+                     *         "version": 0
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SingleAccountResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
-    deleteAccount: {
+    listPartyRoles: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Account deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    updateAccount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateAccountRequest"];
-            };
-        };
-        responses: {
-            /** @description Account updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SingleAccountResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    suspendAccount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    reason: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Account suspended */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SingleAccountResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    reactivateAccount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Account reactivated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SingleAccountResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    listAccountPartyRoles: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
             };
             cookie?: never;
@@ -1907,31 +2090,50 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": [
+                     *         {
+                     *           "partyId": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
+                     *           "roleType": "ACCOUNT_HOLDER",
+                     *           "status": "ACTIVE",
+                     *           "createdAt": "2026-01-15T09:30:00",
+                     *           "updatedAt": "2026-01-15T09:30:00"
+                     *         }
+                     *       ]
+                     *     }
+                     */
                     "application/json": components["schemas"]["PartyRoleListResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
     addPartyRole: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Unique key for idempotent requests (UUID recommended) */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
+                /**
+                 * @example {
+                 *       "partyId": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
+                 *       "roleType": "ACCOUNT_HOLDER"
+                 *     }
+                 */
                 "application/json": components["schemas"]["AddPartyRoleRequest"];
             };
         };
@@ -1942,6 +2144,18 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "partyId": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
+                     *         "roleType": "ACCOUNT_HOLDER",
+                     *         "status": "ACTIVE",
+                     *         "createdAt": "2026-01-15T09:30:00",
+                     *         "updatedAt": "2026-01-15T09:30:00"
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SinglePartyRoleResponse"];
                 };
             };
@@ -1949,9 +2163,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
             409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -1960,8 +2172,15 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
-                /** @description The party ID to remove from the account */
+                /**
+                 * @description The party ID to remove from the account
+                 * @example 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
+                 */
                 partyId: string;
             };
             cookie?: never;
@@ -1979,8 +2198,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -1994,14 +2211,16 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 /**
                  * @description Number of items per page
-                 * @example 100
+                 * @example 20
                  */
                 size?: components["parameters"]["Size"];
-                chain?: components["schemas"]["BlockchainNetwork"];
-                status?: components["schemas"]["WalletStatus"];
             };
             header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
             };
             cookie?: never;
@@ -2014,80 +2233,45 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": [
+                     *         {
+                     *           "id": "9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f",
+                     *           "chain": "BASE",
+                     *           "type": "SELF_CUSTODY",
+                     *           "address": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+                     *           "balances": [
+                     *             {
+                     *               "asset": "USDC",
+                     *               "contractAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+                     *               "amount": {
+                     *                 "total": "125.00",
+                     *                 "available": "100.00",
+                     *                 "reserved": "25.00"
+                     *               }
+                     *             }
+                     *           ],
+                     *           "amlStatus": "APPROVED"
+                     *         }
+                     *       ],
+                     *       "pagination": {
+                     *         "pageNumber": 1,
+                     *         "pageSize": 20,
+                     *         "numberOfElements": 1,
+                     *         "numberOfPages": 1,
+                     *         "hasNextPage": false,
+                     *         "hasPreviousPage": false
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["WalletListResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    createWallet: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Unique key for idempotent requests (UUID recommended) */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateWalletRequest"];
-            };
-        };
-        responses: {
-            /** @description Wallet created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SingleWalletResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    getWallet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                accountId: components["parameters"]["AccountId"];
-                walletId: components["parameters"]["WalletId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Wallet details */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SingleWalletResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -2095,20 +2279,32 @@ export interface operations {
         parameters: {
             query?: {
                 /**
+                 * @description Field to sort by
+                 * @example createdAt
+                 */
+                sortOn?: components["parameters"]["SortOn"];
+                /**
+                 * @description Sort direction
+                 * @example DESC
+                 */
+                sortOrder?: components["parameters"]["SortOrder"];
+                /**
                  * @description Page number (1-based indexing)
                  * @example 1
                  */
                 page?: components["parameters"]["Page"];
                 /**
                  * @description Number of items per page
-                 * @example 100
+                 * @example 20
                  */
                 size?: components["parameters"]["Size"];
-                bankAccountType?: components["schemas"]["BankAccountType"];
-                status?: components["schemas"]["VirtualBankAccountStatus"];
             };
             header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
             };
             cookie?: never;
@@ -2121,31 +2317,69 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": [
+                     *         {
+                     *           "id": "4d5e6f70-8192-4a3b-9c4d-5e6f7081920a",
+                     *           "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *           "bankAccountType": "EUR_SEPA",
+                     *           "name": "EUR Payouts",
+                     *           "status": "ACTIVE",
+                     *           "currency": "EUR",
+                     *           "targetCryptocurrency": "USDC",
+                     *           "iban": "DE89370400440532013000",
+                     *           "bic": "DEUTDEDB",
+                     *           "bankName": "Example Bank",
+                     *           "beneficiaryName": "Jane Doe",
+                     *           "referenceCode": "VFY-7K2Q-931",
+                     *           "createdAt": "2026-01-15T09:30:00",
+                     *           "updatedAt": "2026-01-15T09:30:00"
+                     *         }
+                     *       ],
+                     *       "pagination": {
+                     *         "pageNumber": 1,
+                     *         "pageSize": 20,
+                     *         "numberOfElements": 1,
+                     *         "numberOfPages": 1,
+                     *         "hasNextPage": false,
+                     *         "hasPreviousPage": false
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["VirtualBankAccountListResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
     createVirtualBankAccount: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Unique key for idempotent requests (UUID recommended) */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
+                /**
+                 * @example {
+                 *       "name": "EUR Payouts",
+                 *       "inCurrency": "EUR",
+                 *       "targetCryptocurrency": "USDC",
+                 *       "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                 *     }
+                 */
                 "application/json": components["schemas"]["CreateVirtualBankAccountRequest"];
             };
         };
@@ -2156,6 +2390,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "4d5e6f70-8192-4a3b-9c4d-5e6f7081920a",
+                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "bankAccountType": "EUR_SEPA",
+                     *         "name": "EUR Payouts",
+                     *         "status": "ACTIVE",
+                     *         "currency": "EUR",
+                     *         "targetCryptocurrency": "USDC",
+                     *         "iban": "DE89370400440532013000",
+                     *         "bic": "DEUTDEDB",
+                     *         "bankName": "Example Bank",
+                     *         "beneficiaryName": "Jane Doe",
+                     *         "referenceCode": "VFY-7K2Q-931",
+                     *         "createdAt": "2026-01-15T09:30:00",
+                     *         "updatedAt": "2026-01-15T09:30:00"
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SingleVirtualBankAccountResponse"];
                 };
             };
@@ -2163,9 +2418,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
             409: components["responses"]["Conflict"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -2174,8 +2427,15 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
-                /** @description Unique virtual bank account identifier */
+                /**
+                 * @description Unique virtual bank account identifier
+                 * @example 4d5e6f70-8192-4a3b-9c4d-5e6f7081920a
+                 */
                 virtualBankAccountId: components["parameters"]["VirtualBankAccountId"];
             };
             cookie?: never;
@@ -2188,50 +2448,105 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "4d5e6f70-8192-4a3b-9c4d-5e6f7081920a",
+                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "bankAccountType": "EUR_SEPA",
+                     *         "name": "EUR Payouts",
+                     *         "status": "ACTIVE",
+                     *         "currency": "EUR",
+                     *         "targetCryptocurrency": "USDC",
+                     *         "iban": "DE89370400440532013000",
+                     *         "bic": "DEUTDEDB",
+                     *         "bankName": "Example Bank",
+                     *         "beneficiaryName": "Jane Doe",
+                     *         "referenceCode": "VFY-7K2Q-931",
+                     *         "createdAt": "2026-01-15T09:30:00",
+                     *         "updatedAt": "2026-01-15T09:30:00"
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SingleVirtualBankAccountResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
-    createPaymentLink: {
+    createPayInSession: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Unique key for idempotent requests (UUID recommended) */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreatePaymentLinkRequest"];
+                /**
+                 * @example {
+                 *       "inAmount": "100.00",
+                 *       "inCurrency": "EUR",
+                 *       "outCryptocurrency": "USDC",
+                 *       "callbackUrl": "https://example.com/webhooks/pay-in",
+                 *       "successRedirectUrl": "https://example.com/pay-in/success",
+                 *       "failureRedirectUrl": "https://example.com/pay-in/failure",
+                 *       "externalRef": "order-67890",
+                 *       "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                 *     }
+                 */
+                "application/json": components["schemas"]["CreatePayInSessionRequest"];
             };
         };
         responses: {
-            /** @description Payment link created */
+            /** @description Payment session created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SinglePaymentLinkResponse"];
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "5e6f7081-92a3-4b4c-8d5e-6f708192a3b4",
+                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "status": "CREATED",
+                     *         "inAmount": 100,
+                     *         "inCurrency": "EUR",
+                     *         "outCryptocurrency": "USDC",
+                     *         "paymentUrl": "https://pay.example.com/session/5e6f708192a3b4c8",
+                     *         "externalRef": "order-67890",
+                     *         "walletId": "9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f",
+                     *         "blockchainTxId": null,
+                     *         "cancellable": true,
+                     *         "expiresAt": "2026-01-15T10:30:00Z",
+                     *         "metadata": {
+                     *           "orderId": "67890"
+                     *         },
+                     *         "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                     *         "createdAt": "2026-01-15T09:30:00",
+                     *         "updatedAt": "2026-01-15T09:30:00"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["SinglePaymentSessionResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             /** @description Unsupported currency pair or KYC required */
             422: {
                 headers: {
@@ -2247,15 +2562,27 @@ export interface operations {
     createPaymentRequestByCardProvider: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Unique key for idempotent requests (UUID recommended) */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
+                /**
+                 * @example {
+                 *       "cardProviderReference": {
+                 *         "type": "paymentology",
+                 *         "referenceId": "ACC-12345"
+                 *       },
+                 *       "paymentRequest": {
+                 *         "amount": 25,
+                 *         "currency": "USD",
+                 *         "externalId": "order-67890",
+                 *         "description": "Order #67890",
+                 *         "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                 *       }
+                 *     }
+                 */
                 "application/json": components["schemas"]["CardProviderPaymentRequestInput"];
             };
         };
@@ -2266,6 +2593,44 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "d4e5f6a7-b8c9-4012-8345-6789abcdef01",
+                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "amount": {
+                     *           "fiat": 25,
+                     *           "crypto": "25.000000"
+                     *         },
+                     *         "originalAmount": {
+                     *           "fiat": 25,
+                     *           "crypto": "25.000000"
+                     *         },
+                     *         "currency": "USD",
+                     *         "externalId": "order-67890",
+                     *         "description": "Order #67890",
+                     *         "status": "RESERVED",
+                     *         "executions": [
+                     *           {
+                     *             "id": "e5f6a7b8-c9d0-4123-9456-789abcdef012",
+                     *             "walletPairId": "f6a7b8c9-d0e1-4234-a567-89abcdef0123",
+                     *             "type": "AUTHORIZATION",
+                     *             "chain": "BASE",
+                     *             "asset": "USDC",
+                     *             "amount": 25,
+                     *             "exchangeRate": 1,
+                     *             "status": "RESERVED",
+                     *             "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+                     *             "createdAt": "2026-01-15T09:30:00Z",
+                     *             "updatedAt": "2026-01-15T09:30:02Z"
+                     *           }
+                     *         ],
+                     *         "createdAt": "2026-01-15T09:30:00Z",
+                     *         "updatedAt": "2026-01-15T09:30:02Z"
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SinglePaymentRequestResponse"];
                 };
             };
@@ -2273,25 +2638,33 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
     createPaymentRequest: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Unique key for idempotent requests (UUID recommended) */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
+                /**
+                 * @example {
+                 *       "amount": 25,
+                 *       "currency": "USD",
+                 *       "externalId": "order-67890",
+                 *       "description": "Order #67890",
+                 *       "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                 *     }
+                 */
                 "application/json": components["schemas"]["CreatePaymentRequestInput"];
             };
         };
@@ -2302,6 +2675,44 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "d4e5f6a7-b8c9-4012-8345-6789abcdef01",
+                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "amount": {
+                     *           "fiat": 25,
+                     *           "crypto": "25.000000"
+                     *         },
+                     *         "originalAmount": {
+                     *           "fiat": 25,
+                     *           "crypto": "25.000000"
+                     *         },
+                     *         "currency": "USD",
+                     *         "externalId": "order-67890",
+                     *         "description": "Order #67890",
+                     *         "status": "RESERVED",
+                     *         "executions": [
+                     *           {
+                     *             "id": "e5f6a7b8-c9d0-4123-9456-789abcdef012",
+                     *             "walletPairId": "f6a7b8c9-d0e1-4234-a567-89abcdef0123",
+                     *             "type": "AUTHORIZATION",
+                     *             "chain": "BASE",
+                     *             "asset": "USDC",
+                     *             "amount": 25,
+                     *             "exchangeRate": 1,
+                     *             "status": "RESERVED",
+                     *             "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+                     *             "createdAt": "2026-01-15T09:30:00Z",
+                     *             "updatedAt": "2026-01-15T09:30:02Z"
+                     *           }
+                     *         ],
+                     *         "createdAt": "2026-01-15T09:30:00Z",
+                     *         "updatedAt": "2026-01-15T09:30:02Z"
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SinglePaymentRequestResponse"];
                 };
             };
@@ -2309,26 +2720,360 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    settlePaymentRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Unique payment request identifier
+                 * @example d4e5f6a7-b8c9-4012-8345-6789abcdef01
+                 */
+                paymentRequestId: components["parameters"]["PaymentRequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "amount": 25,
+                 *       "currency": "USD",
+                 *       "idempotencyKey": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                 *     }
+                 */
+                "application/json": components["schemas"]["SettlePaymentRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Settlement accepted; on-chain processing is asynchronous */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "d4e5f6a7-b8c9-4012-8345-6789abcdef01",
+                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "amount": {
+                     *           "fiat": 25,
+                     *           "crypto": "25.000000"
+                     *         },
+                     *         "settlementAmount": {
+                     *           "fiat": 25,
+                     *           "crypto": "25.000000"
+                     *         },
+                     *         "currency": "USD",
+                     *         "externalId": "order-67890",
+                     *         "status": "SETTLING",
+                     *         "executions": [
+                     *           {
+                     *             "id": "a7b8c9d0-e1f2-4345-b678-9abcdef01234",
+                     *             "walletPairId": "f6a7b8c9-d0e1-4234-a567-89abcdef0123",
+                     *             "type": "SETTLEMENT",
+                     *             "chain": "BASE",
+                     *             "asset": "USDC",
+                     *             "amount": 25,
+                     *             "exchangeRate": 1,
+                     *             "status": "PENDING",
+                     *             "createdAt": "2026-01-15T10:00:00Z",
+                     *             "updatedAt": "2026-01-15T10:00:00Z"
+                     *           }
+                     *         ],
+                     *         "createdAt": "2026-01-15T09:30:00Z",
+                     *         "updatedAt": "2026-01-15T10:00:00Z"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["SinglePaymentRequestResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    settlePaymentRequestByReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "paymentRequestReference": {
+                 *         "cardProviderReference": {
+                 *           "type": "paymentology",
+                 *           "referenceId": "ACC-12345"
+                 *         },
+                 *         "externalId": "TID-67890"
+                 *       },
+                 *       "amount": 25,
+                 *       "currency": "USD",
+                 *       "idempotencyKey": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                 *     }
+                 */
+                "application/json": components["schemas"]["SettlePaymentRequestByReferenceInput"];
+            };
+        };
+        responses: {
+            /** @description Settlement accepted; on-chain processing is asynchronous */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SinglePaymentRequestResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    reversePaymentRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Unique payment request identifier
+                 * @example d4e5f6a7-b8c9-4012-8345-6789abcdef01
+                 */
+                paymentRequestId: components["parameters"]["PaymentRequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "reason": "CUSTOMER_CANCELLATION",
+                 *       "description": "Customer requested cancellation",
+                 *       "idempotencyKey": "1b4e28ba-2fa1-11d2-883f-0016d3cca427"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ReversePaymentRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Reversal accepted; on-chain processing is asynchronous */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "d4e5f6a7-b8c9-4012-8345-6789abcdef01",
+                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "amount": {
+                     *           "fiat": 25,
+                     *           "crypto": "25.000000"
+                     *         },
+                     *         "currency": "USD",
+                     *         "status": "REVERSING",
+                     *         "reversalReason": "CUSTOMER_CANCELLATION",
+                     *         "reversalDescription": "Customer requested cancellation",
+                     *         "executions": [
+                     *           {
+                     *             "id": "b8c9d0e1-f2a3-4456-c789-abcdef012345",
+                     *             "walletPairId": "f6a7b8c9-d0e1-4234-a567-89abcdef0123",
+                     *             "type": "REVERSAL",
+                     *             "chain": "BASE",
+                     *             "asset": "USDC",
+                     *             "amount": 25,
+                     *             "exchangeRate": 1,
+                     *             "status": "PENDING",
+                     *             "createdAt": "2026-01-15T10:05:00Z",
+                     *             "updatedAt": "2026-01-15T10:05:00Z"
+                     *           }
+                     *         ],
+                     *         "createdAt": "2026-01-15T09:30:00Z",
+                     *         "updatedAt": "2026-01-15T10:05:00Z"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["SinglePaymentRequestResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    reversePaymentRequestByReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "paymentRequestReference": {
+                 *         "cardProviderReference": {
+                 *           "type": "paymentology",
+                 *           "referenceId": "ACC-12345"
+                 *         },
+                 *         "externalId": "TID-67890"
+                 *       },
+                 *       "reason": "NETWORK_DECLINE",
+                 *       "description": "Scheme declined after issuer approval",
+                 *       "idempotencyKey": "1b4e28ba-2fa1-11d2-883f-0016d3cca427"
+                 *     }
+                 */
+                "application/json": components["schemas"]["ReversePaymentRequestByReferenceInput"];
+            };
+        };
+        responses: {
+            /** @description Reversal accepted; on-chain processing is asynchronous */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SinglePaymentRequestResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    updatePaymentRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Unique payment request identifier
+                 * @example d4e5f6a7-b8c9-4012-8345-6789abcdef01
+                 */
+                paymentRequestId: components["parameters"]["PaymentRequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "amount": 20,
+                 *       "currency": "USD",
+                 *       "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                 *     }
+                 */
+                "application/json": components["schemas"]["UpdatePaymentRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Amount adjustment accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "d4e5f6a7-b8c9-4012-8345-6789abcdef01",
+                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "amount": {
+                     *           "fiat": 20,
+                     *           "crypto": "20.000000"
+                     *         },
+                     *         "originalAmount": {
+                     *           "fiat": 25,
+                     *           "crypto": "25.000000"
+                     *         },
+                     *         "currency": "USD",
+                     *         "status": "RESERVED",
+                     *         "executions": [
+                     *           {
+                     *             "id": "c9d0e1f2-a3b4-4567-d89a-bcdef0123456",
+                     *             "walletPairId": "f6a7b8c9-d0e1-4234-a567-89abcdef0123",
+                     *             "type": "AUTHORIZATION_ADJUSTMENT",
+                     *             "chain": "BASE",
+                     *             "asset": "USDC",
+                     *             "amount": 5,
+                     *             "exchangeRate": 1,
+                     *             "status": "PENDING",
+                     *             "createdAt": "2026-01-15T09:45:00Z",
+                     *             "updatedAt": "2026-01-15T09:45:00Z"
+                     *           }
+                     *         ],
+                     *         "createdAt": "2026-01-15T09:30:00Z",
+                     *         "updatedAt": "2026-01-15T09:45:00Z"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["SinglePaymentRequestResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            402: components["responses"]["PaymentRequired"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
             500: components["responses"]["InternalServerError"];
         };
     };
     createFiatTransfer: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Unique key for idempotent requests (UUID recommended) */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path: {
-                /** @description The account ID initiating the transfer */
+                /**
+                 * @description The account ID initiating the transfer
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 senderAccountId: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
+                /**
+                 * @example {
+                 *       "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
+                 *       "currency": "USD",
+                 *       "amount": 25,
+                 *       "description": "Invoice settlement",
+                 *       "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                 *     }
+                 */
                 "application/json": components["schemas"]["CreateFiatTransferInput"];
             };
         };
@@ -2339,6 +3084,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "a1b2c3d4-e5f6-4789-9abc-def012345678",
+                     *         "senderAccountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
+                     *         "chain": "BASE",
+                     *         "asset": "USDC",
+                     *         "amount": 25,
+                     *         "fiatOrigin": {
+                     *           "currency": "USD",
+                     *           "amount": 25,
+                     *           "exchangeRate": 1
+                     *         },
+                     *         "description": "Invoice settlement",
+                     *         "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                     *         "status": "COMPLETED",
+                     *         "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+                     *         "createdAt": "2026-01-15T09:30:00Z",
+                     *         "updatedAt": "2026-01-15T09:30:02Z"
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SingleTransferResponse"];
                 };
             };
@@ -2346,26 +3115,43 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
+            /** @description Validation failed (e.g. receiver KYC not verified, insufficient balance) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };
     createCryptoTransfer: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Unique key for idempotent requests (UUID recommended) */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path: {
-                /** @description The account ID initiating the transfer */
+                /**
+                 * @description The account ID initiating the transfer
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 senderAccountId: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
+                /**
+                 * @example {
+                 *       "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
+                 *       "chain": "BASE",
+                 *       "asset": "USDC",
+                 *       "amount": 25,
+                 *       "description": "Invoice settlement",
+                 *       "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                 *     }
+                 */
                 "application/json": components["schemas"]["CreateCryptoTransferInput"];
             };
         };
@@ -2376,6 +3162,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "a1b2c3d4-e5f6-4789-9abc-def012345678",
+                     *         "senderAccountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
+                     *         "chain": "BASE",
+                     *         "asset": "USDC",
+                     *         "amount": 25,
+                     *         "description": "Invoice settlement",
+                     *         "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                     *         "status": "COMPLETED",
+                     *         "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+                     *         "createdAt": "2026-01-15T09:30:00Z",
+                     *         "updatedAt": "2026-01-15T09:30:02Z"
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SingleTransferResponse"];
                 };
             };
@@ -2383,18 +3188,41 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
+            /** @description Validation failed (e.g. receiver KYC not verified, insufficient balance/allowance) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             500: components["responses"]["InternalServerError"];
         };
     };
     listTransfers: {
         parameters: {
             query?: {
-                /** @description Filter by account role in the transfer */
+                /**
+                 * @description Filter by the account's role in the transfer
+                 * @example SENDER
+                 */
                 accountRole?: "SENDER" | "RECEIVER";
-                /** @description Filter by transfer status */
+                /**
+                 * @description Filter by transfer status
+                 * @example COMPLETED
+                 */
                 status?: components["schemas"]["TransferStatus"];
+                /**
+                 * @description Field to sort by
+                 * @example createdAt
+                 */
+                sortOn?: components["parameters"]["SortOn"];
+                /**
+                 * @description Sort direction
+                 * @example DESC
+                 */
+                sortOrder?: components["parameters"]["SortOrder"];
                 /**
                  * @description Page number (1-based indexing)
                  * @example 1
@@ -2402,16 +3230,16 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 /**
                  * @description Number of items per page
-                 * @example 100
+                 * @example 20
                  */
                 size?: components["parameters"]["Size"];
-                /** @description Field to sort by */
-                sortOn?: components["parameters"]["SortOn"];
-                /** @description Sort direction */
-                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
             };
             cookie?: never;
@@ -2424,6 +3252,49 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": [
+                     *         {
+                     *           "id": "a1b2c3d4-e5f6-4789-9abc-def012345678",
+                     *           "senderAccountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *           "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
+                     *           "chain": "BASE",
+                     *           "asset": "USDC",
+                     *           "amount": 25,
+                     *           "description": "Invoice settlement",
+                     *           "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                     *           "status": "COMPLETED",
+                     *           "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+                     *           "createdAt": "2026-01-15T09:30:00Z",
+                     *           "updatedAt": "2026-01-15T09:30:02Z"
+                     *         },
+                     *         {
+                     *           "id": "b2c3d4e5-f6a7-4890-abcd-ef0123456789",
+                     *           "senderAccountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *           "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
+                     *           "chain": "BASE",
+                     *           "asset": "USDC",
+                     *           "amount": 10,
+                     *           "description": "Invoice settlement",
+                     *           "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                     *           "status": "COMPLETED",
+                     *           "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+                     *           "createdAt": "2026-01-15T09:30:00Z",
+                     *           "updatedAt": "2026-01-15T09:30:02Z"
+                     *         }
+                     *       ],
+                     *       "pagination": {
+                     *         "pageNumber": 1,
+                     *         "pageSize": 20,
+                     *         "numberOfElements": 2,
+                     *         "numberOfPages": 1,
+                     *         "hasNextPage": false,
+                     *         "hasPreviousPage": false
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["TransferListResponse"];
                 };
             };
@@ -2431,8 +3302,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -2441,8 +3310,15 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
-                /** @description The transfer ID */
+                /**
+                 * @description The transfer ID
+                 * @example a1b2c3d4-e5f6-4789-9abc-def012345678
+                 */
                 transferId: string;
             };
             cookie?: never;
@@ -2455,6 +3331,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "a1b2c3d4-e5f6-4789-9abc-def012345678",
+                     *         "senderAccountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
+                     *         "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
+                     *         "chain": "BASE",
+                     *         "asset": "USDC",
+                     *         "amount": 25,
+                     *         "description": "Invoice settlement",
+                     *         "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                     *         "status": "COMPLETED",
+                     *         "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+                     *         "createdAt": "2026-01-15T09:30:00Z",
+                     *         "updatedAt": "2026-01-15T09:30:02Z"
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SingleTransferResponse"];
                 };
             };
@@ -2462,8 +3357,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -2472,7 +3365,15 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
+                /**
+                 * @description Unique wallet identifier
+                 * @example 9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f
+                 */
                 walletId: components["parameters"]["WalletId"];
             };
             cookie?: never;
@@ -2485,6 +3386,77 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": [
+                     *         {
+                     *           "supportedAssetId": "aabbccdd-1122-4334-9556-7788990011ab",
+                     *           "asset": "USDC",
+                     *           "contractAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+                     *           "status": "CONFIRMED",
+                     *           "typedData": {
+                     *             "types": {
+                     *               "EIP712Domain": [
+                     *                 {
+                     *                   "name": "name",
+                     *                   "type": "string"
+                     *                 },
+                     *                 {
+                     *                   "name": "version",
+                     *                   "type": "string"
+                     *                 },
+                     *                 {
+                     *                   "name": "chainId",
+                     *                   "type": "uint256"
+                     *                 },
+                     *                 {
+                     *                   "name": "verifyingContract",
+                     *                   "type": "address"
+                     *                 }
+                     *               ],
+                     *               "Permit": [
+                     *                 {
+                     *                   "name": "owner",
+                     *                   "type": "address"
+                     *                 },
+                     *                 {
+                     *                   "name": "spender",
+                     *                   "type": "address"
+                     *                 },
+                     *                 {
+                     *                   "name": "value",
+                     *                   "type": "uint256"
+                     *                 },
+                     *                 {
+                     *                   "name": "nonce",
+                     *                   "type": "uint256"
+                     *                 },
+                     *                 {
+                     *                   "name": "deadline",
+                     *                   "type": "uint256"
+                     *                 }
+                     *               ]
+                     *             },
+                     *             "primaryType": "Permit",
+                     *             "domain": {
+                     *               "name": "USDC",
+                     *               "version": "2",
+                     *               "chainId": 84532,
+                     *               "verifyingContract": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+                     *             },
+                     *             "message": {
+                     *               "owner": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+                     *               "spender": "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4",
+                     *               "value": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                     *               "nonce": 0,
+                     *               "deadline": "4102444800"
+                     *             }
+                     *           }
+                     *         }
+                     *       ]
+                     *     }
+                     */
                     "application/json": components["schemas"]["PermitMessageListResponse"];
                 };
             };
@@ -2492,8 +3464,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
@@ -2502,13 +3472,31 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
+                /**
+                 * @description Unique wallet identifier
+                 * @example 9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f
+                 */
                 walletId: components["parameters"]["WalletId"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
+                /**
+                 * @example {
+                 *       "supportedAssetId": "aabbccdd-1122-4334-9556-7788990011ab",
+                 *       "signature": {
+                 *         "v": "28",
+                 *         "r": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                 *         "s": "0x2222222222222222222222222222222222222222222222222222222222222222"
+                 *       }
+                 *     }
+                 */
                 "application/json": components["schemas"]["SubmitPermitRequest"];
             };
         };
@@ -2519,6 +3507,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": {
+                     *         "id": "11aa22bb-33cc-4dd4-9ee5-66ff77aa88bb",
+                     *         "supportedAssetId": "aabbccdd-1122-4334-9556-7788990011ab",
+                     *         "asset": "USDC",
+                     *         "contractAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+                     *         "status": "SUBMITTED",
+                     *         "permitTxId": "0a9f8e7d-6c5b-4a39-8271-6a5b4c3d2e1f",
+                     *         "skipped": false
+                     *       }
+                     *     }
+                     */
                     "application/json": components["schemas"]["SinglePermitResultResponse"];
                 };
             };
@@ -2526,20 +3528,30 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
+            409: components["responses"]["Conflict"];
             500: components["responses"]["InternalServerError"];
         };
     };
     getWalletAllowances: {
         parameters: {
             query?: {
-                /** @description Filter by specific asset */
+                /**
+                 * @description Filter by a specific asset (e.g. USDC)
+                 * @example USDC
+                 */
                 asset?: string;
             };
             header?: never;
             path: {
+                /**
+                 * @description Unique account identifier
+                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
+                 */
                 accountId: components["parameters"]["AccountId"];
+                /**
+                 * @description Unique wallet identifier
+                 * @example 9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f
+                 */
                 walletId: components["parameters"]["WalletId"];
             };
             cookie?: never;
@@ -2552,6 +3564,22 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    /**
+                     * @example {
+                     *       "success": true,
+                     *       "result": [
+                     *         {
+                     *           "asset": {
+                     *             "name": "USDC",
+                     *             "contractAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+                     *             "decimals": 6
+                     *           },
+                     *           "allowance": "100.000000",
+                     *           "orchestrationWallet": "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"
+                     *         }
+                     *       ]
+                     *     }
+                     */
                     "application/json": components["schemas"]["AllowanceListResponse"];
                 };
             };
@@ -2559,78 +3587,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    listAccountToAccountTransfers: {
-        parameters: {
-            query?: {
-                /**
-                 * @description Page number (1-based indexing)
-                 * @example 1
-                 */
-                page?: components["parameters"]["Page"];
-                /**
-                 * @description Number of items per page
-                 * @example 100
-                 */
-                size?: components["parameters"]["Size"];
-                sourceAccountId?: string;
-                destinationAccountId?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of account-to-account transfers */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccountToAccountTransferListResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    createAccountToAccountTransfer: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateAccountToAccountTransferRequest"];
-            };
-        };
-        responses: {
-            /** @description Account-to-account transfer created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SingleAccountToAccountTransferResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            405: components["responses"]["MethodNotAllowed"];
-            415: components["responses"]["UnsupportedMediaType"];
             500: components["responses"]["InternalServerError"];
         };
     };
