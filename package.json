@@ -2,8 +2,7 @@
   "name": "@venlyfinance/sdk",
   "version": "0.1.0",
   "description": "TypeScript SDK for the Venly Finance and Fundflow APIs. Generated from the OpenAPI specs, zero runtime dependencies.",
-  "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=18"
@@ -20,7 +19,9 @@
   },
   "files": [
     "dist",
-    "specs"
+    "specs",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "generate": "openapi-typescript specs/finance.yaml -o src/generated/finance.ts && openapi-typescript specs/fundflow.yaml -o src/generated/fundflow.ts",
@@ -44,5 +45,9 @@
     "@types/node": "^26.1.1",
     "openapi-typescript": "^7.13.0",
     "typescript": "^5.9.3"
+  },
+  "homepage": "https://github.com/timdierckxsens/venly-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/timdierckxsens/venly-sdk/issues"
   }
 }
