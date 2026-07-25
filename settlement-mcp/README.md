@@ -20,7 +20,7 @@ safety model). The x402 tool is a stub that states a position, it moves no funds
 - Built on the official MCP TypeScript SDK (`@modelcontextprotocol/sdk`), Node
   >= 18, stdio transport.
 - A thin layer over the Venly Finance API (`finance.yaml`, servers
-  `https://api.venlyfinance.com/api/v1`) and the Fundflow API (`fundflow.yaml`,
+  `https://api.venlyfinance.com/v1`) and the Fundflow API (`fundflow.yaml`,
   servers `https://api-fundflow.venly.io`). Endpoint truth is the published API
   reference at [docs.venlyfinance.com](https://docs.venlyfinance.com/api-reference).
 - Transport is injected through the `VenlyClient` interface (`src/types.ts`).
@@ -136,7 +136,7 @@ MCP client config example:
       "command": "node",
       "args": ["/absolute/path/to/settlement-mcp/dist/index.js"],
       "env": {
-        "VENLY_FINANCE_BASE_URL": "https://api-staging.venlyfinance.com/api/v1",
+        "VENLY_FINANCE_BASE_URL": "https://api-staging.venlyfinance.com/v1",
         "VENLY_FUNDFLOW_BASE_URL": "https://api-fundflow-staging.venly.io"
       }
     }
@@ -151,9 +151,9 @@ Override via env:
 
 | Env var | Default (staging) |
 |---|---|
-| `VENLY_FINANCE_BASE_URL` | `https://api-staging.venlyfinance.com/api/v1` |
+| `VENLY_FINANCE_BASE_URL` | `https://api-staging.venlyfinance.com/v1` |
 | `VENLY_FUNDFLOW_BASE_URL` | `https://api-fundflow-staging.venly.io` |
-| `VENLY_TOKEN_URL` | `https://login.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token` |
+| `VENLY_TOKEN_URL` | `https://login-staging.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token` (staging; use `login.venly.io` for production) |
 | `VENLY_CLIENT_ID` | unset (read-only until set) |
 | `VENLY_CLIENT_SECRET` | unset |
 | `VENLY_MCP_LIVE` | unset (writes disarmed) |

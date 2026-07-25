@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      - run: npm test   # builds ESM + CJS, then runs the 21-test suite
+      - run: npm test   # builds ESM + CJS, then runs the full node:test suite
 
   settlement-mcp:
     runs-on: ubuntu-latest
@@ -27,5 +27,5 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      - run: npm test   # 22-test suite, mocked client, zero network
+      - run: npm test   # node:test suite, mocked client, zero network
       - run: npm run build

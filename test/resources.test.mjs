@@ -15,6 +15,40 @@ test("finance: staging environment picks the staging base URL", async () => {
   assert.ok(fetch.calls[0].url.startsWith("https://login-staging.venly.io/"));
 });
 
+// Regression net for the v0.1.0 stale-spec bug: the base and token URLs are
+// pinned to the exact strings in the live published specs. A mocked-transport
+// suite cannot catch a wrong hardcoded URL any other way.
+test("finance: production and staging URLs are pinned to the live spec values", async () => {
+  const expectations = [
+    {
+      environment: "production",
+      base: "https://api.venlyfinance.com/v1/accounts",
+      token: "https://login.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token",
+    },
+    {
+      environment: "staging",
+      base: "https://api-staging.venlyfinance.com/v1/accounts",
+      token:
+        "https://login-staging.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token",
+    },
+  ];
+  for (const { environment, base, token } of expectations) {
+    const fetch = mockFetch(() => jsonResponse({ success: true, result: [] }));
+    const client = new VenlyFinanceClient({
+      clientId: "id",
+      clientSecret: "secret",
+      environment,
+      fetch,
+    });
+    await client.accounts.list();
+    assert.ok(
+      fetch.apiCalls()[0].url.startsWith(base),
+      `${environment} base URL drifted: ${fetch.apiCalls()[0].url}`,
+    );
+    assert.equal(fetch.calls[0].url, token, `${environment} token URL drifted`);
+  }
+});
+
 test("finance: envelope is unwrapped so methods return the result directly", async () => {
   const fetch = mockFetch(() =>
     jsonResponse({ success: true, result: { id: "acc-1", status: "ACTIVE" } }),
