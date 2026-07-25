@@ -1,15 +1,12 @@
 /**
  * HttpVenlyClient: a minimal fetch-based transport implementing VenlyClient.
  *
- * VENDORED TRANSPORT / COUPLING NOTE
- * ----------------------------------
- * This is a deliberately minimal transport for the lab prototype. Production
- * must NOT ship this. The canonical transport is the Ship #2 SDK (`venly-sdk`:
- * OAuth2 single-flight refresh, automatic idempotency keys, retry/backoff,
- * VenlyApiError with traceCode, pagination). That SDK is not resolvable in this
- * working tree, so the essentials are vendored here. When the SDK is a
- * resolvable package, delete this file and implement VenlyClient as a thin
- * adapter over it.
+ * TRANSPORT NOTE
+ * --------------
+ * Minimal by design: OAuth2 client credentials, lazy token fetch, staging
+ * defaults. A future release replaces this with a thin adapter over
+ * `@venlyfinance/sdk` (single-flight token refresh, automatic idempotency
+ * keys, retry/backoff, richer errors) with no change to the tool interface.
  *
  * Safety invariants honored here:
  *  - credentials are read from env ONLY, never logged, never returned in output.

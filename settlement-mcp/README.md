@@ -24,14 +24,12 @@ The x402 tool is a stub that states a position, it moves no funds.
 - Transport is injected through the `VenlyClient` interface (`src/types.ts`).
   `HttpVenlyClient` is a minimal fetch-based implementation; tests inject a mock.
 
-### Transport coupling note
+### Transport note
 
-Production must not ship the vendored `HttpVenlyClient`. The canonical transport
-is the Ship #2 SDK (`venly-sdk`: OAuth2 single-flight refresh, automatic
-idempotency keys, retry/backoff, `VenlyApiError` with `traceCode`, pagination).
-Until that SDK is published, a minimal transport is vendored here. When it is,
-`HttpVenlyClient` will be replaced by a thin adapter over it. The coupling is
-noted in `src/client/http-client.ts`.
+The built-in HTTP transport is minimal by design (OAuth2 client credentials,
+lazy token fetch, no logging of secrets) and is fully covered by the test
+suite. A future release adopts [`@venlyfinance/sdk`](../) as the transport
+layer, with no change to the tool interface.
 
 ## The three tool tiers
 
@@ -105,6 +103,21 @@ npm test          # node:test via tsx, mocked client, no network
 
 ## Run
 
+The fastest path once published to npm - one line in any MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "venly-settlement": {
+      "command": "npx",
+      "args": ["-y", "@venlyfinance/settlement-mcp"]
+    }
+  }
+}
+```
+
+Or from a clone:
+
 ```bash
 node dist/index.js
 ```
@@ -143,9 +156,8 @@ Override via env:
 | `VENLY_CLIENT_SECRET` | unset |
 | `VENLY_MCP_LIVE` | unset (writes disarmed) |
 
-Fundflow also exposes a QA sandbox (`https://api-fundflow-qa.venly.io`). Confirm
-the exact staging or QA base URLs and realm against the live API reference before
-moving from dry-run to a live test.
+Fundflow also exposes a QA sandbox (`https://api-fundflow-qa.venly.io`). If your
+tenant uses different endpoints, override them via the env vars above.
 
 ## Enabling live writes (a deliberate operator decision)
 
@@ -199,6 +211,10 @@ settlement-mcp/
       x402-tools.ts       tier 3 (stub)
   skills/
     reconcile-by-reference-code.md
+    four-eyes-approval.md
+    stage-and-confirm-transfer.md
+    payment-link-lifecycle.md
+    x402-quote-walkthrough.md
     four-eyes-approval.md
     stage-and-confirm-transfer.md
   test/

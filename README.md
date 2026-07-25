@@ -2,7 +2,7 @@
 
 TypeScript SDK for the [Venly Finance](https://docs.venlyfinance.com) and Fundflow APIs. Types are generated from the OpenAPI specs in [`specs/`](specs/); the runtime layer is hand-written and has **zero runtime dependencies** (Node ≥ 18, or any environment with `fetch`).
 
-> **Status: v0.1.0, publish-ready.** MIT licensed. Built on the roadmap commitment "[TypeScript SDK on npm](https://github.com/timdierckxsens/venly-roadmap)" (Q3 2026).
+> **Status: v0.1.0 - first public release.** MIT licensed. Built on the roadmap commitment "[TypeScript SDK on npm](https://github.com/timdierckxsens/venly-roadmap)" (Q3 2026).
 
 ## Packages in this repository
 
@@ -108,7 +108,7 @@ import { FundflowClient } from "@venlyfinance/sdk";
 const fundflow = new FundflowClient({ clientId, clientSecret, environment: "staging" });
 
 const ramp = await fundflow.rampRequests.create({ /* ... */ });
-// A different teammate approves — maker-checker is enforced server-side
+// maker-checker: the API rejects self-approval server-side
 await fundflow.rampRequests.approve(ramp.id!);
 ```
 

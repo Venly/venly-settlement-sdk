@@ -33,11 +33,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/timdierckxsens/venly-settlement-mcp.git"
+    "url": "git+https://github.com/timdierckxsens/venly-sdk.git",
+    "directory": "settlement-mcp"
   },
-  "homepage": "https://github.com/timdierckxsens/venly-settlement-mcp#readme",
+  "homepage": "https://github.com/timdierckxsens/venly-sdk/tree/main/settlement-mcp#readme",
   "bugs": {
-    "url": "https://github.com/timdierckxsens/venly-settlement-mcp/issues"
+    "url": "https://github.com/timdierckxsens/venly-sdk/issues"
   },
   "keywords": [
     "mcp",

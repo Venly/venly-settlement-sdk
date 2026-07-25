@@ -8,12 +8,10 @@
  * echo are modeled. Fields are intentionally loose (optional) because this is a
  * thin wrapper, not a full SDK.
  *
- * COUPLING NOTE: production should NOT use the HttpVenlyClient in this repo as
- * its transport. The canonical transport is the Ship #2 SDK (`venly-sdk`, 70
- * ops, OAuth2 single-flight refresh, auto idempotency, retry/backoff,
- * VenlyApiError with traceCode, pagination). That SDK is not resolvable in this
- * working tree, so a minimal fetch transport is vendored here (see
- * client/http-client.ts). When the SDK is a resolvable package, replace
+ * TRANSPORT NOTE: the bundled HttpVenlyClient is a deliberately minimal fetch
+ * transport (see client/http-client.ts). A future release replaces it with a
+ * thin adapter over `@venlyfinance/sdk` with no change to this interface;
+ * until then the minimal transport is what ships. When that lands, replace
  * HttpVenlyClient with a thin adapter over it and delete the vendored transport.
  */
 
