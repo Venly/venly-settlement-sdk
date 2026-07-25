@@ -1,0 +1,44 @@
+name: publish
+
+# One-click npm publish for both packages. Run it from the Actions tab
+# ("Run workflow"). Requires the NPM_TOKEN repository secret (an npmjs.com
+# granular access token with read/write on the @venlyfinance scope).
+# Tests gate both publishes; if a version is already on npm the job fails
+# loudly instead of overwriting (npm forbids republishing a version).
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+      - run: npm ci
+      - run: npm test   # builds ESM + CJS, runs the full suite
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-settlement-mcp:
+    runs-on: ubuntu-latest
+    needs: publish-sdk
+    defaults:
+      run:
+        working-directory: settlement-mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
