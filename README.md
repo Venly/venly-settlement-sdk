@@ -4,6 +4,13 @@ TypeScript SDK for the [Venly Finance](https://docs.venlyfinance.com) and Fundfl
 
 > **Status: pre-release.** Not yet published to npm; package name and license are pending. Built on the roadmap commitment "[TypeScript SDK on npm](https://github.com/timdierckxsens/venly-roadmap)" (Q3 2026).
 
+## Packages in this repository
+
+| Package | What it is |
+|---|---|
+| [`@venlyfinance/sdk`](.) (root) | The TypeScript SDK: typed client for every Finance + Fundflow operation |
+| [`@venlyfinance/settlement-mcp`](settlement-mcp/) | Settlement MCP server: a human-gated operator surface over the same APIs for MCP clients and agents. Read-only by default, write tools fail closed, x402 quote stub included. MIT licensed. |
+
 ## What the SDK handles for you
 
 | Concern | Behaviour |
