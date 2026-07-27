@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 – unreleased
+
+Metadata only, no functional change: `homepage` now points at https://docs.venlyfinance.com (was the GitHub repo URL, which npm surfaced prominently).
+
 ## 0.1.1 – 2026-07-25
 
 Full realignment to the **live published OpenAPI specs** (Finance v1.1.0, Fundflow v1.7.0, both vendored from docs.venlyfinance.com). v0.1.0's finance types were generated from a stale spec snapshot; a routine cross-check against the published docs caught the drift before any integrator did. Mock mode was unaffected in spirit but its fixtures now match the live schemas exactly.
