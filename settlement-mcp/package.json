@@ -37,7 +37,7 @@
     "url": "git+https://github.com/timdierckxsens/venly-sdk.git",
     "directory": "settlement-mcp"
   },
-  "homepage": "https://github.com/timdierckxsens/venly-sdk/tree/main/settlement-mcp#readme",
+  "homepage": "https://docs.venlyfinance.com",
   "bugs": {
     "url": "https://github.com/timdierckxsens/venly-sdk/issues"
   },

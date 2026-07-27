@@ -46,7 +46,7 @@
     "openapi-typescript": "^7.13.0",
     "typescript": "^5.9.3"
   },
-  "homepage": "https://github.com/timdierckxsens/venly-sdk#readme",
+  "homepage": "https://docs.venlyfinance.com",
   "bugs": {
     "url": "https://github.com/timdierckxsens/venly-sdk/issues"
   }
