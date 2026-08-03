@@ -234,11 +234,9 @@ Supporting message:
   OpenAPI request schema. Using the SDK adapter removes this class of drift.
 - Local baseline on 2026-08-03: SDK suite 40/40 passing; MCP suite 24/24 passing.
 - Production-dependency audit on 2026-08-03 found zero SDK runtime vulnerabilities.
-  The MCP runtime tree reports two moderate findings in `@hono/node-server`, inherited
-  through `@modelcontextprotocol/sdk@1.29.0` (Windows encoded-backslash path traversal
-  in Hono static serving). The Venly MCP uses stdio rather than Hono static serving,
-  but the dependency remains in the shipped tree and must be upgraded or explicitly
-  risk-accepted before publication.
+  Upgrading the MCP runtime to `@modelcontextprotocol/sdk@1.30.0` and its supported
+  `@hono/node-server@2.0.12` resolution clears the two inherited moderate findings.
+  Because Hono 2 requires Node 20, the MCP release floor moves from Node 18 to Node 20.
 
 ## API Contract
 
@@ -418,7 +416,6 @@ types and protected by contract tests.
   workflow remains available as a packaged Markdown skill and normal documentation.
 - **Mock fidelity:** Mock results must teach real states and errors without being
   mistaken for contractual availability. Fixtures require versioning alongside specs.
-- **Dependency audit:** The MCP ships a moderate vulnerable transitive Hono adapter via
-  the official MCP SDK. It is not exercised by the stdio server, but publication is
-  blocked until the MCP SDK/Hono dependency is upgraded or a security owner accepts
-  the documented residual risk.
+- **Dependency audit (resolved):** MCP SDK 1.30 supports Hono 2.0.5 and later. The
+  lockfile now resolves Hono 2.0.12, the package declares Node 20 or later, and the
+  production dependency audit reports zero findings.

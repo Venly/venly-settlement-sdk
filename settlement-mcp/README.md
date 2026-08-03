@@ -19,7 +19,7 @@ the next 0.x release line.
 ## What it is
 
 - Built on the official MCP TypeScript SDK (`@modelcontextprotocol/sdk`), Node
-  >= 18, stdio transport.
+  >= 20, stdio transport.
 - A thin layer over the Venly Finance API (`finance.yaml`, servers
   `https://api.venlyfinance.com/v1`) and the Fundflow API (`fundflow.yaml`,
   servers `https://api-fundflow.venly.io`). Endpoint truth is the published API
