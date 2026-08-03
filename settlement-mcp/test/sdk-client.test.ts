@@ -46,17 +46,20 @@ test("SDK client: legacy stage-transfer input is normalized to the live SDK cont
   );
 
   assert.ok(transferCall);
-  assert.deepEqual(transferCall.body, {
+  assert.equal(typeof transferCall.body, "object");
+  assert.notEqual(transferCall.body, null);
+  const transferBody = transferCall.body as Record<string, unknown>;
+  assert.deepEqual(transferBody, {
     receiverAccountId: "account-002",
     currency: "EUR",
     amount: 25.5,
     description: "Invoice 42",
     merchantReference: "INV-42",
-    idempotencyKey: transferCall.body?.idempotencyKey,
+    idempotencyKey: transferBody.idempotencyKey,
   });
-  assert.match(String(transferCall.body?.idempotencyKey), /^[0-9a-f-]{36}$/i);
-  assert.equal("fiatAmount" in (transferCall.body ?? {}), false);
-  assert.equal("fiatCurrency" in (transferCall.body ?? {}), false);
+  assert.match(String(transferBody.idempotencyKey), /^[0-9a-f-]{36}$/i);
+  assert.equal("fiatAmount" in transferBody, false);
+  assert.equal("fiatCurrency" in transferBody, false);
 });
 
 test("SDK client: existing approval and payment-session writes map to SDK resources", async () => {

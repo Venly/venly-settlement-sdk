@@ -9,6 +9,7 @@ import {
 } from "../constants.js";
 import type {
   Account,
+  CryptoCurrency,
   CreateAccountInput,
   CreateCryptoTransferInput,
   CreateFiatTransferInput,
@@ -16,15 +17,18 @@ import type {
   CreatePayInSessionRequest,
   CreateVirtualBankAccountInput,
   CurrentCreateFiatTransferInput,
+  FiatCurrency,
   ListRampRequestsParams,
   OptimisticLockingBody,
   Party,
   PaymentSession,
   RampRequestDto,
   RampRequestListItem,
+  SupportedChains,
   Transfer,
   VenlyClient,
   VirtualBankAccount,
+  VenlyFee,
   Wallet,
 } from "../types.js";
 
@@ -97,23 +101,23 @@ export class SdkVenlyClient implements VenlyClient {
   async listRampRequests(params?: ListRampRequestsParams): Promise<RampRequestListItem[]> {
     this.assertReady();
     const page = await this.fundflow.rampRequests.list(params);
-    return page.items as RampRequestListItem[];
+    return page.items;
   }
 
   async getRampRequest(id: string): Promise<RampRequestDto> {
     this.assertReady();
-    return (await this.fundflow.rampRequests.get(id)) as RampRequestDto;
+    return this.fundflow.rampRequests.get(id);
   }
 
   async getAccount(accountId: string): Promise<Account> {
     this.assertReady();
-    return (await this.finance.accounts.get(accountId)) as Account;
+    return this.finance.accounts.get(accountId);
   }
 
   async listAccounts(params?: { page?: number; size?: number }): Promise<Account[]> {
     this.assertReady();
     const page = await this.finance.accounts.list(params);
-    return page.items as Account[];
+    return page.items;
   }
 
   async listWallets(
@@ -122,13 +126,13 @@ export class SdkVenlyClient implements VenlyClient {
   ): Promise<Wallet[]> {
     this.assertReady();
     const page = await this.finance.wallets.list(accountId, params);
-    return page.items as Wallet[];
+    return page.items;
   }
 
   async listVirtualBankAccounts(accountId: string): Promise<VirtualBankAccount[]> {
     this.assertReady();
     const page = await this.finance.virtualBankAccounts.list(accountId);
-    return page.items as VirtualBankAccount[];
+    return page.items;
   }
 
   async getVirtualBankAccount(
@@ -136,10 +140,7 @@ export class SdkVenlyClient implements VenlyClient {
     virtualBankAccountId: string,
   ): Promise<VirtualBankAccount> {
     this.assertReady();
-    return (await this.finance.virtualBankAccounts.get(
-      accountId,
-      virtualBankAccountId,
-    )) as VirtualBankAccount;
+    return this.finance.virtualBankAccounts.get(accountId, virtualBankAccountId);
   }
 
   async listTransfers(
@@ -148,41 +149,41 @@ export class SdkVenlyClient implements VenlyClient {
   ): Promise<Transfer[]> {
     this.assertReady();
     const page = await this.finance.transfers.list(accountId, params);
-    return page.items as Transfer[];
+    return page.items;
   }
 
   async getTransfer(accountId: string, transferId: string): Promise<Transfer> {
     this.assertReady();
-    return (await this.finance.transfers.get(accountId, transferId)) as Transfer;
+    return this.finance.transfers.get(accountId, transferId);
   }
 
   async listParties(params?: { page?: number; size?: number }): Promise<Party[]> {
     this.assertReady();
     const page = await this.finance.parties.list(params);
-    return page.items as Party[];
+    return page.items;
   }
 
   async getParty(partyId: string): Promise<Party> {
     this.assertReady();
-    return (await this.finance.parties.get(partyId)) as Party;
+    return this.finance.parties.get(partyId);
   }
 
-  async getSupportedChains(): Promise<unknown[]> {
+  async getSupportedChains(): Promise<SupportedChains[]> {
     this.assertReady();
     return this.fundflow.referenceData.chains();
   }
 
-  async getFiatCurrencies(): Promise<unknown[]> {
+  async getFiatCurrencies(): Promise<FiatCurrency[]> {
     this.assertReady();
     return this.fundflow.referenceData.fiatCurrencies();
   }
 
-  async getCryptocurrencies(): Promise<unknown[]> {
+  async getCryptocurrencies(): Promise<CryptoCurrency[]> {
     this.assertReady();
     return this.fundflow.referenceData.cryptoCurrencies();
   }
 
-  async getCompanyFees(): Promise<unknown> {
+  async getCompanyFees(): Promise<VenlyFee[]> {
     this.assertReady();
     return this.fundflow.fees.listCompanyFees();
   }
@@ -203,17 +204,17 @@ export class SdkVenlyClient implements VenlyClient {
       merchantReference: body.merchantReference,
       idempotencyKey: crypto.randomUUID(),
     };
-    return (await this.finance.transfers.createFiat(senderAccountId, normalized)) as Transfer;
+    return this.finance.transfers.createFiat(senderAccountId, normalized);
   }
 
   async createParty(body: CreatePartyInput): Promise<Party> {
     this.assertReady();
-    return (await this.finance.parties.create(body)) as Party;
+    return this.finance.parties.create(body);
   }
 
   async createAccount(body: CreateAccountInput): Promise<Account> {
     this.assertReady();
-    return (await this.finance.accounts.create(body)) as Account;
+    return this.finance.accounts.create(body);
   }
 
   async createVirtualBankAccount(
@@ -221,10 +222,7 @@ export class SdkVenlyClient implements VenlyClient {
     body: CreateVirtualBankAccountInput,
   ): Promise<VirtualBankAccount> {
     this.assertReady();
-    return (await this.finance.virtualBankAccounts.create(
-      accountId,
-      body,
-    )) as VirtualBankAccount;
+    return this.finance.virtualBankAccounts.create(accountId, body);
   }
 
   async createCurrentFiatTransfer(
@@ -232,7 +230,7 @@ export class SdkVenlyClient implements VenlyClient {
     body: CurrentCreateFiatTransferInput,
   ): Promise<Transfer> {
     this.assertReady();
-    return (await this.finance.transfers.createFiat(senderAccountId, body)) as Transfer;
+    return this.finance.transfers.createFiat(senderAccountId, body);
   }
 
   async createCryptoTransfer(
@@ -240,7 +238,7 @@ export class SdkVenlyClient implements VenlyClient {
     body: CreateCryptoTransferInput,
   ): Promise<Transfer> {
     this.assertReady();
-    return (await this.finance.transfers.createCrypto(senderAccountId, body)) as Transfer;
+    return this.finance.transfers.createCrypto(senderAccountId, body);
   }
 
   async approveRampRequest(
@@ -248,7 +246,7 @@ export class SdkVenlyClient implements VenlyClient {
     body: OptimisticLockingBody,
   ): Promise<RampRequestDto> {
     this.assertReady();
-    return (await this.fundflow.rampRequests.approve(id, body)) as RampRequestDto;
+    return this.fundflow.rampRequests.approve(id, body);
   }
 
   async rejectRampRequest(
@@ -256,7 +254,7 @@ export class SdkVenlyClient implements VenlyClient {
     body: OptimisticLockingBody,
   ): Promise<RampRequestDto> {
     this.assertReady();
-    return (await this.fundflow.rampRequests.reject(id, body)) as RampRequestDto;
+    return this.fundflow.rampRequests.reject(id, body);
   }
 
   async createPayInSession(
@@ -264,6 +262,6 @@ export class SdkVenlyClient implements VenlyClient {
     body: CreatePayInSessionRequest,
   ): Promise<PaymentSession> {
     this.assertReady();
-    return (await this.finance.paymentSessions.create(accountId, body)) as PaymentSession;
+    return this.finance.paymentSessions.create(accountId, body);
   }
 }

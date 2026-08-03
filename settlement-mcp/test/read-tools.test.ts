@@ -137,7 +137,7 @@ test("list_parties returns parties", async () => {
   const h = await makeHarness({});
   const { data } = await callToolJson(h.client, "list_parties", {});
   assert.equal(data.count, 1);
-  assert.equal(data.parties[0].type, "ORGANISATION");
+  assert.equal(data.parties[0].partyType, "ORGANISATION");
   await h.close();
 });
 

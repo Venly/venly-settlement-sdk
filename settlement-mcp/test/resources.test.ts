@@ -9,6 +9,14 @@ const EXPECTED_URIS = [
   "venly://workflows/mock-to-staging",
 ];
 
+function firstText(
+  result: { contents: Array<{ text: string } | { blob: string }> },
+): string {
+  const content = result.contents[0];
+  assert.ok(content && "text" in content, "expected a text resource");
+  return content.text;
+}
+
 test("builder resources enumerate at stable Venly URIs", async () => {
   const h = await makeHarness({});
   const { resources } = await h.client.listResources();
@@ -21,7 +29,7 @@ test("builder resources enumerate at stable Venly URIs", async () => {
 test("capabilities resource states supported and unsupported product boundaries", async () => {
   const h = await makeHarness({});
   const result = await h.client.readResource({ uri: "venly://capabilities" });
-  const text = String(result.contents[0]?.text ?? "");
+  const text = firstText(result);
   assert.match(text, /party/i);
   assert.match(text, /wallet balances/i);
   assert.match(text, /EUR.*SEPA/i);
@@ -39,9 +47,9 @@ test("safety and workflow resources preserve compliance and environment gates", 
   const mockToStaging = await h.client.readResource({
     uri: "venly://workflows/mock-to-staging",
   });
-  const safetyText = String(safety.contents[0]?.text ?? "");
-  const workflowText = String(workflow.contents[0]?.text ?? "");
-  const transitionText = String(mockToStaging.contents[0]?.text ?? "");
+  const safetyText = firstText(safety);
+  const workflowText = firstText(workflow);
+  const transitionText = firstText(mockToStaging);
 
   assert.match(safetyText, /KYC.*VERIFIED/i);
   assert.match(safetyText, /VENLY_MCP_PRODUCTION=1/);
