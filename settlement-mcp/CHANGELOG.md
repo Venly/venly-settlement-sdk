@@ -15,6 +15,9 @@ its package name and compatibility binary throughout the 0.x line.
   resources.
 - The `build_international_account` MCP prompt and matching portable workflow skills.
 - Machine-readable structured tool results with credential and token redaction.
+- `createServer` refuses to start when an injected client declares an environment that
+  disagrees with `VENLY_ENV`: the mock gate auto-arms writes, so the two must never
+  diverge.
 - A zero-network golden journey covering party, account, wallet, EUR receiving account,
   transfer, history, and reconciliation behavior.
 - Compile-time assertions that MCP payload types remain exact aliases of the generated
@@ -32,8 +35,10 @@ its package name and compatibility binary throughout the 0.x line.
 ### Deprecated
 
 - `stage_transfer` remains available for 0.x compatibility but normalizes its legacy
-  fields into the current Finance transfer contract. New integrations should use
-  `create_fiat_transfer`.
+  fields into the current Finance transfer contract. Its dry-run now previews the exact
+  normalized request a live call sends, a caller-supplied idempotency key survives
+  normalization, and the retired `cryptocurrency` field is rejected with guidance
+  instead of silently dropped. New integrations should use `create_fiat_transfer`.
 
 ### Safety and product boundaries
 

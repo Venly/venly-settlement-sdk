@@ -41,7 +41,7 @@ Use this operating brief:
 9. Require an explicit user decision before switching to staging, adding credentials or arming writes. Dry-run staging mutations before confirmation.
 10. Produce a concise README showing mock setup, the unchanged SDK business logic and the explicit staging transition.
 
-Success means a credible money-product experience backed by real Venly contract shapes—not a generic dashboard and not a claim that the MCP itself generated a regulated bank.`,
+Success means a credible money-product experience backed by real Venly contract shapes – not a generic dashboard and not a claim that the MCP itself generated a regulated bank.`,
           },
         },
       ],

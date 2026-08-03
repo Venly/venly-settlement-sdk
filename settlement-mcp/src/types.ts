@@ -11,6 +11,7 @@ import type {
   FinanceComponents,
   FundflowComponents,
 } from "@venlyfinance/sdk";
+import type { VenlyEnvironment } from "./constants.js";
 
 type FinanceSchemas = FinanceComponents["schemas"];
 type FundflowSchemas = FundflowComponents["schemas"];
@@ -70,15 +71,20 @@ export interface ListRampRequestsParams {
   size?: number;
 }
 
-/** Body for the fiat transfer POST (finance CreateFiatTransferInput). */
+/** Legacy stage_transfer body, normalized to the current finance
+ * CreateFiatTransferInput before any call (see normalizeLegacyFiatTransfer). */
 export interface CreateFiatTransferInput {
   receiverAccountId: string;
   receiverExternalId?: string;
   fiatAmount: string;
   fiatCurrency: string;
+  /** Retired: the current contract has no such field. Normalization rejects it
+   * instead of silently dropping it. */
   cryptocurrency?: string;
   description?: string;
   merchantReference?: string;
+  /** Preserved across the dry-run preview and the live call when supplied. */
+  idempotencyKey?: string;
 }
 
 /**
@@ -88,6 +94,11 @@ export interface CreateFiatTransferInput {
  * network.
  */
 export interface VenlyClient {
+  /** The environment this client actually targets. When present, createServer
+   * refuses to start if it disagrees with the VENLY_ENV the write gate reads –
+   * the mock gate auto-arms writes, so the two must never diverge. */
+  readonly environment?: VenlyEnvironment;
+
   // ----- READ (GET) -----
   listRampRequests(params?: ListRampRequestsParams): Promise<RampRequestListItem[]>;
   getRampRequest(id: string): Promise<RampRequestDto>;

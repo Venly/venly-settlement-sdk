@@ -62,6 +62,45 @@ test("SDK client: legacy stage-transfer input is normalized to the live SDK cont
   assert.equal("fiatCurrency" in transferBody, false);
 });
 
+test("SDK client: legacy normalization preserves a caller-supplied idempotency key", async () => {
+  const client = SdkVenlyClient.mock();
+
+  await client.createFiatTransfer("account-001", {
+    receiverAccountId: "account-002",
+    fiatAmount: "10.00",
+    fiatCurrency: "EUR",
+    idempotencyKey: "legacy-key-42",
+  });
+
+  const transferCall = client.financeMockCalls.find(
+    (call) => call.method === "POST" && call.path.endsWith("/transfers/fiat"),
+  );
+  assert.ok(transferCall);
+  assert.equal(
+    (transferCall.body as Record<string, unknown>).idempotencyKey,
+    "legacy-key-42",
+  );
+});
+
+test("SDK client: legacy normalization rejects the retired cryptocurrency field", async () => {
+  const client = SdkVenlyClient.mock();
+
+  await assert.rejects(
+    client.createFiatTransfer("account-001", {
+      receiverAccountId: "account-002",
+      fiatAmount: "10.00",
+      fiatCurrency: "EUR",
+      cryptocurrency: "USDC",
+    }),
+    /not part of the current fiat-transfer contract/,
+  );
+  assert.equal(
+    client.financeMockCalls.some((call) => call.path.endsWith("/transfers/fiat")),
+    false,
+    "no request may be staged when normalization rejects the input",
+  );
+});
+
 test("SDK client: existing approval and payment-session writes map to SDK resources", async () => {
   const client = SdkVenlyClient.mock();
 

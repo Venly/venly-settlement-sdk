@@ -12,6 +12,7 @@ import { z } from "zod";
 import type { VenlyClient } from "../types.js";
 import { buildDryRun, evaluateWriteGate, type EnvLike } from "../safety.js";
 import { errorResult, jsonResult } from "../results.js";
+import { normalizeLegacyFiatTransfer } from "../client/sdk-client.js";
 
 function executionResult(gate: ReturnType<typeof evaluateWriteGate>, result: unknown) {
   return jsonResult({
@@ -296,8 +297,9 @@ export function registerWriteTools(
       title: "Stage a fiat transfer (dry-run by default)",
       description:
         "Stage a fiat-to-crypto transfer (finance POST /accounts/{senderAccountId}/transfers/fiat). " +
-        "DISARMED by default: returns the exact request it would send unless " +
-        "confirm:true AND VENLY_MCP_LIVE=1 AND credentials are present.",
+        "Legacy fiatAmount/fiatCurrency inputs are normalized to the current OpenAPI fields; " +
+        "the dry-run shows the exact normalized request. DISARMED by default: returns that " +
+        "request without sending unless confirm:true AND VENLY_MCP_LIVE=1 AND credentials are present.",
       inputSchema: {
         senderAccountId: z.string().describe("Account initiating the transfer"),
         receiverAccountId: z.string(),
@@ -309,7 +311,13 @@ export function registerWriteTools(
           )
           .describe("Decimal string, e.g. \"1000.00\""),
         fiatCurrency: z.string().describe("e.g. EUR"),
-        cryptocurrency: z.string().optional(),
+        cryptocurrency: z
+          .string()
+          .optional()
+          .describe(
+            "Retired: rejected with guidance. The current contract resolves the fiat " +
+              "amount to the account's settlement asset; use create_crypto_transfer instead.",
+          ),
         description: z.string().optional(),
         merchantReference: z.string().optional(),
         confirm: confirmField,
@@ -318,14 +326,24 @@ export function registerWriteTools(
     },
     async ({ senderAccountId, confirm, ...rest }) => {
       const gate = evaluateWriteGate(confirm, env);
-      const body = {
+      const legacyInput = {
         receiverAccountId: rest.receiverAccountId,
         fiatAmount: rest.fiatAmount,
         fiatCurrency: rest.fiatCurrency,
         cryptocurrency: rest.cryptocurrency,
         description: rest.description,
         merchantReference: rest.merchantReference,
+        idempotencyKey: crypto.randomUUID(),
       };
+      // Normalize BEFORE the gate branch so the dry-run preview is byte-for-byte
+      // the request a live call would send (and the retired cryptocurrency field
+      // is rejected instead of silently dropped).
+      let body;
+      try {
+        body = normalizeLegacyFiatTransfer(legacyInput);
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
       if (!gate.armed) {
         return jsonResult(
           buildDryRun(
@@ -339,7 +357,7 @@ export function registerWriteTools(
         );
       }
       try {
-        const result = await client.createFiatTransfer(senderAccountId, body);
+        const result = await client.createFiatTransfer(senderAccountId, legacyInput);
         return executionResult(gate, result);
       } catch (e) {
         return errorResult((e as Error).message);

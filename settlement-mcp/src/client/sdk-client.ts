@@ -33,6 +33,37 @@ import type {
 } from "../types.js";
 
 /**
+ * Normalize the legacy stage_transfer input to the current Finance
+ * CreateFiatTransferInput wire shape. Exported so the write tool can show the
+ * exact normalized request in its dry-run preview – the preview and the live
+ * call must never diverge. The retired `cryptocurrency` field is rejected
+ * rather than silently dropped: the current contract resolves the fiat amount
+ * to the account's settlement asset itself.
+ */
+export function normalizeLegacyFiatTransfer(
+  body: CreateFiatTransferInput,
+): CurrentCreateFiatTransferInput {
+  if (body.cryptocurrency !== undefined) {
+    throw new Error(
+      "cryptocurrency is not part of the current fiat-transfer contract and would be ignored; " +
+        "omit it (the fiat amount is resolved to the account's settlement asset) or use " +
+        "create_crypto_transfer for an asset-denominated transfer.",
+    );
+  }
+  return {
+    receiverAccountId: body.receiverAccountId,
+    ...(body.receiverExternalId === undefined
+      ? {}
+      : { receiverExternalId: body.receiverExternalId }),
+    currency: body.fiatCurrency,
+    amount: Number(body.fiatAmount),
+    description: body.description,
+    merchantReference: body.merchantReference,
+    idempotencyKey: body.idempotencyKey ?? crypto.randomUUID(),
+  };
+}
+
+/**
  * Adapter from the generated Venly Finance SDK surface to the stable MCP
  * client contract. This keeps tools transport-agnostic while ensuring auth,
  * retries, idempotency and endpoint schemas come from the published SDK.
@@ -193,18 +224,10 @@ export class SdkVenlyClient implements VenlyClient {
     body: CreateFiatTransferInput,
   ): Promise<Transfer> {
     this.assertReady();
-    const normalized = {
-      receiverAccountId: body.receiverAccountId,
-      ...(body.receiverExternalId === undefined
-        ? {}
-        : { receiverExternalId: body.receiverExternalId }),
-      currency: body.fiatCurrency,
-      amount: Number(body.fiatAmount),
-      description: body.description,
-      merchantReference: body.merchantReference,
-      idempotencyKey: crypto.randomUUID(),
-    };
-    return this.finance.transfers.createFiat(senderAccountId, normalized);
+    return this.finance.transfers.createFiat(
+      senderAccountId,
+      normalizeLegacyFiatTransfer(body),
+    );
   }
 
   async createParty(body: CreatePartyInput): Promise<Party> {

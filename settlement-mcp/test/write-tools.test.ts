@@ -120,9 +120,29 @@ test("stage_transfer: unconfirmed + disarmed => dry-run, no live call", async ()
   assert.equal(data.method, "POST");
   assert.equal(data.api, "finance");
   assert.equal(data.path, "/accounts/acct-1/transfers/fiat");
+  // The preview is the normalized current-contract request, not the legacy input.
   assert.equal(data.body.receiverAccountId, "acct-2");
-  assert.equal(data.body.fiatAmount, "1000.00");
+  assert.equal(data.body.currency, "EUR");
+  assert.equal(data.body.amount, 1000);
+  assert.match(String(data.body.idempotencyKey), /^[0-9a-f-]{36}$/i);
+  assert.equal("fiatAmount" in data.body, false);
+  assert.equal("fiatCurrency" in data.body, false);
   assert.equal(h.mock.called("createFiatTransfer"), false, "must NOT call live client");
+  await h.close();
+});
+
+test("stage_transfer rejects the retired cryptocurrency field instead of dropping it", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const result = await callToolJson(h.client, "stage_transfer", {
+    senderAccountId: "acct-1",
+    receiverAccountId: "acct-2",
+    fiatAmount: "1000.00",
+    fiatCurrency: "EUR",
+    cryptocurrency: "USDC",
+  });
+  assert.equal(result.isError, true);
+  assert.match(String(result.raw.content?.[0]?.text ?? ""), /create_crypto_transfer/);
+  assert.equal(h.mock.called("createFiatTransfer"), false);
   await h.close();
 });
 

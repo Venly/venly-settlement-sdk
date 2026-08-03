@@ -216,7 +216,7 @@ four resources, and builder prompt, then reads parties, accounts, and reference 
 It deliberately removes `VENLY_MCP_LIVE` and `VENLY_MCP_PRODUCTION` from the child
 process before submitting one confirmed `create_party` request. Passing requires that
 request to return `mode: dry-run`, `environment: staging`, and an unarmed gate. Output
-contains counts and status only—not party/account payloads, credentials, or tokens.
+contains counts and status only – not party/account payloads, credentials, or tokens.
 
 ## Enabling live writes (a deliberate operator decision)
 
