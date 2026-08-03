@@ -19,7 +19,10 @@ jobs:
           node-version: 20
           registry-url: "https://registry.npmjs.org"
       - run: npm ci
+      - run: npm run check
       - run: npm test   # builds ESM + CJS, runs the full suite
+      - run: npm audit
+      - run: npm pack --dry-run
       - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -37,8 +40,12 @@ jobs:
           node-version: 20
           registry-url: "https://registry.npmjs.org"
       - run: npm ci
+      - run: npm run typecheck
+      - run: npm run typecheck:test
       - run: npm test
       - run: npm run build
+      - run: npm audit
+      - run: npm pack --dry-run
       - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

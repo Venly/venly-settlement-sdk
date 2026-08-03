@@ -13,8 +13,7 @@ Start in explicit mock mode with no credentials or network. Move the same SDK
 business logic to staging only after reviewing capabilities, compliance state and
 the normalized write requests. Staging and production writes fail closed.
 
-The published baseline is v0.1.1. The Finance builder surface documented here is
-the next 0.x release line.
+The Venly Finance builder surface documented here is the v0.2.0 release line.
 
 ## What it is
 
@@ -203,6 +202,22 @@ Override via env:
 Fundflow also exposes a QA sandbox (`https://api-fundflow-qa.venly.io`). If your
 tenant uses different endpoints, override them via the env vars above.
 
+## Safe staging smoke
+
+Build the server and verify its complete discovery surface, credentialled staging
+reads, and fail-closed write gate without mutating staging:
+
+```bash
+VENLY_CLIENT_ID=... VENLY_CLIENT_SECRET=... npm run smoke:staging
+```
+
+The command starts the MCP with `VENLY_ENV=staging`, lists the expected 23 tools,
+four resources, and builder prompt, then reads parties, accounts, and reference data.
+It deliberately removes `VENLY_MCP_LIVE` and `VENLY_MCP_PRODUCTION` from the child
+process before submitting one confirmed `create_party` request. Passing requires that
+request to return `mode: dry-run`, `environment: staging`, and an unarmed gate. Output
+contains counts and status only—not party/account payloads, credentials, or tokens.
+
 ## Enabling live writes (a deliberate operator decision)
 
 Live writes are OFF. To arm them, the operator must:
@@ -250,12 +265,13 @@ settlement-mcp/
     index.ts              entry, stdio transport
     server.ts             createServer(client, env), registers all tiers
     constants.ts
-    types.ts              VenlyClient interface + domain types
+    types.ts              Generated SDK aliases + MCP-owned compatibility types
     safety.ts             the write-gate (confirm + env + creds)
     reconcile.ts          pure reconciliation logic
     resources.ts          capability, safety and workflow resources
     prompts.ts            build_international_account prompt
     results.ts            text + structured output and error redaction
+    staging-smoke.ts      safe discovery/read/dry-run staging verification
     client/
       sdk-client.ts       Adapter over @venlyfinance/sdk
     tools/

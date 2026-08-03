@@ -1,6 +1,6 @@
 {
   "name": "@venlyfinance/settlement-mcp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Venly Finance MCP: SDK-backed tools, resources and prompts for building international money products safely.",
   "type": "module",
   "bin": {
@@ -10,12 +10,15 @@
   "main": "dist/index.js",
   "files": [
     "dist",
+    "scripts",
     "skills",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json",
     "start": "node dist/index.js",
+    "smoke:staging": "npm run build && node scripts/staging-smoke.mjs",
     "test": "node --import tsx --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "typecheck:test": "tsc -p tsconfig.test.json"

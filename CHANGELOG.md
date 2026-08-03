@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.2 – 2026-08-03
+
+Compatible maintenance release supporting the Venly Finance MCP builder launch.
+
+### Changed
+
+- Corrected repository, homepage, and issue-tracker metadata to the public
+  `Venly/venly-settlement-sdk` repository.
+- Limited the published `specs/` payload to OpenAPI YAML contracts so internal feature
+  planning documents do not enter the npm tarball.
+- Repositioned the repository documentation around the SDK-backed Venly Finance builder
+  journey while preserving the existing SDK API.
+
+### Security
+
+- Refreshed the OpenAPI generation toolchain lockfile to patched Redocly, `js-yaml`,
+  and `brace-expansion` releases. The full development dependency audit reports zero
+  findings.
+
 ## 0.1.1 – 2026-07-25
 
 Full realignment to the **live published OpenAPI specs** (Finance v1.1.0, Fundflow v1.7.0, both vendored from docs.venlyfinance.com). v0.1.0's finance types were generated from a stale spec snapshot; a routine cross-check against the published docs caught the drift before any integrator did. Mock mode was unaffected in spirit but its fixtures now match the live schemas exactly.

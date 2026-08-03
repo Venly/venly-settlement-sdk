@@ -6,6 +6,7 @@ import {
   DEFAULT_FINANCE_BASE_URL,
   DEFAULT_FUNDFLOW_BASE_URL,
   DEFAULT_TOKEN_URL,
+  SERVER_VERSION,
   resolveVenlyEnvironment,
 } from "../src/constants.ts";
 import { SdkVenlyClient } from "../src/client/sdk-client.ts";
@@ -63,4 +64,12 @@ test("package exposes finance and settlement compatibility binaries from one imp
   assert.equal(packageJson.bin["venly-finance-mcp"], "dist/index.js");
   assert.equal(packageJson.bin["venly-settlement-mcp"], "dist/index.js");
   assert.match(packageJson.repository.url, /github\.com\/Venly\/venly-settlement-sdk/);
+});
+
+test("0.2.0 package and MCP server versions stay aligned", () => {
+  const packageJson = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
+  );
+  assert.equal(packageJson.version, "0.2.0");
+  assert.equal(SERVER_VERSION, packageJson.version);
 });

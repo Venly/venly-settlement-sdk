@@ -2,7 +2,7 @@
  * touches production. Override via env for a real sandbox test. */
 
 export const SERVER_NAME = "venly-finance-mcp-server";
-export const SERVER_VERSION = "0.1.1";
+export const SERVER_VERSION = "0.2.0";
 
 export const ENVIRONMENT_FLAG = "VENLY_ENV";
 export type VenlyEnvironment = "mock" | "staging" | "production";
