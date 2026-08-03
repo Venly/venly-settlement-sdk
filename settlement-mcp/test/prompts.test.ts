@@ -29,4 +29,3 @@ test("international-account builder prompt enumerates and renders product guardr
   assert.match(text, /card issuing.*not exposed/i);
   await h.close();
 });
-

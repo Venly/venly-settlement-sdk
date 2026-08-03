@@ -9,4 +9,3 @@
 6. Dry-run each intended write, review the normalized request, then explicitly confirm.
 7. Never fall back implicitly to mock when staging authentication or capability checks
    fail.
-

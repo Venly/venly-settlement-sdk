@@ -48,4 +48,3 @@ Success means a credible money-product experience backed by real Venly contract 
     }),
   );
 }
-

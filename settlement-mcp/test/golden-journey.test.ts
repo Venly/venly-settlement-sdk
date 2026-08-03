@@ -71,4 +71,3 @@ test("golden journey: official SDK mock builds an international account without 
     globalThis.fetch = originalFetch;
   }
 });
-

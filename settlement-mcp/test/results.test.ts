@@ -17,7 +17,6 @@ test("read and write tools return text plus machine-readable structuredContent",
   assert.match(account.raw.content[0].text, /acct-1/);
   await h.close();
 });
-
 test("error result redacts bearer and client-secret material", () => {
   const result = errorResult(
     "request failed Authorization: Bearer secret-token client_secret=super-secret",
@@ -26,4 +25,3 @@ test("error result redacts bearer and client-secret material", () => {
   assert.doesNotMatch(text, /secret-token|super-secret/);
   assert.match(text, /\[REDACTED\]/);
 });
-

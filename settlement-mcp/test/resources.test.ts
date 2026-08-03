@@ -18,7 +18,6 @@ test("builder resources enumerate at stable Venly URIs", async () => {
   );
   await h.close();
 });
-
 test("capabilities resource states supported and unsupported product boundaries", async () => {
   const h = await makeHarness({});
   const result = await h.client.readResource({ uri: "venly://capabilities" });
@@ -52,4 +51,3 @@ test("safety and workflow resources preserve compliance and environment gates", 
   assert.match(transitionText, /credentials/i);
   await h.close();
 });
-

@@ -24,4 +24,3 @@ stablecoin account or neobank-like customer experience with Venly Finance.
 Produce a credible customer-facing money-product experience and a README documenting
 the mock setup and explicit staging transition. Do not build a generic infrastructure
 dashboard or hide financial mutations inside one autonomous operation.
-

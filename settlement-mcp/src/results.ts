@@ -4,7 +4,6 @@ function toStructured(data: unknown): Record<string, unknown> {
   }
   return { result: data };
 }
-
 export function jsonResult(data: unknown) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
@@ -26,4 +25,3 @@ export function errorResult(message: string) {
     isError: true,
   };
 }
-
