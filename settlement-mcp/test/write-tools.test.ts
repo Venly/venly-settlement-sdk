@@ -29,6 +29,20 @@ test("stage_transfer: unconfirmed + disarmed => dry-run, no live call", async ()
   await h.close();
 });
 
+test("stage_transfer rejects a non-numeric legacy fiatAmount before transport", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const result = await callToolJson(h.client, "stage_transfer", {
+    senderAccountId: "acct-1",
+    receiverAccountId: "acct-2",
+    fiatAmount: "not-an-amount",
+    fiatCurrency: "EUR",
+  });
+
+  assert.equal(result.isError, true);
+  assert.equal(h.mock.called("createFiatTransfer"), false);
+  await h.close();
+});
+
 // CRITICAL fail-closed test required by spec acceptance criterion 4:
 // confirm:true but VENLY_MCP_LIVE unset still dry-runs and does NOT call live.
 test("CRITICAL: confirm:true but VENLY_MCP_LIVE unset still dry-runs (fail-closed)", async () => {
@@ -116,6 +130,69 @@ test("gate opens only with confirm + VENLY_MCP_LIVE=1 + creds => live call", asy
   });
   assert.equal(data.mode, "live", "all three legs present should arm the tool");
   assert.equal(data.result.id, "transfer-live-1");
+  assert.equal(h.mock.called("createFiatTransfer"), true);
+  await h.close();
+});
+
+test("explicit mock mode executes simulated writes without flags or credentials", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const { data } = await callToolJson(h.client, "stage_transfer", {
+    senderAccountId: "acct-1",
+    receiverAccountId: "acct-2",
+    fiatAmount: "10.00",
+    fiatCurrency: "EUR",
+  });
+
+  assert.equal(data.mode, "mock");
+  assert.equal(data.environment, "mock");
+  assert.equal(data.result.id, "transfer-live-1");
+  assert.equal(h.mock.called("createFiatTransfer"), true);
+  await h.close();
+});
+
+test("production remains disarmed without the additional production flag", async () => {
+  const h = await makeHarness({
+    VENLY_ENV: "production",
+    VENLY_MCP_LIVE: "1",
+    ...CREDS,
+  });
+  const { data } = await callToolJson(h.client, "stage_transfer", {
+    senderAccountId: "acct-1",
+    receiverAccountId: "acct-2",
+    fiatAmount: "10.00",
+    fiatCurrency: "EUR",
+    confirm: true,
+  });
+
+  assert.equal(data.mode, "dry-run");
+  assert.equal(data.gate.environment, "production");
+  assert.equal(data.gate.productionFlagArmed, false);
+  assert.ok(
+    data.gate.blockedReasons.some((reason: string) =>
+      reason.includes("VENLY_MCP_PRODUCTION"),
+    ),
+  );
+  assert.equal(h.mock.called("createFiatTransfer"), false);
+  await h.close();
+});
+
+test("production opens only when ordinary and production gates are armed", async () => {
+  const h = await makeHarness({
+    VENLY_ENV: "production",
+    VENLY_MCP_LIVE: "1",
+    VENLY_MCP_PRODUCTION: "1",
+    ...CREDS,
+  });
+  const { data } = await callToolJson(h.client, "stage_transfer", {
+    senderAccountId: "acct-1",
+    receiverAccountId: "acct-2",
+    fiatAmount: "10.00",
+    fiatCurrency: "EUR",
+    confirm: true,
+  });
+
+  assert.equal(data.mode, "live");
+  assert.equal(data.environment, "production");
   assert.equal(h.mock.called("createFiatTransfer"), true);
   await h.close();
 });

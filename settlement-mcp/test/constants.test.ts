@@ -6,7 +6,9 @@ import {
   DEFAULT_FINANCE_BASE_URL,
   DEFAULT_FUNDFLOW_BASE_URL,
   DEFAULT_TOKEN_URL,
+  resolveVenlyEnvironment,
 } from "../src/constants.ts";
+import { SdkVenlyClient } from "../src/client/sdk-client.ts";
 
 // Regression net for the v0.1.0 stale-spec bug: pin the default URLs to the
 // exact strings in the live published specs. The mocked-client suite cannot
@@ -36,4 +38,20 @@ test("README documents the same defaults the code exports", () => {
     !readme.includes("venlyfinance.com/api/v1"),
     "README documents the retired /api/v1 base path",
   );
+});
+
+test("environment selection is explicit and defaults compatibly to staging", () => {
+  assert.equal(resolveVenlyEnvironment({}), "staging");
+  assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "mock" }), "mock");
+  assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "staging" }), "staging");
+  assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "production" }), "production");
+  assert.throws(
+    () => resolveVenlyEnvironment({ VENLY_ENV: "sandbox" }),
+    /VENLY_ENV must be one of mock, staging, production/,
+  );
+});
+
+test("SDK client factory constructs explicit mock mode without credentials", () => {
+  const client = SdkVenlyClient.fromEnv({ VENLY_ENV: "mock" });
+  assert.equal(client.environment, "mock");
 });

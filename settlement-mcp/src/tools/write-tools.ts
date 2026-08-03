@@ -25,6 +25,14 @@ function errorResult(message: string) {
   };
 }
 
+function executionResult(gate: ReturnType<typeof evaluateWriteGate>, result: unknown) {
+  return jsonResult({
+    mode: gate.environment === "mock" ? "mock" : "live",
+    environment: gate.environment,
+    result,
+  });
+}
+
 const WRITE_ANNOTATIONS = {
   readOnlyHint: false,
   destructiveHint: false,
@@ -56,7 +64,13 @@ export function registerWriteTools(
       inputSchema: {
         senderAccountId: z.string().describe("Account initiating the transfer"),
         receiverAccountId: z.string(),
-        fiatAmount: z.string().describe("Decimal string, e.g. \"1000.00\""),
+        fiatAmount: z
+          .string()
+          .refine(
+            (value) => value.trim() !== "" && Number.isFinite(Number(value)),
+            "fiatAmount must be a numeric decimal string",
+          )
+          .describe("Decimal string, e.g. \"1000.00\""),
         fiatCurrency: z.string().describe("e.g. EUR"),
         cryptocurrency: z.string().optional(),
         description: z.string().optional(),
@@ -89,7 +103,7 @@ export function registerWriteTools(
       }
       try {
         const result = await client.createFiatTransfer(senderAccountId, body);
-        return jsonResult({ mode: "live", result });
+        return executionResult(gate, result);
       } catch (e) {
         return errorResult((e as Error).message);
       }
@@ -132,7 +146,7 @@ export function registerWriteTools(
       }
       try {
         const result = await client.approveRampRequest(id, body);
-        return jsonResult({ mode: "live", result });
+        return executionResult(gate, result);
       } catch (e) {
         return errorResult((e as Error).message);
       }
@@ -173,7 +187,7 @@ export function registerWriteTools(
       }
       try {
         const result = await client.rejectRampRequest(id, body);
-        return jsonResult({ mode: "live", result });
+        return executionResult(gate, result);
       } catch (e) {
         return errorResult((e as Error).message);
       }
@@ -231,7 +245,7 @@ export function registerWriteTools(
       }
       try {
         const result = await client.createPayInSession(accountId, body);
-        return jsonResult({ mode: "live", result });
+        return executionResult(gate, result);
       } catch (e) {
         return errorResult((e as Error).message);
       }
