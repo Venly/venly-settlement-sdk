@@ -11,11 +11,16 @@ test("server enumerates all read + write + x402 tools over the harness", async (
   for (const t of [
     "list_ramp_requests",
     "get_ramp_request",
+    "list_accounts",
     "get_account",
+    "list_wallets",
     "list_virtual_bank_accounts",
+    "get_virtual_bank_account",
     "reconcile_by_reference_code",
+    "list_transfers",
     "get_transfer",
     "list_parties",
+    "get_party",
     "get_reference_data",
   ]) {
     assert.ok(names.includes(t), `missing read tool ${t}`);
@@ -32,7 +37,7 @@ test("server enumerates all read + write + x402 tools over the harness", async (
   // x402 tier
   assert.ok(names.includes("quote_x402_payment"), "missing x402 tool");
 
-  assert.equal(tools.length, 13, "expected 13 tools total");
+  assert.equal(tools.length, 23, "expected 23 tools total");
   await h.close();
 });
 
@@ -66,6 +71,24 @@ test("get_account returns the account", async () => {
   await h.close();
 });
 
+test("list_accounts returns paginated account fixtures", async () => {
+  const h = await makeHarness({});
+  const { data } = await callToolJson(h.client, "list_accounts", { page: 1, size: 10 });
+  assert.equal(data.count, 1);
+  assert.equal(data.accounts[0].id, "acct-1");
+  assert.ok(h.mock.called("listAccounts"));
+  await h.close();
+});
+
+test("list_wallets exposes the account wallet", async () => {
+  const h = await makeHarness({});
+  const { data } = await callToolJson(h.client, "list_wallets", { accountId: "acct-1" });
+  assert.equal(data.count, 1);
+  assert.equal(data.wallets[0].id, "wallet-1");
+  assert.equal(data.wallets[0].chain, "BASE");
+  await h.close();
+});
+
 test("list_virtual_bank_accounts returns vIBANs with referenceCode", async () => {
   const h = await makeHarness({});
   const { data } = await callToolJson(h.client, "list_virtual_bank_accounts", {
@@ -73,6 +96,29 @@ test("list_virtual_bank_accounts returns vIBANs with referenceCode", async () =>
   });
   assert.equal(data.count, 2);
   assert.equal(data.virtualBankAccounts[0].referenceCode, "REF-ABC-123");
+  await h.close();
+});
+
+test("get_virtual_bank_account returns receiving details", async () => {
+  const h = await makeHarness({});
+  const { data } = await callToolJson(h.client, "get_virtual_bank_account", {
+    accountId: "acct-1",
+    virtualBankAccountId: "vban-1",
+  });
+  assert.equal(data.id, "vban-1");
+  assert.equal(data.referenceCode, "REF-ABC-123");
+  await h.close();
+});
+
+test("list_transfers returns transfer history", async () => {
+  const h = await makeHarness({});
+  const { data } = await callToolJson(h.client, "list_transfers", {
+    accountId: "acct-1",
+    page: 1,
+    size: 10,
+  });
+  assert.equal(data.count, 1);
+  assert.equal(data.transfers[0].id, "tr-1");
   await h.close();
 });
 
@@ -92,6 +138,14 @@ test("list_parties returns parties", async () => {
   const { data } = await callToolJson(h.client, "list_parties", {});
   assert.equal(data.count, 1);
   assert.equal(data.parties[0].type, "ORGANISATION");
+  await h.close();
+});
+
+test("get_party returns KYC/KYB state", async () => {
+  const h = await makeHarness({});
+  const { data } = await callToolJson(h.client, "get_party", { partyId: "party-1" });
+  assert.equal(data.id, "party-1");
+  assert.equal(data.status, "ACTIVE");
   await h.close();
 });
 

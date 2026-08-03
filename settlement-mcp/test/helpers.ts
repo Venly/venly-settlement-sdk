@@ -10,8 +10,13 @@ import { createServer } from "../src/server.js";
 import type { EnvLike } from "../src/safety.js";
 import type {
   Account,
+  CreateAccountInput,
+  CreateCryptoTransferInput,
   CreateFiatTransferInput,
+  CreatePartyInput,
   CreatePayInSessionRequest,
+  CreateVirtualBankAccountInput,
+  CurrentCreateFiatTransferInput,
   ListRampRequestsParams,
   OptimisticLockingBody,
   Party,
@@ -21,6 +26,7 @@ import type {
   Transfer,
   VenlyClient,
   VirtualBankAccount,
+  Wallet,
 } from "../src/types.js";
 
 /** Records which methods were called, so tests can assert no live call fired. */
@@ -75,6 +81,19 @@ export class MockVenlyClient implements VenlyClient {
     return { id: accountId, status: "ACTIVE", reference: "acct-ref-1" };
   }
 
+  async listAccounts(_params?: { page?: number; size?: number }): Promise<Account[]> {
+    this.track("listAccounts");
+    return [{ id: "acct-1", status: "ACTIVE", reference: "acct-ref-1" }];
+  }
+
+  async listWallets(
+    accountId: string,
+    _params?: { page?: number; size?: number },
+  ): Promise<Wallet[]> {
+    this.track("listWallets");
+    return [{ id: "wallet-1", accountId, chain: "BASE", address: "0xabc" }];
+  }
+
   async listVirtualBankAccounts(accountId: string): Promise<VirtualBankAccount[]> {
     this.track("listVirtualBankAccounts");
     return [
@@ -102,6 +121,31 @@ export class MockVenlyClient implements VenlyClient {
     ];
   }
 
+  async getVirtualBankAccount(
+    accountId: string,
+    virtualBankAccountId: string,
+  ): Promise<VirtualBankAccount> {
+    this.track("getVirtualBankAccount");
+    return {
+      id: virtualBankAccountId,
+      accountId,
+      bankAccountType: "EUR_SEPA",
+      status: "ACTIVE",
+      currency: "EUR",
+      iban: "DE89370400440532013000",
+      bic: "DEUTDEDB",
+      referenceCode: "REF-ABC-123",
+    };
+  }
+
+  async listTransfers(
+    _accountId: string,
+    _params?: { page?: number; size?: number },
+  ): Promise<Transfer[]> {
+    this.track("listTransfers");
+    return [{ id: "tr-1", status: "COMPLETED", fiatAmount: "1000.00" }];
+  }
+
   async getTransfer(_accountId: string, transferId: string): Promise<Transfer> {
     this.track("getTransfer");
     return {
@@ -116,6 +160,11 @@ export class MockVenlyClient implements VenlyClient {
   async listParties(_params?: { page?: number; size?: number }): Promise<Party[]> {
     this.track("listParties");
     return [{ id: "party-1", type: "ORGANISATION", status: "ACTIVE" }];
+  }
+
+  async getParty(partyId: string): Promise<Party> {
+    this.track("getParty");
+    return { id: partyId, type: "ORGANISATION", status: "ACTIVE" };
   }
 
   async getSupportedChains(): Promise<unknown[]> {
@@ -139,12 +188,54 @@ export class MockVenlyClient implements VenlyClient {
   }
 
   // ----- WRITE (must NOT be called unless gate armed) -----
+  async createParty(body: CreatePartyInput): Promise<Party> {
+    this.track("createParty");
+    return { id: "party-created-1", status: "ACTIVE", ...body };
+  }
+
+  async createAccount(body: CreateAccountInput): Promise<Account> {
+    this.track("createAccount");
+    return { id: "account-created-1", status: "ACTIVE", ...body };
+  }
+
+  async createVirtualBankAccount(
+    accountId: string,
+    body: CreateVirtualBankAccountInput,
+  ): Promise<VirtualBankAccount> {
+    this.track("createVirtualBankAccount");
+    return {
+      id: "vban-created-1",
+      accountId,
+      bankAccountType: "EUR_SEPA",
+      status: "ACTIVE",
+      currency: body.inCurrency,
+      targetCryptocurrency: body.targetCryptocurrency,
+      referenceCode: "REF-CREATED-1",
+    };
+  }
+
   async createFiatTransfer(
     _senderAccountId: string,
     _body: CreateFiatTransferInput,
   ): Promise<Transfer> {
     this.track("createFiatTransfer");
     return { id: "transfer-live-1", status: "PENDING" };
+  }
+
+  async createCurrentFiatTransfer(
+    _senderAccountId: string,
+    _body: CurrentCreateFiatTransferInput,
+  ): Promise<Transfer> {
+    this.track("createFiatTransfer");
+    return { id: "transfer-fiat-1", status: "PENDING" };
+  }
+
+  async createCryptoTransfer(
+    _senderAccountId: string,
+    _body: CreateCryptoTransferInput,
+  ): Promise<Transfer> {
+    this.track("createCryptoTransfer");
+    return { id: "transfer-crypto-1", status: "PENDING" };
   }
 
   async approveRampRequest(id: string, _body: OptimisticLockingBody): Promise<RampRequestDto> {

@@ -217,6 +217,9 @@ Supporting message:
   transfers, permits and allowances.
 - Finance API account creation accepts an existing party or inline party and
   auto-provisions a custodial wallet. Self-custody tenants must provide an address.
+- The account wallet response includes per-token `total`, `available` and `reserved`
+  balances, so the reference experience can show real balance states without adding a
+  separate Wallet API call.
 - Creating a virtual bank account currently supports EUR/SEPA in the published spec
   and requires the account's KYC status to be `VERIFIED`.
 - [`src/finance/client.ts`](../src/finance/client.ts) already implements named methods
@@ -400,10 +403,10 @@ types and protected by contract tests.
   about "global bank accounts" or broader geographic/currency coverage require a
   current provider/capability matrix and must not be inferred from the generic API
   model.
-- **Balance display:** The current Finance OpenAPI contract exposes wallets and token
-  allowances but no clearly named account-balance endpoint. The first reference app
-  must not fabricate a balance capability; confirm whether wallet balance comes from a
-  Wallet API/SDK endpoint or a forthcoming Finance endpoint.
+- **Balance semantics:** The Finance wallet response exposes token `total`, `available`
+  and `reserved` amounts. Confirm product terminology and whether any fiat-equivalent
+  display is contractually available; the first reference app should display the
+  returned token amounts directly rather than inventing a fiat ledger balance.
 - **Package naming:** Decide after the first clean-room test whether to publish the
   lightweight `@venlyfinance/mcp` alias. This is a distribution decision, not a second
   codebase.

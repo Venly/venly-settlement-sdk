@@ -24,14 +24,14 @@ safety model). The x402 tool is a stub that states a position, it moves no funds
   servers `https://api-fundflow.venly.io`). Endpoint truth is the published API
   reference at [docs.venlyfinance.com](https://docs.venlyfinance.com/api-reference).
 - Transport is injected through the `VenlyClient` interface (`src/types.ts`).
-  `HttpVenlyClient` is a minimal fetch-based implementation; tests inject a mock.
+  `SdkVenlyClient` delegates to the published `@venlyfinance/sdk`; tests inject
+  a lightweight mock.
 
-### Transport note
+### Transport
 
-The built-in HTTP transport is minimal by design (OAuth2 client credentials,
-lazy token fetch, no logging of secrets) and is fully covered by the test
-suite. A future release adopts [`@venlyfinance/sdk`](../) as the transport
-layer, with no change to the tool interface.
+The MCP uses [`@venlyfinance/sdk`](../) for OAuth2 client credentials, token
+caching/refresh, retries, idempotency and normalized API errors. It does not
+maintain a second HTTP or authentication implementation.
 
 ## The three tool tiers
 
@@ -206,7 +206,7 @@ settlement-mcp/
     safety.ts             the write-gate (confirm + env + creds)
     reconcile.ts          pure reconciliation logic
     client/
-      http-client.ts      HttpVenlyClient (fetch, OAuth, vendored transport)
+      sdk-client.ts       Adapter over @venlyfinance/sdk
     tools/
       read-tools.ts       tier 1
       write-tools.ts      tier 2 (fail closed)

@@ -8,11 +8,9 @@
  * echo are modeled. Fields are intentionally loose (optional) because this is a
  * thin wrapper, not a full SDK.
  *
- * TRANSPORT NOTE: the bundled HttpVenlyClient is a deliberately minimal fetch
- * transport (see client/http-client.ts). A future release replaces it with a
- * thin adapter over `@venlyfinance/sdk` with no change to this interface;
- * until then the minimal transport is what ships. When that lands, replace
- * HttpVenlyClient with a thin adapter over it and delete the vendored transport.
+ * The production implementation is an adapter over `@venlyfinance/sdk`, so
+ * endpoint transport, auth, retry and idempotency behavior have one source.
+ * Tests inject a lightweight implementation of this interface.
  */
 
 /** Ramp request status flow, per fundflow.yaml overview. */
@@ -75,6 +73,15 @@ export interface Account {
   [key: string]: unknown;
 }
 
+/** Finance Wallet, auto-provisioned when an account is created. */
+export interface Wallet {
+  id: string;
+  accountId?: string;
+  chain?: string;
+  address?: string;
+  [key: string]: unknown;
+}
+
 /** Finance VirtualBankAccount. `referenceCode` is the reconciliation key. */
 export interface VirtualBankAccount {
   id: string;
@@ -110,6 +117,41 @@ export interface Party {
   type?: string;
   status?: string;
   [key: string]: unknown;
+}
+
+export interface AddressInput {
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}
+
+export interface CreatePartyInput {
+  partyType: "INDIVIDUAL" | "ORGANISATION";
+  externalId?: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  vatNumber?: string;
+  address?: AddressInput;
+}
+
+export interface CreateAccountInput {
+  externalId: string;
+  name?: string;
+  chain: "AVALANCHE" | "BASE" | "POLYGON";
+  address?: string;
+  partyId?: string;
+  party?: CreatePartyInput;
+}
+
+export interface CreateVirtualBankAccountInput {
+  name: string;
+  inCurrency: string;
+  targetCryptocurrency: string;
+  idempotencyKey: string;
 }
 
 /** A fiat-to-crypto payment session (finance PaymentSession). */
@@ -159,6 +201,28 @@ export interface CreateFiatTransferInput {
   merchantReference?: string;
 }
 
+/** Current finance CreateFiatTransferInput, kept separate from the legacy stage tool input. */
+export interface CurrentCreateFiatTransferInput {
+  receiverAccountId?: string;
+  receiverExternalId?: string;
+  currency: string;
+  amount: number;
+  description?: string;
+  merchantReference?: string;
+  idempotencyKey: string;
+}
+
+export interface CreateCryptoTransferInput {
+  receiverAccountId?: string;
+  receiverExternalId?: string;
+  chain: "AVALANCHE" | "BASE" | "POLYGON";
+  asset: string;
+  amount: number;
+  description?: string;
+  merchantReference?: string;
+  idempotencyKey: string;
+}
+
 /** Body for approve/reject (fundflow UpdateWithOptimisticLockingRequest). */
 export interface OptimisticLockingBody {
   version: number;
@@ -178,19 +242,30 @@ export interface CreatePayInSessionRequest {
 }
 
 /**
- * The injectable Venly transport. HttpVenlyClient is the real fetch-based
- * implementation; tests inject a mock. The MCP layer depends ONLY on this
- * interface, never on a concrete transport, which is what makes the fail-closed
- * write path testable without a network.
+ * The injectable Venly client contract. SdkVenlyClient is the production
+ * implementation; tests inject a lightweight mock. The MCP layer depends only
+ * on this interface, keeping the fail-closed write path testable without a
+ * network.
  */
 export interface VenlyClient {
   // ----- READ (GET) -----
   listRampRequests(params?: ListRampRequestsParams): Promise<RampRequestListItem[]>;
   getRampRequest(id: string): Promise<RampRequestDto>;
+  listAccounts(params?: { page?: number; size?: number }): Promise<Account[]>;
   getAccount(accountId: string): Promise<Account>;
+  listWallets(accountId: string, params?: { page?: number; size?: number }): Promise<Wallet[]>;
   listVirtualBankAccounts(accountId: string): Promise<VirtualBankAccount[]>;
+  getVirtualBankAccount(
+    accountId: string,
+    virtualBankAccountId: string,
+  ): Promise<VirtualBankAccount>;
+  listTransfers(
+    accountId: string,
+    params?: { page?: number; size?: number },
+  ): Promise<Transfer[]>;
   getTransfer(accountId: string, transferId: string): Promise<Transfer>;
   listParties(params?: { page?: number; size?: number }): Promise<Party[]>;
+  getParty(partyId: string): Promise<Party>;
   getSupportedChains(): Promise<unknown[]>;
   getFiatCurrencies(): Promise<unknown[]>;
   getCryptocurrencies(): Promise<unknown[]>;
@@ -198,7 +273,21 @@ export interface VenlyClient {
 
   // ----- WRITE (POST) -----
   // These are only ever called when the write gate is armed (confirm + env + creds).
+  createParty(body: CreatePartyInput): Promise<Party>;
+  createAccount(body: CreateAccountInput): Promise<Account>;
+  createVirtualBankAccount(
+    accountId: string,
+    body: CreateVirtualBankAccountInput,
+  ): Promise<VirtualBankAccount>;
   createFiatTransfer(senderAccountId: string, body: CreateFiatTransferInput): Promise<Transfer>;
+  createCurrentFiatTransfer(
+    senderAccountId: string,
+    body: CurrentCreateFiatTransferInput,
+  ): Promise<Transfer>;
+  createCryptoTransfer(
+    senderAccountId: string,
+    body: CreateCryptoTransferInput,
+  ): Promise<Transfer>;
   approveRampRequest(id: string, body: OptimisticLockingBody): Promise<RampRequestDto>;
   rejectRampRequest(id: string, body: OptimisticLockingBody): Promise<RampRequestDto>;
   createPayInSession(

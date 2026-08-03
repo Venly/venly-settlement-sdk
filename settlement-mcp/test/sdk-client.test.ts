@@ -59,3 +59,108 @@ test("SDK client: legacy stage-transfer input is normalized to the live SDK cont
   assert.equal("fiatCurrency" in (transferCall.body ?? {}), false);
 });
 
+test("SDK client: existing approval and payment-session writes map to SDK resources", async () => {
+  const client = SdkVenlyClient.mock();
+
+  await client.approveRampRequest("ramp-001", { version: 3 });
+  await client.rejectRampRequest("ramp-002", { version: 4 });
+  await client.createPayInSession("account-001", {
+    inAmount: "100.00",
+    inCurrency: "EUR",
+    outCryptocurrency: "USDC",
+    callbackUrl: "https://example.com/callback",
+    idempotencyKey: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  });
+
+  assert.ok(
+    client.fundflowMockCalls.some(
+      (call) => call.method === "POST" && call.path === "/v1/ramp-requests/ramp-001/approve",
+    ),
+  );
+  assert.ok(
+    client.fundflowMockCalls.some(
+      (call) => call.method === "POST" && call.path === "/v1/ramp-requests/ramp-002/reject",
+    ),
+  );
+  assert.ok(
+    client.financeMockCalls.some(
+      (call) =>
+        call.method === "POST" &&
+        call.path === "/accounts/account-001/fiat-to-crypto/payment-sessions",
+    ),
+  );
+});
+
+test("SDK client: missing live credentials fail before any network request", async () => {
+  const originalFetch = globalThis.fetch;
+  let networkCalls = 0;
+  globalThis.fetch = (async () => {
+    networkCalls += 1;
+    throw new Error("network must not be called without credentials");
+  }) as typeof fetch;
+
+  try {
+    const client = SdkVenlyClient.fromEnv({ VENLY_ENV: "staging" });
+    await assert.rejects(
+      client.listParties(),
+      /Missing Venly credentials. Set VENLY_CLIENT_ID and VENLY_CLIENT_SECRET/,
+    );
+    assert.equal(networkCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("SDK client: builder operations map to current Finance SDK routes", async () => {
+  const client = SdkVenlyClient.mock();
+
+  await client.listAccounts();
+  await client.listWallets("account-001");
+  await client.getVirtualBankAccount("account-001", "vba-001");
+  await client.listTransfers("account-001");
+  await client.getParty("party-001");
+  await client.createParty({ partyType: "ORGANISATION", name: "Acme" });
+  await client.createAccount({
+    externalId: "acme-main",
+    chain: "BASE",
+    partyId: "party-001",
+  });
+  await client.createVirtualBankAccount("account-001", {
+    name: "EUR Receipts",
+    inCurrency: "EUR",
+    targetCryptocurrency: "USDC",
+    idempotencyKey: "vba-001",
+  });
+  await client.createCurrentFiatTransfer("account-001", {
+    receiverAccountId: "account-002",
+    currency: "EUR",
+    amount: 25,
+    idempotencyKey: "fiat-001",
+  });
+  await client.createCryptoTransfer("account-001", {
+    receiverAccountId: "account-002",
+    chain: "BASE",
+    asset: "USDC",
+    amount: 10,
+    idempotencyKey: "crypto-001",
+  });
+
+  for (const expected of [
+    "GET /accounts",
+    "GET /accounts/account-001/wallets",
+    "GET /accounts/account-001/virtual-bank-accounts/vba-001",
+    "GET /accounts/account-001/transfers",
+    "GET /parties/party-001",
+    "POST /parties",
+    "POST /accounts",
+    "POST /accounts/account-001/virtual-bank-accounts",
+    "POST /accounts/account-001/transfers/fiat",
+    "POST /accounts/account-001/transfers/crypto",
+  ]) {
+    const [method, path] = expected.split(" ");
+    assert.ok(
+      client.financeMockCalls.some((call) => call.method === method && call.path === path),
+      `missing SDK call ${expected}`,
+    );
+  }
+});
