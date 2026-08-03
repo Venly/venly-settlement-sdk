@@ -233,10 +233,12 @@ Supporting message:
 - The current `stage_transfer` MCP schema does not match the current vendored Finance
   OpenAPI request schema. Using the SDK adapter removes this class of drift.
 - Local baseline on 2026-08-03: SDK suite 40/40 passing; MCP suite 24/24 passing.
-- Dependency installation reported three high-severity audit findings in the SDK
-  development dependency tree and two moderate findings in the MCP dependency tree.
-  Remediation is separate discovered work; dependency versions must not be changed
-  opportunistically as part of this feature without reviewing the audit paths.
+- Production-dependency audit on 2026-08-03 found zero SDK runtime vulnerabilities.
+  The MCP runtime tree reports two moderate findings in `@hono/node-server`, inherited
+  through `@modelcontextprotocol/sdk@1.29.0` (Windows encoded-backslash path traversal
+  in Hono static serving). The Venly MCP uses stdio rather than Hono static serving,
+  but the dependency remains in the shipped tree and must be upgraded or explicitly
+  risk-accepted before publication.
 
 ## API Contract
 
@@ -338,6 +340,8 @@ types and protected by contract tests.
 - `npm run typecheck` in `settlement-mcp/` -> TypeScript exits 0.
 - `npm pack --dry-run` in both packages -> only intended distributable files are
   included; MCP package includes skills and new binary aliases.
+- `npm audit --omit=dev` in both packages -> SDK has zero runtime findings; MCP must
+  have zero findings or a documented security-owner risk acceptance before publish.
 - Run MCP with `VENLY_ENV=mock` and no credentials -> tools/resources/prompt enumerate;
   golden journey succeeds; network spy observes zero calls.
 - Run MCP with `VENLY_ENV=staging`, no `VENLY_MCP_LIVE`, and mocked credentials ->
@@ -414,5 +418,7 @@ types and protected by contract tests.
   workflow remains available as a packaged Markdown skill and normal documentation.
 - **Mock fidelity:** Mock results must teach real states and errors without being
   mistaken for contractual availability. Fixtures require versioning alongside specs.
-- **Dependency audit:** Reported npm audit findings require separate review to determine
-  whether they affect distributable runtime code or only development tooling.
+- **Dependency audit:** The MCP ships a moderate vulnerable transitive Hono adapter via
+  the official MCP SDK. It is not exercised by the stdio server, but publication is
+  blocked until the MCP SDK/Hono dependency is upgraded or a security owner accepts
+  the documented residual risk.

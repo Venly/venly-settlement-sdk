@@ -6,20 +6,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { VenlyClient } from "../types.js";
 import { reconcileByReferenceCode } from "../reconcile.js";
-
-/** Serialize a result as a text-content tool response. */
-function jsonResult(data: unknown) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-  };
-}
-
-function errorResult(message: string) {
-  return {
-    content: [{ type: "text" as const, text: `Error: ${message}` }],
-    isError: true,
-  };
-}
+import { errorResult, jsonResult } from "../results.js";
 
 const READ_ONLY = {
   readOnlyHint: true,

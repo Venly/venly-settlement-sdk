@@ -318,6 +318,7 @@
 - [ ] Run all example tests and production build in `examples/international-account/`.
 - [ ] Run `git diff --check`.
 - [ ] Run `npm pack --dry-run` for SDK and MCP and inspect contents.
+- [ ] Run `npm audit --omit=dev`; require zero runtime findings or documented security-owner acceptance before publish.
 - [ ] Execute the mock golden journey with a network spy and no credentials.
 - [ ] Re-run the staging and production fail-closed matrices.
 - [ ] Review the final diff against every acceptance criterion in the feature spec.

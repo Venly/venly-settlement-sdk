@@ -55,3 +55,12 @@ test("SDK client factory constructs explicit mock mode without credentials", () 
   const client = SdkVenlyClient.fromEnv({ VENLY_ENV: "mock" });
   assert.equal(client.environment, "mock");
 });
+
+test("package exposes finance and settlement compatibility binaries from one implementation", () => {
+  const packageJson = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
+  );
+  assert.equal(packageJson.bin["venly-finance-mcp"], "dist/index.js");
+  assert.equal(packageJson.bin["venly-settlement-mcp"], "dist/index.js");
+  assert.match(packageJson.repository.url, /github\.com\/Venly\/venly-settlement-sdk/);
+});

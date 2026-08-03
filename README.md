@@ -9,7 +9,20 @@ TypeScript SDK for the [Venly Finance](https://docs.venlyfinance.com) and Fundfl
 | Package | What it is |
 |---|---|
 | [`@venlyfinance/sdk`](.) (root) | The TypeScript SDK: typed client for every Finance + Fundflow operation |
-| [`@venlyfinance/settlement-mcp`](settlement-mcp/) | Settlement MCP server: a human-gated operator surface over the same APIs for MCP clients and agents. Read-only by default, write tools fail closed, x402 quote stub included. MIT licensed. |
+| [`@venlyfinance/settlement-mcp`](settlement-mcp/) | Venly Finance MCP: SDK-backed tools, product resources and prompts for building and operating international money experiences. Mock-first; live writes fail closed. |
+
+## Build an international account experience with an AI agent
+
+The MCP extends this SDK rather than maintaining a second API client. In explicit
+mock mode it gives a coding agent atomic party, account, wallet/balance, EUR receiving
+account and transfer tools without credentials or network access. It also publishes a
+`build_international_account` prompt plus capability and safety resources.
+
+The product boundary is deliberate: Venly supplies financial infrastructure through
+regulated partners. Creating a party does not complete KYC/KYB; the current public
+contract documents EUR/SEPA virtual bank accounts and does not expose card issuing.
+
+See the [Venly Finance MCP quickstart](settlement-mcp/README.md#try-the-builder-in-mock-mode).
 
 ## What the SDK handles for you
 
