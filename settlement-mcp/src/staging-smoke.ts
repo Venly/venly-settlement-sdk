@@ -5,6 +5,7 @@ import {
 } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { fileURLToPath } from "node:url";
 import { SERVER_VERSION } from "./constants.js";
+import { sanitizeErrorMessage } from "./results.js";
 
 export const EXPECTED_TOOLS = [
   "list_ramp_requests",
@@ -119,7 +120,21 @@ function optionalEnvironment(
 
 function structuredContent(result: unknown, label: string): Record<string, unknown> {
   const record = asRecord(result, label);
-  if (record.isError === true) throw new Error(`${label} returned an MCP error`);
+  if (record.isError === true) {
+    const detail = Array.isArray(record.content)
+      ? record.content
+          .map((item) =>
+            item && typeof item === "object" && "text" in item
+              ? String((item as { text: unknown }).text)
+              : "",
+          )
+          .filter(Boolean)
+          .join("; ")
+      : "";
+    throw new Error(
+      `${label} returned an MCP error${detail ? `: ${sanitizeErrorMessage(detail)}` : ""}`,
+    );
+  }
   return asRecord(record.structuredContent, `${label} structuredContent`);
 }
 
@@ -201,11 +216,23 @@ export async function runStagingSmoke(options: StagingSmokeOptions = {}): Promis
     const accounts = await client.callTool({ name: "list_accounts", arguments: { size: 1 } });
     log(`OK   list_accounts - count=${countFrom(accounts, "list_accounts")}`);
 
-    const referenceData = await client.callTool({
-      name: "get_reference_data",
-      arguments: { dataset: "all" },
-    });
-    log(`OK   get_reference_data - ${referenceCounts(referenceData)}`);
+    try {
+      const referenceData = await client.callTool({
+        name: "get_reference_data",
+        arguments: { dataset: "all" },
+      });
+      log(`OK   get_reference_data - ${referenceCounts(referenceData)}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isScopeError = /\b(401|403)\b/.test(message);
+      if (isScopeError && env.VENLY_SMOKE_ALLOW_FUNDFLOW_SKIP === "1") {
+        log(
+          "SKIP get_reference_data - credential lacks Fundflow scope (tolerated via VENLY_SMOKE_ALLOW_FUNDFLOW_SKIP=1); fundflow validated by spec-diff only",
+        );
+      } else {
+        throw error;
+      }
+    }
 
     const dryRun = await client.callTool({
       name: "create_party",
