@@ -1,0 +1,30 @@
+name: staging-smoke
+
+# One-click staging validation for the settlement MCP. Run it from the
+# Actions tab ("Run workflow"). Requires two repository secrets:
+#   VENLY_CLIENT_ID / VENLY_CLIENT_SECRET — a staging tenant client with
+#   Finance + Fundflow scope (a Finance-only client fails the
+#   reference-data check).
+# Read-only against staging; the one write tool call stays dry-run and
+# the script sanitizes credentials out of all output. This is the release
+# gate for publishing: green here clears settlement-mcp for npm.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  staging-smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: settlement-mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run smoke:staging
+        env:
+          VENLY_CLIENT_ID: ${{ secrets.VENLY_CLIENT_ID }}
+          VENLY_CLIENT_SECRET: ${{ secrets.VENLY_CLIENT_SECRET }}
