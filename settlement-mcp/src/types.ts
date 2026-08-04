@@ -1,126 +1,49 @@
 /**
- * Domain types + the injectable VenlyClient interface.
+ * Generated API contracts + the injectable VenlyClient interface.
  *
- * These shapes are a minimal projection of the published OpenAPI specs
- * vendored in this repository under `specs/` – finance.yaml (servers:
- * https://api.venlyfinance.com/v1) and fundflow.yaml (servers:
- * https://api-fundflow.venly.io). Only the fields the tools actually read or
- * echo are modeled. Fields are intentionally loose (optional) because this is a
- * thin wrapper, not a full SDK.
- *
- * TRANSPORT NOTE: the bundled HttpVenlyClient is a deliberately minimal fetch
- * transport (see client/http-client.ts). A future release replaces it with a
- * thin adapter over `@venlyfinance/sdk` with no change to this interface;
- * until then the minimal transport is what ships. When that lands, replace
- * HttpVenlyClient with a thin adapter over it and delete the vendored transport.
+ * Finance and Fundflow resources and requests are aliases to the types exported
+ * by `@venlyfinance/sdk`. Only MCP-owned inputs and compatibility shapes are
+ * declared locally. This prevents the MCP from silently drifting away from the
+ * vendored OpenAPI specifications.
  */
 
-/** Ramp request status flow, per fundflow.yaml overview. */
-export type RampStatus =
-  | "AWAITING_APPROVAL"
-  | "AWAITING_FUNDS"
-  | "PROCESSING"
-  | "SUCCEEDED"
-  | "FAILED"
-  | "BLOCKED"
-  | "DENIED"
-  | "REJECTED"
-  | "CANCELLED";
+import type {
+  FinanceComponents,
+  FundflowComponents,
+} from "@venlyfinance/sdk";
+import type { VenlyEnvironment } from "./constants.js";
 
-export type RampType = "ON_RAMP" | "OFF_RAMP";
+type FinanceSchemas = FinanceComponents["schemas"];
+type FundflowSchemas = FundflowComponents["schemas"];
 
-/** Simplified ramp request for list views (fundflow RampRequestListItem). */
-export interface RampRequestListItem {
-  id: string;
-  paymentReference?: string;
-  rampType?: RampType;
-  status?: RampStatus;
-  fiatAmount?: number;
-  fiatCurrency?: string;
-  cryptoAmount?: number;
-  cryptoCurrency?: string;
-  createdAt?: string;
-  createdBy?: string;
-}
+export type AddressInput = FinanceSchemas["Address"];
+export type Party = FinanceSchemas["Party"];
+export type CreatePartyInput = FinanceSchemas["CreatePartyRequest"];
+export type Account = FinanceSchemas["Account"];
+export type CreateAccountInput = FinanceSchemas["CreateAccountRequest"];
+export type Wallet = FinanceSchemas["Wallet"];
+export type VirtualBankAccount = FinanceSchemas["VirtualBankAccount"];
+export type CreateVirtualBankAccountInput =
+  FinanceSchemas["CreateVirtualBankAccountRequest"];
+export type PaymentSession = FinanceSchemas["PaymentSession"];
+export type CreatePayInSessionRequest =
+  FinanceSchemas["CreatePayInSessionRequest"];
+export type Transfer = FinanceSchemas["Transfer"];
+export type CurrentCreateFiatTransferInput =
+  FinanceSchemas["CreateFiatTransferInput"];
+export type CreateCryptoTransferInput =
+  FinanceSchemas["CreateCryptoTransferInput"];
 
-/** Full ramp request detail (fundflow RampRequestDto). `version` drives the
- * four-eyes optimistic-locking approve/reject calls. */
-export interface RampRequestDto {
-  id: string;
-  companyId?: string;
-  companyName?: string;
-  rampType?: RampType;
-  status?: RampStatus;
-  fiatAmount?: number;
-  fiatNetAmount?: number;
-  cryptoAmount?: number;
-  fiatFeeAmount?: number;
-  exchangeRate?: number;
-  feePercentage?: number;
-  paymentReference?: string;
-  paymentReceived?: boolean;
-  blockchainTransactionHash?: string;
-  createdAt?: string;
-  createdBy?: string;
-  version?: number;
-}
-
-/** Finance Account (finance getAccount). */
-export interface Account {
-  id: string;
-  status?: string;
-  reference?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  [key: string]: unknown;
-}
-
-/** Finance VirtualBankAccount. `referenceCode` is the reconciliation key. */
-export interface VirtualBankAccount {
-  id: string;
-  accountId?: string;
-  bankAccountType?: string;
-  name?: string;
-  status?: string;
-  currency?: string;
-  targetCryptocurrency?: string;
-  iban?: string;
-  bic?: string;
-  bankName?: string;
-  beneficiaryName?: string;
-  referenceCode?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-/** Finance Transfer (finance getTransfer). */
-export interface Transfer {
-  id: string;
-  status?: string;
-  fiatAmount?: string | number;
-  fiatCurrency?: string;
-  cryptocurrency?: string;
-  createdAt?: string;
-  [key: string]: unknown;
-}
-
-/** Finance Party (finance listParties). */
-export interface Party {
-  id: string;
-  type?: string;
-  status?: string;
-  [key: string]: unknown;
-}
-
-/** A fiat-to-crypto payment session (finance PaymentSession). */
-export interface PaymentSession {
-  id: string;
-  accountId?: string;
-  paymentUrl?: string;
-  externalRef?: string;
-  status?: string;
-  [key: string]: unknown;
-}
+export type RampRequestDto = FundflowSchemas["RampRequestDto"];
+export type RampRequestListItem = FundflowSchemas["RampRequestListItem"];
+export type OptimisticLockingBody =
+  FundflowSchemas["UpdateWithOptimisticLockingRequest"];
+export type SupportedChains = FundflowSchemas["SupportedChainsDto"];
+export type FiatCurrency = FundflowSchemas["FiatCurrencyDto"];
+export type CryptoCurrency = FundflowSchemas["CryptoCurrencyDto"];
+export type VenlyFee = FundflowSchemas["FeeDto"];
+export type RampStatus = NonNullable<RampRequestDto["status"]>;
+export type RampType = NonNullable<RampRequestDto["rampType"]>;
 
 /**
  * An observed incoming bank transaction on a vIBAN. This is operator- or
@@ -148,57 +71,74 @@ export interface ListRampRequestsParams {
   size?: number;
 }
 
-/** Body for the fiat transfer POST (finance CreateFiatTransferInput). */
+/** Legacy stage_transfer body, normalized to the current finance
+ * CreateFiatTransferInput before any call (see normalizeLegacyFiatTransfer). */
 export interface CreateFiatTransferInput {
   receiverAccountId: string;
   receiverExternalId?: string;
   fiatAmount: string;
   fiatCurrency: string;
+  /** Retired: the current contract has no such field. Normalization rejects it
+   * instead of silently dropping it. */
   cryptocurrency?: string;
   description?: string;
   merchantReference?: string;
-}
-
-/** Body for approve/reject (fundflow UpdateWithOptimisticLockingRequest). */
-export interface OptimisticLockingBody {
-  version: number;
-}
-
-/** Body for the payment session POST (finance CreatePayInSessionRequest). */
-export interface CreatePayInSessionRequest {
-  inAmount: string;
-  inCurrency: string;
-  outCryptocurrency: string;
-  callbackUrl: string;
-  idempotencyKey: string;
-  successRedirectUrl?: string;
-  failureRedirectUrl?: string;
-  externalRef?: string;
-  metadata?: Record<string, string>;
+  /** Preserved across the dry-run preview and the live call when supplied. */
+  idempotencyKey?: string;
 }
 
 /**
- * The injectable Venly transport. HttpVenlyClient is the real fetch-based
- * implementation; tests inject a mock. The MCP layer depends ONLY on this
- * interface, never on a concrete transport, which is what makes the fail-closed
- * write path testable without a network.
+ * The injectable Venly client contract. SdkVenlyClient is the production
+ * implementation; tests inject a lightweight mock. The MCP layer depends only
+ * on this interface, keeping the fail-closed write path testable without a
+ * network.
  */
 export interface VenlyClient {
+  /** The environment this client actually targets. When present, createServer
+   * refuses to start if it disagrees with the VENLY_ENV the write gate reads –
+   * the mock gate auto-arms writes, so the two must never diverge. */
+  readonly environment?: VenlyEnvironment;
+
   // ----- READ (GET) -----
   listRampRequests(params?: ListRampRequestsParams): Promise<RampRequestListItem[]>;
   getRampRequest(id: string): Promise<RampRequestDto>;
+  listAccounts(params?: { page?: number; size?: number }): Promise<Account[]>;
   getAccount(accountId: string): Promise<Account>;
+  listWallets(accountId: string, params?: { page?: number; size?: number }): Promise<Wallet[]>;
   listVirtualBankAccounts(accountId: string): Promise<VirtualBankAccount[]>;
+  getVirtualBankAccount(
+    accountId: string,
+    virtualBankAccountId: string,
+  ): Promise<VirtualBankAccount>;
+  listTransfers(
+    accountId: string,
+    params?: { page?: number; size?: number },
+  ): Promise<Transfer[]>;
   getTransfer(accountId: string, transferId: string): Promise<Transfer>;
   listParties(params?: { page?: number; size?: number }): Promise<Party[]>;
-  getSupportedChains(): Promise<unknown[]>;
-  getFiatCurrencies(): Promise<unknown[]>;
-  getCryptocurrencies(): Promise<unknown[]>;
-  getCompanyFees(): Promise<unknown>;
+  getParty(partyId: string): Promise<Party>;
+  getSupportedChains(): Promise<SupportedChains[]>;
+  getFiatCurrencies(): Promise<FiatCurrency[]>;
+  getCryptocurrencies(): Promise<CryptoCurrency[]>;
+  getCompanyFees(): Promise<VenlyFee[]>;
 
   // ----- WRITE (POST) -----
   // These are only ever called when the write gate is armed (confirm + env + creds).
+  createParty(body: CreatePartyInput): Promise<Party>;
+  createAccount(body: CreateAccountInput): Promise<Account>;
+  createVirtualBankAccount(
+    accountId: string,
+    body: CreateVirtualBankAccountInput,
+  ): Promise<VirtualBankAccount>;
   createFiatTransfer(senderAccountId: string, body: CreateFiatTransferInput): Promise<Transfer>;
+  createCurrentFiatTransfer(
+    senderAccountId: string,
+    body: CurrentCreateFiatTransferInput,
+  ): Promise<Transfer>;
+  createCryptoTransfer(
+    senderAccountId: string,
+    body: CreateCryptoTransferInput,
+  ): Promise<Transfer>;
   approveRampRequest(id: string, body: OptimisticLockingBody): Promise<RampRequestDto>;
   rejectRampRequest(id: string, body: OptimisticLockingBody): Promise<RampRequestDto>;
   createPayInSession(

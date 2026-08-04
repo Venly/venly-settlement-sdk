@@ -4,6 +4,103 @@ import { makeHarness, callToolJson } from "./helpers.ts";
 
 const CREDS = { VENLY_CLIENT_ID: "id", VENLY_CLIENT_SECRET: "secret" };
 
+test("builder write tools enumerate on the existing MCP server", async () => {
+  const h = await makeHarness({});
+  const { tools } = await h.client.listTools();
+  const names = tools.map((tool) => tool.name);
+  for (const name of [
+    "create_party",
+    "create_account",
+    "create_virtual_bank_account",
+    "create_fiat_transfer",
+    "create_crypto_transfer",
+  ]) {
+    assert.ok(names.includes(name), `missing builder write tool ${name}`);
+  }
+  assert.equal(tools.length, 23);
+  await h.close();
+});
+
+test("create_party executes a synthetic organisation in explicit mock mode", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const { data } = await callToolJson(h.client, "create_party", {
+    partyType: "ORGANISATION",
+    externalId: "merchant-42",
+    name: "Acme Europe",
+    vatNumber: "BE0123456789",
+  });
+
+  assert.equal(data.mode, "mock");
+  assert.equal(data.result.id, "party-created-1");
+  assert.equal(h.mock.called("createParty"), true);
+  await h.close();
+});
+
+test("create_party rejects an organisation without a name", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const result = await callToolJson(h.client, "create_party", {
+    partyType: "ORGANISATION",
+  });
+  assert.equal(result.isError, true);
+  assert.equal(h.mock.called("createParty"), false);
+  await h.close();
+});
+
+test("create_account provisions the account through the mock client", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const { data } = await callToolJson(h.client, "create_account", {
+    externalId: "merchant-42-main",
+    name: "Acme Main",
+    chain: "BASE",
+    partyId: "party-created-1",
+  });
+  assert.equal(data.mode, "mock");
+  assert.equal(data.result.id, "account-created-1");
+  assert.equal(h.mock.called("createAccount"), true);
+  await h.close();
+});
+
+test("create_virtual_bank_account preserves KYC boundary in dry-run output", async () => {
+  const h = await makeHarness({});
+  const { data } = await callToolJson(h.client, "create_virtual_bank_account", {
+    accountId: "acct-1",
+    name: "EUR Receipts",
+    inCurrency: "EUR",
+    targetCryptocurrency: "USDC",
+  });
+  assert.equal(data.mode, "dry-run");
+  assert.equal(data.body.inCurrency, "EUR");
+  assert.ok(data.body.idempotencyKey);
+  assert.match(data.note, /KYC.*VERIFIED/i);
+  assert.equal(h.mock.called("createVirtualBankAccount"), false);
+  await h.close();
+});
+
+test("current fiat and crypto transfer tools use OpenAPI field names", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const fiat = await callToolJson(h.client, "create_fiat_transfer", {
+    senderAccountId: "acct-1",
+    receiverAccountId: "acct-2",
+    currency: "EUR",
+    amount: 25.5,
+    idempotencyKey: "fiat-42",
+  });
+  const crypto = await callToolJson(h.client, "create_crypto_transfer", {
+    senderAccountId: "acct-1",
+    receiverAccountId: "acct-2",
+    chain: "BASE",
+    asset: "USDC",
+    amount: 10,
+    idempotencyKey: "crypto-42",
+  });
+
+  assert.equal(fiat.data.mode, "mock");
+  assert.equal(crypto.data.mode, "mock");
+  assert.equal(h.mock.called("createFiatTransfer"), true);
+  assert.equal(h.mock.called("createCryptoTransfer"), true);
+  await h.close();
+});
+
 // ---------------------------------------------------------------------------
 // Fail-closed matrix. A write tool executes live ONLY when confirm===true AND
 // VENLY_MCP_LIVE==="1" AND credentials present. Any missing leg => dry-run and
@@ -23,9 +120,43 @@ test("stage_transfer: unconfirmed + disarmed => dry-run, no live call", async ()
   assert.equal(data.method, "POST");
   assert.equal(data.api, "finance");
   assert.equal(data.path, "/accounts/acct-1/transfers/fiat");
+  // The preview is the normalized current-contract request, not the legacy input.
   assert.equal(data.body.receiverAccountId, "acct-2");
-  assert.equal(data.body.fiatAmount, "1000.00");
+  assert.equal(data.body.currency, "EUR");
+  assert.equal(data.body.amount, 1000);
+  assert.match(String(data.body.idempotencyKey), /^[0-9a-f-]{36}$/i);
+  assert.equal("fiatAmount" in data.body, false);
+  assert.equal("fiatCurrency" in data.body, false);
   assert.equal(h.mock.called("createFiatTransfer"), false, "must NOT call live client");
+  await h.close();
+});
+
+test("stage_transfer rejects the retired cryptocurrency field instead of dropping it", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const result = await callToolJson(h.client, "stage_transfer", {
+    senderAccountId: "acct-1",
+    receiverAccountId: "acct-2",
+    fiatAmount: "1000.00",
+    fiatCurrency: "EUR",
+    cryptocurrency: "USDC",
+  });
+  assert.equal(result.isError, true);
+  assert.match(String(result.raw.content?.[0]?.text ?? ""), /create_crypto_transfer/);
+  assert.equal(h.mock.called("createFiatTransfer"), false);
+  await h.close();
+});
+
+test("stage_transfer rejects a non-numeric legacy fiatAmount before transport", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const result = await callToolJson(h.client, "stage_transfer", {
+    senderAccountId: "acct-1",
+    receiverAccountId: "acct-2",
+    fiatAmount: "not-an-amount",
+    fiatCurrency: "EUR",
+  });
+
+  assert.equal(result.isError, true);
+  assert.equal(h.mock.called("createFiatTransfer"), false);
   await h.close();
 });
 
@@ -116,6 +247,69 @@ test("gate opens only with confirm + VENLY_MCP_LIVE=1 + creds => live call", asy
   });
   assert.equal(data.mode, "live", "all three legs present should arm the tool");
   assert.equal(data.result.id, "transfer-live-1");
+  assert.equal(h.mock.called("createFiatTransfer"), true);
+  await h.close();
+});
+
+test("explicit mock mode executes simulated writes without flags or credentials", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const { data } = await callToolJson(h.client, "stage_transfer", {
+    senderAccountId: "acct-1",
+    receiverAccountId: "acct-2",
+    fiatAmount: "10.00",
+    fiatCurrency: "EUR",
+  });
+
+  assert.equal(data.mode, "mock");
+  assert.equal(data.environment, "mock");
+  assert.equal(data.result.id, "transfer-live-1");
+  assert.equal(h.mock.called("createFiatTransfer"), true);
+  await h.close();
+});
+
+test("production remains disarmed without the additional production flag", async () => {
+  const h = await makeHarness({
+    VENLY_ENV: "production",
+    VENLY_MCP_LIVE: "1",
+    ...CREDS,
+  });
+  const { data } = await callToolJson(h.client, "stage_transfer", {
+    senderAccountId: "acct-1",
+    receiverAccountId: "acct-2",
+    fiatAmount: "10.00",
+    fiatCurrency: "EUR",
+    confirm: true,
+  });
+
+  assert.equal(data.mode, "dry-run");
+  assert.equal(data.gate.environment, "production");
+  assert.equal(data.gate.productionFlagArmed, false);
+  assert.ok(
+    data.gate.blockedReasons.some((reason: string) =>
+      reason.includes("VENLY_MCP_PRODUCTION"),
+    ),
+  );
+  assert.equal(h.mock.called("createFiatTransfer"), false);
+  await h.close();
+});
+
+test("production opens only when ordinary and production gates are armed", async () => {
+  const h = await makeHarness({
+    VENLY_ENV: "production",
+    VENLY_MCP_LIVE: "1",
+    VENLY_MCP_PRODUCTION: "1",
+    ...CREDS,
+  });
+  const { data } = await callToolJson(h.client, "stage_transfer", {
+    senderAccountId: "acct-1",
+    receiverAccountId: "acct-2",
+    fiatAmount: "10.00",
+    fiatCurrency: "EUR",
+    confirm: true,
+  });
+
+  assert.equal(data.mode, "live");
+  assert.equal(data.environment, "production");
   assert.equal(h.mock.called("createFiatTransfer"), true);
   await h.close();
 });

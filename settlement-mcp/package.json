@@ -1,28 +1,34 @@
 {
   "name": "@venlyfinance/settlement-mcp",
-  "version": "0.1.1",
-  "description": "Venly Settlement MCP server. Human-gated operator surface over the Venly Finance and Fundflow APIs, plus an x402 machine-to-machine quote stub. Read-only by default, write tools fail closed.",
+  "version": "0.2.0",
+  "description": "Venly Finance MCP: SDK-backed tools, resources and prompts for building international money products safely.",
   "type": "module",
   "bin": {
+    "venly-finance-mcp": "dist/index.js",
     "venly-settlement-mcp": "dist/index.js"
   },
   "main": "dist/index.js",
   "files": [
     "dist",
+    "scripts",
     "skills",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.json",
     "start": "node dist/index.js",
+    "smoke:staging": "npm run build && node scripts/staging-smoke.mjs",
     "test": "node --import tsx --test test/*.test.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:test": "tsc -p tsconfig.test.json"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@venlyfinance/sdk": "^0.1.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -33,12 +39,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/timdierckxsens/venly-sdk.git",
+    "url": "git+https://github.com/Venly/venly-settlement-sdk.git",
     "directory": "settlement-mcp"
   },
-  "homepage": "https://github.com/timdierckxsens/venly-sdk/tree/main/settlement-mcp#readme",
+  "homepage": "https://github.com/Venly/venly-settlement-sdk/tree/main/settlement-mcp#readme",
   "bugs": {
-    "url": "https://github.com/timdierckxsens/venly-sdk/issues"
+    "url": "https://github.com/Venly/venly-settlement-sdk/issues"
   },
   "keywords": [
     "mcp",
@@ -46,6 +52,8 @@
     "stablecoin",
     "settlement",
     "payments",
+    "finance-api",
+    "ai-agents",
     "x402",
     "venly",
     "fintech",

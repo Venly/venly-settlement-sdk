@@ -6,20 +6,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { VenlyClient } from "../types.js";
 import { reconcileByReferenceCode } from "../reconcile.js";
-
-/** Serialize a result as a text-content tool response. */
-function jsonResult(data: unknown) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-  };
-}
-
-function errorResult(message: string) {
-  return {
-    content: [{ type: "text" as const, text: `Error: ${message}` }],
-    isError: true,
-  };
-}
+import { errorResult, jsonResult } from "../results.js";
 
 const READ_ONLY = {
   readOnlyHint: true,
@@ -89,6 +76,28 @@ export function registerReadTools(server: McpServer, client: VenlyClient): void 
   );
 
   server.registerTool(
+    "list_accounts",
+    {
+      title: "List accounts",
+      description:
+        "List Venly Finance accounts before creating duplicates (finance GET /accounts). Read-only.",
+      inputSchema: {
+        page: z.number().int().min(1).optional(),
+        size: z.number().int().min(1).max(200).optional(),
+      },
+      annotations: READ_ONLY,
+    },
+    async (params) => {
+      try {
+        const result = await client.listAccounts(params);
+        return jsonResult({ count: result.length, accounts: result });
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
     "get_account",
     {
       title: "Get account",
@@ -99,6 +108,29 @@ export function registerReadTools(server: McpServer, client: VenlyClient): void 
     async ({ accountId }) => {
       try {
         return jsonResult(await client.getAccount(accountId));
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_wallets",
+    {
+      title: "List account wallets",
+      description:
+        "List wallets auto-provisioned for a Finance account (finance GET /accounts/{accountId}/wallets). Read-only.",
+      inputSchema: {
+        accountId: z.string().describe("Account UUID"),
+        page: z.number().int().min(1).optional(),
+        size: z.number().int().min(1).max(200).optional(),
+      },
+      annotations: READ_ONLY,
+    },
+    async ({ accountId, page, size }) => {
+      try {
+        const result = await client.listWallets(accountId, { page, size });
+        return jsonResult({ count: result.length, wallets: result });
       } catch (e) {
         return errorResult((e as Error).message);
       }
@@ -119,6 +151,29 @@ export function registerReadTools(server: McpServer, client: VenlyClient): void 
       try {
         const result = await client.listVirtualBankAccounts(accountId);
         return jsonResult({ count: result.length, virtualBankAccounts: result });
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_virtual_bank_account",
+    {
+      title: "Get virtual bank account",
+      description:
+        "Fetch receiving-account details including status, IBAN/BIC and referenceCode. Read-only.",
+      inputSchema: {
+        accountId: z.string().describe("Account UUID"),
+        virtualBankAccountId: z.string().describe("Virtual bank account UUID"),
+      },
+      annotations: READ_ONLY,
+    },
+    async ({ accountId, virtualBankAccountId }) => {
+      try {
+        return jsonResult(
+          await client.getVirtualBankAccount(accountId, virtualBankAccountId),
+        );
       } catch (e) {
         return errorResult((e as Error).message);
       }
@@ -166,6 +221,29 @@ export function registerReadTools(server: McpServer, client: VenlyClient): void 
   );
 
   server.registerTool(
+    "list_transfers",
+    {
+      title: "List transfers",
+      description:
+        "List transfer history for an account (finance GET /accounts/{accountId}/transfers). Read-only.",
+      inputSchema: {
+        accountId: z.string().describe("Account UUID"),
+        page: z.number().int().min(1).optional(),
+        size: z.number().int().min(1).max(200).optional(),
+      },
+      annotations: READ_ONLY,
+    },
+    async ({ accountId, page, size }) => {
+      try {
+        const result = await client.listTransfers(accountId, { page, size });
+        return jsonResult({ count: result.length, transfers: result });
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
     "get_transfer",
     {
       title: "Get transfer",
@@ -202,6 +280,24 @@ export function registerReadTools(server: McpServer, client: VenlyClient): void 
       try {
         const result = await client.listParties(params);
         return jsonResult({ count: result.length, parties: result });
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_party",
+    {
+      title: "Get party",
+      description:
+        "Fetch an individual or organisation party, including KYC/KYB state when present. Read-only.",
+      inputSchema: { partyId: z.string().describe("Party UUID") },
+      annotations: READ_ONLY,
+    },
+    async ({ partyId }) => {
+      try {
+        return jsonResult(await client.getParty(partyId));
       } catch (e) {
         return errorResult((e as Error).message);
       }

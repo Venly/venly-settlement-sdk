@@ -10,17 +10,27 @@ import { createServer } from "../src/server.js";
 import type { EnvLike } from "../src/safety.js";
 import type {
   Account,
+  CryptoCurrency,
+  CreateAccountInput,
+  CreateCryptoTransferInput,
   CreateFiatTransferInput,
+  CreatePartyInput,
   CreatePayInSessionRequest,
+  CreateVirtualBankAccountInput,
+  CurrentCreateFiatTransferInput,
+  FiatCurrency,
   ListRampRequestsParams,
   OptimisticLockingBody,
   Party,
   PaymentSession,
   RampRequestDto,
   RampRequestListItem,
+  SupportedChains,
   Transfer,
   VenlyClient,
   VirtualBankAccount,
+  VenlyFee,
+  Wallet,
 } from "../src/types.js";
 
 /** Records which methods were called, so tests can assert no live call fired. */
@@ -65,14 +75,40 @@ export class MockVenlyClient implements VenlyClient {
       fiatNetAmount: 990,
       cryptoAmount: 0.5,
       paymentReference: "PAY-2024-001234",
-      createdBy: "manager@acme.eu",
       version: 3,
     };
   }
 
   async getAccount(accountId: string): Promise<Account> {
     this.track("getAccount");
-    return { id: accountId, status: "ACTIVE", reference: "acct-ref-1" };
+    return { id: accountId, status: "ACTIVE", externalId: "acct-ref-1" };
+  }
+
+  async listAccounts(_params?: { page?: number; size?: number }): Promise<Account[]> {
+    this.track("listAccounts");
+    return [{ id: "acct-1", status: "ACTIVE", externalId: "acct-ref-1" }];
+  }
+
+  async listWallets(
+    accountId: string,
+    _params?: { page?: number; size?: number },
+  ): Promise<Wallet[]> {
+    this.track("listWallets");
+    return [
+      {
+        id: "wallet-1",
+        chain: "BASE",
+        type: "VENLY_MANAGED",
+        address: "0xabc",
+        balances: [
+          {
+            asset: "USDC",
+            amount: { total: "1000.00", available: "900.00", reserved: "100.00" },
+          },
+        ],
+        amlStatus: "APPROVED",
+      },
+    ];
   }
 
   async listVirtualBankAccounts(accountId: string): Promise<VirtualBankAccount[]> {
@@ -102,49 +138,139 @@ export class MockVenlyClient implements VenlyClient {
     ];
   }
 
+  async getVirtualBankAccount(
+    accountId: string,
+    virtualBankAccountId: string,
+  ): Promise<VirtualBankAccount> {
+    this.track("getVirtualBankAccount");
+    return {
+      id: virtualBankAccountId,
+      accountId,
+      bankAccountType: "EUR_SEPA",
+      status: "ACTIVE",
+      currency: "EUR",
+      iban: "DE89370400440532013000",
+      bic: "DEUTDEDB",
+      referenceCode: "REF-ABC-123",
+    };
+  }
+
+  async listTransfers(
+    _accountId: string,
+    _params?: { page?: number; size?: number },
+  ): Promise<Transfer[]> {
+    this.track("listTransfers");
+    return [
+      {
+        id: "tr-1",
+        status: "COMPLETED",
+        chain: "BASE",
+        asset: "USDC",
+        amount: 1000,
+        fiatOrigin: { currency: "EUR", amount: 1000 },
+      },
+    ];
+  }
+
   async getTransfer(_accountId: string, transferId: string): Promise<Transfer> {
     this.track("getTransfer");
     return {
       id: transferId,
       status: "COMPLETED",
-      fiatAmount: "1000.00",
-      fiatCurrency: "EUR",
-      cryptocurrency: "USDC",
+      chain: "BASE",
+      asset: "USDC",
+      amount: 1000,
+      fiatOrigin: { currency: "EUR", amount: 1000 },
     };
   }
 
   async listParties(_params?: { page?: number; size?: number }): Promise<Party[]> {
     this.track("listParties");
-    return [{ id: "party-1", type: "ORGANISATION", status: "ACTIVE" }];
+    return [{ id: "party-1", partyType: "ORGANISATION", status: "ACTIVE" }];
   }
 
-  async getSupportedChains(): Promise<unknown[]> {
+  async getParty(partyId: string): Promise<Party> {
+    this.track("getParty");
+    return { id: partyId, partyType: "ORGANISATION", status: "ACTIVE" };
+  }
+
+  async getSupportedChains(): Promise<SupportedChains[]> {
     this.track("getSupportedChains");
-    return [{ id: "base", name: "Base" }];
+    return [{ supportedChains: ["BASE"] }];
   }
 
-  async getFiatCurrencies(): Promise<unknown[]> {
+  async getFiatCurrencies(): Promise<FiatCurrency[]> {
     this.track("getFiatCurrencies");
-    return [{ id: "EUR", symbol: "EUR" }];
+    return [{ id: "fiat-eur", currency: "EUR", label: "Euro", enabled: true }];
   }
 
-  async getCryptocurrencies(): Promise<unknown[]> {
+  async getCryptocurrencies(): Promise<CryptoCurrency[]> {
     this.track("getCryptocurrencies");
-    return [{ id: "USDC", symbol: "USDC" }];
+    return [
+      { id: "crypto-usdc-base", currency: "USDC", chain: "BASE", enabled: true },
+    ];
   }
 
-  async getCompanyFees(): Promise<unknown> {
+  async getCompanyFees(): Promise<VenlyFee[]> {
     this.track("getCompanyFees");
-    return { onRampFeePercentage: 1.0 };
+    return [{ id: "fee-1", type: "ON_RAMP", percentage: 1 }];
   }
 
   // ----- WRITE (must NOT be called unless gate armed) -----
+  async createParty(body: CreatePartyInput): Promise<Party> {
+    this.track("createParty");
+    return { id: "party-created-1", status: "ACTIVE", ...body };
+  }
+
+  async createAccount(body: CreateAccountInput): Promise<Account> {
+    this.track("createAccount");
+    return {
+      id: "account-created-1",
+      externalId: body.externalId,
+      name: body.name,
+      status: "ACTIVE",
+      kycStatus: "VERIFICATION_PENDING",
+    };
+  }
+
+  async createVirtualBankAccount(
+    accountId: string,
+    body: CreateVirtualBankAccountInput,
+  ): Promise<VirtualBankAccount> {
+    this.track("createVirtualBankAccount");
+    return {
+      id: "vban-created-1",
+      accountId,
+      bankAccountType: "EUR_SEPA",
+      status: "ACTIVE",
+      currency: "EUR",
+      targetCryptocurrency: "USDC",
+      referenceCode: "REF-CREATED-1",
+    };
+  }
+
   async createFiatTransfer(
     _senderAccountId: string,
     _body: CreateFiatTransferInput,
   ): Promise<Transfer> {
     this.track("createFiatTransfer");
     return { id: "transfer-live-1", status: "PENDING" };
+  }
+
+  async createCurrentFiatTransfer(
+    _senderAccountId: string,
+    _body: CurrentCreateFiatTransferInput,
+  ): Promise<Transfer> {
+    this.track("createFiatTransfer");
+    return { id: "transfer-fiat-1", status: "PENDING" };
+  }
+
+  async createCryptoTransfer(
+    _senderAccountId: string,
+    _body: CreateCryptoTransferInput,
+  ): Promise<Transfer> {
+    this.track("createCryptoTransfer");
+    return { id: "transfer-crypto-1", status: "PENDING" };
   }
 
   async approveRampRequest(id: string, _body: OptimisticLockingBody): Promise<RampRequestDto> {

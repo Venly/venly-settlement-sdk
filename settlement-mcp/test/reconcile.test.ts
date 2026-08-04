@@ -50,6 +50,25 @@ test("reconcile: transaction references unknown code => misdirected payment flag
   assert.match(r.note, /misdirected/);
 });
 
+test("reconcile: rejects a blank reference code instead of matching missing data", () => {
+  assert.throws(
+    () => reconcileByReferenceCode("   ", [{ id: "vban-1" }], []),
+    /referenceCode must not be blank/,
+  );
+});
+
+test("reconcile: rejects a matching vIBAN without a usable id", () => {
+  assert.throws(
+    () =>
+      reconcileByReferenceCode(
+        "REF-ABC-123",
+        [{ currency: "EUR", referenceCode: "REF-ABC-123" }],
+        [],
+      ),
+    /matching vIBAN is missing an id/,
+  );
+});
+
 test("reconcile_by_reference_code tool matches via the mocked client", async () => {
   const h = await makeHarness({});
   const { data, isError } = await callToolJson(h.client, "reconcile_by_reference_code", {

@@ -2,14 +2,27 @@
 
 TypeScript SDK for the [Venly Finance](https://docs.venlyfinance.com) and Fundflow APIs. Types are generated from the OpenAPI specs in [`specs/`](specs/); the runtime layer is hand-written and has **zero runtime dependencies** (Node ≥ 18, or any environment with `fetch`).
 
-> **Status: v0.1.1.** MIT licensed. Built on the roadmap commitment "[TypeScript SDK on npm](https://github.com/timdierckxsens/venly-roadmap)" (Q3 2026). v0.1.1 regenerates every type and endpoint from the live published OpenAPI specs, fixing the base URL and operation set v0.1.0 inherited from a stale spec snapshot – see [CHANGELOG](CHANGELOG.md).
+> **Status: v0.1.2.** MIT licensed. Built on the roadmap commitment "[TypeScript SDK on npm](https://github.com/timdierckxsens/venly-roadmap)" (Q3 2026). v0.1.2 is a compatible maintenance release supporting the SDK-backed Venly Finance MCP builder; see [CHANGELOG](CHANGELOG.md).
 
 ## Packages in this repository
 
 | Package | What it is |
 |---|---|
 | [`@venlyfinance/sdk`](.) (root) | The TypeScript SDK: typed client for every Finance + Fundflow operation |
-| [`@venlyfinance/settlement-mcp`](settlement-mcp/) | Settlement MCP server: a human-gated operator surface over the same APIs for MCP clients and agents. Read-only by default, write tools fail closed, x402 quote stub included. MIT licensed. |
+| [`@venlyfinance/settlement-mcp`](settlement-mcp/) | Venly Finance MCP: SDK-backed tools, product resources and prompts for building and operating international money experiences. Mock-first; live writes fail closed. |
+
+## Build an international account experience with an AI agent
+
+The MCP extends this SDK rather than maintaining a second API client. In explicit
+mock mode it gives a coding agent atomic party, account, wallet/balance, EUR receiving
+account and transfer tools without credentials or network access. It also publishes a
+`build_international_account` prompt plus capability and safety resources.
+
+The product boundary is deliberate: Venly supplies financial infrastructure through
+regulated partners. Creating a party does not complete KYC/KYB; the current public
+contract documents EUR/SEPA virtual bank accounts and does not expose card issuing.
+
+See the [Venly Finance MCP quickstart](settlement-mcp/README.md#try-the-builder-in-mock-mode).
 
 ## What the SDK handles for you
 

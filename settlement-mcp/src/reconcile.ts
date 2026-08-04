@@ -29,10 +29,18 @@ export function reconcileByReferenceCode(
   transactions: ObservedBankTransaction[],
 ): ReconcileResult {
   const target = referenceCode.trim();
+  if (!target) {
+    throw new Error("referenceCode must not be blank");
+  }
+
   const vban =
     virtualBankAccounts.find(
       (v) => (v.referenceCode ?? "").trim() === target,
     ) ?? null;
+
+  if (vban && !(vban.id ?? "").trim()) {
+    throw new Error("matching vIBAN is missing an id");
+  }
 
   const matchedTransactions = transactions.filter(
     (t) => (t.referenceCode ?? "").trim() === target,

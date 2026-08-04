@@ -1,11 +1,27 @@
 /** Shared constants. Defaults point at STAGING so an accidental run never
  * touches production. Override via env for a real sandbox test. */
 
-export const SERVER_NAME = "venly-settlement-mcp-server";
-export const SERVER_VERSION = "0.1.1";
+export const SERVER_NAME = "venly-finance-mcp-server";
+export const SERVER_VERSION = "0.2.0";
+
+export const ENVIRONMENT_FLAG = "VENLY_ENV";
+export type VenlyEnvironment = "mock" | "staging" | "production";
+
+export function resolveVenlyEnvironment(
+  env: Record<string, string | undefined>,
+): VenlyEnvironment {
+  const value = env[ENVIRONMENT_FLAG] ?? "staging";
+  if (value === "mock" || value === "staging" || value === "production") {
+    return value;
+  }
+  throw new Error(
+    `${ENVIRONMENT_FLAG} must be one of mock, staging, production; received ${JSON.stringify(value)}`,
+  );
+}
 
 /** The env flag that must equal "1" for any write tool to execute live. */
 export const LIVE_FLAG = "VENLY_MCP_LIVE";
+export const PRODUCTION_FLAG = "VENLY_MCP_PRODUCTION";
 
 /** Default base URLs (STAGING). Production values live in the vendored specs:
  * finance https://api.venlyfinance.com/v1, fundflow https://api-fundflow.venly.io */

@@ -6,7 +6,10 @@ import {
   DEFAULT_FINANCE_BASE_URL,
   DEFAULT_FUNDFLOW_BASE_URL,
   DEFAULT_TOKEN_URL,
+  SERVER_VERSION,
+  resolveVenlyEnvironment,
 } from "../src/constants.ts";
+import { SdkVenlyClient } from "../src/client/sdk-client.ts";
 
 // Regression net for the v0.1.0 stale-spec bug: pin the default URLs to the
 // exact strings in the live published specs. The mocked-client suite cannot
@@ -36,4 +39,37 @@ test("README documents the same defaults the code exports", () => {
     !readme.includes("venlyfinance.com/api/v1"),
     "README documents the retired /api/v1 base path",
   );
+});
+
+test("environment selection is explicit and defaults compatibly to staging", () => {
+  assert.equal(resolveVenlyEnvironment({}), "staging");
+  assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "mock" }), "mock");
+  assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "staging" }), "staging");
+  assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "production" }), "production");
+  assert.throws(
+    () => resolveVenlyEnvironment({ VENLY_ENV: "sandbox" }),
+    /VENLY_ENV must be one of mock, staging, production/,
+  );
+});
+
+test("SDK client factory constructs explicit mock mode without credentials", () => {
+  const client = SdkVenlyClient.fromEnv({ VENLY_ENV: "mock" });
+  assert.equal(client.environment, "mock");
+});
+
+test("package exposes finance and settlement compatibility binaries from one implementation", () => {
+  const packageJson = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
+  );
+  assert.equal(packageJson.bin["venly-finance-mcp"], "dist/index.js");
+  assert.equal(packageJson.bin["venly-settlement-mcp"], "dist/index.js");
+  assert.match(packageJson.repository.url, /github\.com\/Venly\/venly-settlement-sdk/);
+});
+
+test("0.2.0 package and MCP server versions stay aligned", () => {
+  const packageJson = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
+  );
+  assert.equal(packageJson.version, "0.2.0");
+  assert.equal(SERVER_VERSION, packageJson.version);
 });

@@ -11,18 +11,15 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { VenlyClient } from "../types.js";
 import { buildDryRun, evaluateWriteGate, type EnvLike } from "../safety.js";
+import { errorResult, jsonResult } from "../results.js";
+import { normalizeLegacyFiatTransfer } from "../client/sdk-client.js";
 
-function jsonResult(data: unknown) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-  };
-}
-
-function errorResult(message: string) {
-  return {
-    content: [{ type: "text" as const, text: `Error: ${message}` }],
-    isError: true,
-  };
+function executionResult(gate: ReturnType<typeof evaluateWriteGate>, result: unknown) {
+  return jsonResult({
+    mode: gate.environment === "mock" ? "mock" : "live",
+    environment: gate.environment,
+    result,
+  });
 }
 
 const WRITE_ANNOTATIONS = {
@@ -40,25 +37,287 @@ const confirmField = z
       "credentials are also required, otherwise the tool dry-runs.",
   );
 
+const addressSchema = z
+  .object({
+    addressLine1: z.string().optional(),
+    addressLine2: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    postalCode: z.string().optional(),
+    country: z.string().regex(/^[A-Z]{2}$/).optional(),
+  })
+  .optional();
+
+const partySchema = z.object({
+  partyType: z.enum(["INDIVIDUAL", "ORGANISATION"]),
+  externalId: z.string().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  name: z.string().optional(),
+  vatNumber: z.string().optional(),
+  address: addressSchema,
+});
+
+function partyValidationError(party: z.infer<typeof partySchema>): string | undefined {
+  if (party.partyType === "INDIVIDUAL" && (!party.firstName || !party.lastName)) {
+    return "INDIVIDUAL parties require firstName and lastName";
+  }
+  if (party.partyType === "ORGANISATION" && !party.name) {
+    return "ORGANISATION parties require name";
+  }
+  return undefined;
+}
+
 export function registerWriteTools(
   server: McpServer,
   client: VenlyClient,
   env: EnvLike,
 ): void {
   server.registerTool(
+    "create_party",
+    {
+      title: "Create a customer or organisation party",
+      description:
+        "Create a Finance party. This creates the party record; it does not complete KYC/KYB. Dry-run by default outside explicit mock mode.",
+      inputSchema: {
+        partyType: z.enum(["INDIVIDUAL", "ORGANISATION"]),
+        externalId: z.string().optional(),
+        firstName: z.string().optional(),
+        lastName: z.string().optional(),
+        name: z.string().optional(),
+        vatNumber: z.string().optional(),
+        address: addressSchema,
+        confirm: confirmField,
+      },
+      annotations: WRITE_ANNOTATIONS,
+    },
+    async ({ confirm, ...party }) => {
+      const validationError = partyValidationError(party);
+      if (validationError) return errorResult(validationError);
+      const gate = evaluateWriteGate(confirm, env);
+      if (!gate.armed) {
+        return jsonResult(buildDryRun("create_party", "POST", "finance", "/parties", party, gate));
+      }
+      try {
+        return executionResult(gate, await client.createParty(party));
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_account",
+    {
+      title: "Create an account and provision its wallet",
+      description:
+        "Create a Finance account. Venly auto-provisions its wallet on the selected chain. Supply partyId or an inline party. Dry-run by default.",
+      inputSchema: {
+        externalId: z.string().min(1),
+        name: z.string().optional(),
+        chain: z.enum(["AVALANCHE", "BASE", "POLYGON"]),
+        address: z.string().optional().describe("Required for SELF_CUSTODY tenants"),
+        partyId: z.string().optional(),
+        party: partySchema.optional(),
+        confirm: confirmField,
+      },
+      annotations: WRITE_ANNOTATIONS,
+    },
+    async ({ confirm, ...body }) => {
+      if (!body.partyId && !body.party) {
+        return errorResult("create_account requires partyId or an inline party");
+      }
+      if (body.party) {
+        const validationError = partyValidationError(body.party);
+        if (validationError) return errorResult(validationError);
+      }
+      const gate = evaluateWriteGate(confirm, env);
+      if (!gate.armed) {
+        return jsonResult(buildDryRun("create_account", "POST", "finance", "/accounts", body, gate));
+      }
+      try {
+        return executionResult(gate, await client.createAccount(body));
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_virtual_bank_account",
+    {
+      title: "Create a EUR receiving account",
+      description:
+        "Provision a EUR SEPA virtual bank account and conversion target. Outside mock mode the Finance account must have KYC status VERIFIED. Dry-run by default.",
+      inputSchema: {
+        accountId: z.string(),
+        name: z.string().min(1),
+        inCurrency: z.literal("EUR"),
+        targetCryptocurrency: z.enum(["USDC", "EURC", "USDT", "USDS"]),
+        idempotencyKey: z.string().min(1).optional(),
+        confirm: confirmField,
+      },
+      annotations: WRITE_ANNOTATIONS,
+    },
+    async ({ accountId, confirm, ...input }) => {
+      const body = {
+        ...input,
+        idempotencyKey: input.idempotencyKey ?? crypto.randomUUID(),
+      };
+      const gate = evaluateWriteGate(confirm, env);
+      if (!gate.armed) {
+        const dryRun = buildDryRun(
+          "create_virtual_bank_account",
+          "POST",
+          "finance",
+          `/accounts/${accountId}/virtual-bank-accounts`,
+          body,
+          gate,
+        );
+        dryRun.note += " The account must have KYC status VERIFIED before live provisioning.";
+        return jsonResult(dryRun);
+      }
+      try {
+        return executionResult(
+          gate,
+          await client.createVirtualBankAccount(accountId, body),
+        );
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_fiat_transfer",
+    {
+      title: "Create a fiat-denominated internal transfer",
+      description:
+        "Create an account-to-account transfer using the current Finance OpenAPI fields. Dry-run by default outside explicit mock mode.",
+      inputSchema: {
+        senderAccountId: z.string(),
+        receiverAccountId: z.string().optional(),
+        receiverExternalId: z.string().optional(),
+        currency: z.enum(["EUR", "GBP", "USD"]),
+        amount: z.number(),
+        description: z.string().optional(),
+        merchantReference: z.string().optional(),
+        idempotencyKey: z.string().min(1).optional(),
+        confirm: confirmField,
+      },
+      annotations: WRITE_ANNOTATIONS,
+    },
+    async ({ senderAccountId, confirm, ...input }) => {
+      if (!input.receiverAccountId && !input.receiverExternalId) {
+        return errorResult("A receiverAccountId or receiverExternalId is required");
+      }
+      const body = {
+        ...input,
+        idempotencyKey: input.idempotencyKey ?? crypto.randomUUID(),
+      };
+      const gate = evaluateWriteGate(confirm, env);
+      if (!gate.armed) {
+        return jsonResult(
+          buildDryRun(
+            "create_fiat_transfer",
+            "POST",
+            "finance",
+            `/accounts/${senderAccountId}/transfers/fiat`,
+            body,
+            gate,
+          ),
+        );
+      }
+      try {
+        return executionResult(
+          gate,
+          await client.createCurrentFiatTransfer(senderAccountId, body),
+        );
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_crypto_transfer",
+    {
+      title: "Create a crypto-denominated internal transfer",
+      description:
+        "Create an account-to-account asset transfer using the current Finance OpenAPI fields. Dry-run by default outside explicit mock mode.",
+      inputSchema: {
+        senderAccountId: z.string(),
+        receiverAccountId: z.string().optional(),
+        receiverExternalId: z.string().optional(),
+        chain: z.enum(["AVALANCHE", "BASE", "POLYGON"]),
+        asset: z.string().min(1),
+        amount: z.number(),
+        description: z.string().optional(),
+        merchantReference: z.string().optional(),
+        idempotencyKey: z.string().min(1).optional(),
+        confirm: confirmField,
+      },
+      annotations: WRITE_ANNOTATIONS,
+    },
+    async ({ senderAccountId, confirm, ...input }) => {
+      if (!input.receiverAccountId && !input.receiverExternalId) {
+        return errorResult("A receiverAccountId or receiverExternalId is required");
+      }
+      const body = {
+        ...input,
+        idempotencyKey: input.idempotencyKey ?? crypto.randomUUID(),
+      };
+      const gate = evaluateWriteGate(confirm, env);
+      if (!gate.armed) {
+        return jsonResult(
+          buildDryRun(
+            "create_crypto_transfer",
+            "POST",
+            "finance",
+            `/accounts/${senderAccountId}/transfers/crypto`,
+            body,
+            gate,
+          ),
+        );
+      }
+      try {
+        return executionResult(
+          gate,
+          await client.createCryptoTransfer(senderAccountId, body),
+        );
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
     "stage_transfer",
     {
       title: "Stage a fiat transfer (dry-run by default)",
       description:
         "Stage a fiat-to-crypto transfer (finance POST /accounts/{senderAccountId}/transfers/fiat). " +
-        "DISARMED by default: returns the exact request it would send unless " +
-        "confirm:true AND VENLY_MCP_LIVE=1 AND credentials are present.",
+        "Legacy fiatAmount/fiatCurrency inputs are normalized to the current OpenAPI fields; " +
+        "the dry-run shows the exact normalized request. DISARMED by default: returns that " +
+        "request without sending unless confirm:true AND VENLY_MCP_LIVE=1 AND credentials are present.",
       inputSchema: {
         senderAccountId: z.string().describe("Account initiating the transfer"),
         receiverAccountId: z.string(),
-        fiatAmount: z.string().describe("Decimal string, e.g. \"1000.00\""),
+        fiatAmount: z
+          .string()
+          .refine(
+            (value) => value.trim() !== "" && Number.isFinite(Number(value)),
+            "fiatAmount must be a numeric decimal string",
+          )
+          .describe("Decimal string, e.g. \"1000.00\""),
         fiatCurrency: z.string().describe("e.g. EUR"),
-        cryptocurrency: z.string().optional(),
+        cryptocurrency: z
+          .string()
+          .optional()
+          .describe(
+            "Retired: rejected with guidance. The current contract resolves the fiat " +
+              "amount to the account's settlement asset; use create_crypto_transfer instead.",
+          ),
         description: z.string().optional(),
         merchantReference: z.string().optional(),
         confirm: confirmField,
@@ -67,14 +326,24 @@ export function registerWriteTools(
     },
     async ({ senderAccountId, confirm, ...rest }) => {
       const gate = evaluateWriteGate(confirm, env);
-      const body = {
+      const legacyInput = {
         receiverAccountId: rest.receiverAccountId,
         fiatAmount: rest.fiatAmount,
         fiatCurrency: rest.fiatCurrency,
         cryptocurrency: rest.cryptocurrency,
         description: rest.description,
         merchantReference: rest.merchantReference,
+        idempotencyKey: crypto.randomUUID(),
       };
+      // Normalize BEFORE the gate branch so the dry-run preview is byte-for-byte
+      // the request a live call would send (and the retired cryptocurrency field
+      // is rejected instead of silently dropped).
+      let body;
+      try {
+        body = normalizeLegacyFiatTransfer(legacyInput);
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
       if (!gate.armed) {
         return jsonResult(
           buildDryRun(
@@ -88,8 +357,8 @@ export function registerWriteTools(
         );
       }
       try {
-        const result = await client.createFiatTransfer(senderAccountId, body);
-        return jsonResult({ mode: "live", result });
+        const result = await client.createFiatTransfer(senderAccountId, legacyInput);
+        return executionResult(gate, result);
       } catch (e) {
         return errorResult((e as Error).message);
       }
@@ -132,7 +401,7 @@ export function registerWriteTools(
       }
       try {
         const result = await client.approveRampRequest(id, body);
-        return jsonResult({ mode: "live", result });
+        return executionResult(gate, result);
       } catch (e) {
         return errorResult((e as Error).message);
       }
@@ -173,7 +442,7 @@ export function registerWriteTools(
       }
       try {
         const result = await client.rejectRampRequest(id, body);
-        return jsonResult({ mode: "live", result });
+        return executionResult(gate, result);
       } catch (e) {
         return errorResult((e as Error).message);
       }
@@ -231,7 +500,7 @@ export function registerWriteTools(
       }
       try {
         const result = await client.createPayInSession(accountId, body);
-        return jsonResult({ mode: "live", result });
+        return executionResult(gate, result);
       } catch (e) {
         return errorResult((e as Error).message);
       }
