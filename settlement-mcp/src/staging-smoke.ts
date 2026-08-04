@@ -216,11 +216,23 @@ export async function runStagingSmoke(options: StagingSmokeOptions = {}): Promis
     const accounts = await client.callTool({ name: "list_accounts", arguments: { size: 1 } });
     log(`OK   list_accounts - count=${countFrom(accounts, "list_accounts")}`);
 
-    const referenceData = await client.callTool({
-      name: "get_reference_data",
-      arguments: { dataset: "all" },
-    });
-    log(`OK   get_reference_data - ${referenceCounts(referenceData)}`);
+    try {
+      const referenceData = await client.callTool({
+        name: "get_reference_data",
+        arguments: { dataset: "all" },
+      });
+      log(`OK   get_reference_data - ${referenceCounts(referenceData)}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isScopeError = /\b(401|403)\b/.test(message);
+      if (isScopeError && env.VENLY_SMOKE_ALLOW_FUNDFLOW_SKIP === "1") {
+        log(
+          "SKIP get_reference_data - credential lacks Fundflow scope (tolerated via VENLY_SMOKE_ALLOW_FUNDFLOW_SKIP=1); fundflow validated by spec-diff only",
+        );
+      } else {
+        throw error;
+      }
+    }
 
     const dryRun = await client.callTool({
       name: "create_party",
