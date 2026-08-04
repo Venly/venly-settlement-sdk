@@ -5,6 +5,7 @@ import {
 } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { fileURLToPath } from "node:url";
 import { SERVER_VERSION } from "./constants.js";
+import { sanitizeErrorMessage } from "./results.js";
 
 export const EXPECTED_TOOLS = [
   "list_ramp_requests",
@@ -119,7 +120,21 @@ function optionalEnvironment(
 
 function structuredContent(result: unknown, label: string): Record<string, unknown> {
   const record = asRecord(result, label);
-  if (record.isError === true) throw new Error(`${label} returned an MCP error`);
+  if (record.isError === true) {
+    const detail = Array.isArray(record.content)
+      ? record.content
+          .map((item) =>
+            item && typeof item === "object" && "text" in item
+              ? String((item as { text: unknown }).text)
+              : "",
+          )
+          .filter(Boolean)
+          .join("; ")
+      : "";
+    throw new Error(
+      `${label} returned an MCP error${detail ? `: ${sanitizeErrorMessage(detail)}` : ""}`,
+    );
+  }
   return asRecord(record.structuredContent, `${label} structuredContent`);
 }
 
