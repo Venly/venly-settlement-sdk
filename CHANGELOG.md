@@ -1,5 +1,67 @@
 # Changelog
 
+## 0.2.0 – 2026-08-04
+
+Mock-fidelity release. An outside integrator built a six-journey reference app on
+0.1.2 and audited both packages; every P0/P1 SDK finding from that report lands
+here. The theme: **mock mode no longer teaches things that are not true.**
+
+### Changed (mock behavior - the point of the release)
+
+- **Verification starts pending.** `parties.create` returns
+  `kycStatus: "VERIFICATION_PENDING"` (individuals) / `kybStatus: "PENDING"`
+  (organisations), and `accounts.create` returns `VERIFICATION_PENDING` - matching
+  the documented lifecycle where a Venly admin completes verification. Advance it
+  deliberately with `mock.advanceVerification(id, status?)`.
+- **Mock mode is stateful.** Creates mint real ids and persist; `get()`/`list()`
+  return the records you created. Unknown ids return 404 with per-entity error
+  codes instead of echoing a fixture.
+- **Transfers start `PENDING`** with no `transactionHash`, and
+  `mock.advanceTransfer(id, "COMPLETED" | "FAILED")` drives the status transition -
+  so polling logic can finally be exercised in mock.
+- **Request bodies are spec-validated.** Unknown top-level fields, unknown nested
+  keys, and missing required fields are rejected with 400 `invalid-request` naming
+  the offending field (generated from the vendored OpenAPI specs at build time).
+  Party creation is `partyType`-aware: INDIVIDUAL requires `firstName`/`lastName`,
+  ORGANISATION requires `name`, cross-type fields are rejected.
+- **Fixture hygiene.** `transfers.list` filters by the path account and honors
+  `accountRole`/`status`; vIBANs and wallets no longer leak across accounts (each
+  seeded account has its own wallet); all seeded transfers carry
+  `receiverAccountId`; create responses carry only fields the response schema
+  declares (no more `inCurrency` or request-only echoes); a transfer to nobody -
+  or to two receivers - is rejected (exactly one of `receiverAccountId` /
+  `receiverExternalId`).
+- **Account creation provisions a wallet** as a side effect, like the live API;
+  a fresh wallet holds zero balances.
+
+### Added
+
+- `mock.advanceVerification(id, status?)`, `mock.advanceTransfer(id, status?)`,
+  `mock.reset()` on the finance client's `mock` controls (`VenlyFinanceMock`).
+- **Named domain types**: `Party`, `Account`, `Wallet`, `Transfer`,
+  `VirtualBankAccount`, `PaymentRequest`, `CreateFiatTransferInput`, and friends
+  are exported directly - no more `FinanceComponents["schemas"]["Party"]`.
+- `"./package.json"` export, so tooling can read the SDK version.
+- `VenlyEnvironment` (`"production" | "staging" | "mock"`); mock options now
+  accept (and ignore) credential fields, so one options object varies only its
+  `environment` string across all three environments.
+
+### Fixed
+
+- **One idempotency key per request.** On the ten endpoints whose bodies carry
+  `idempotencyKey`, the body key and the auto-generated `Idempotency-Key` header
+  are now always the same value (body wins; a missing body key is filled from the
+  per-call option or a fresh UUID). Previously one request carried two different
+  keys with undefined dedupe semantics.
+
+### Compatibility
+
+- Live-API behavior is unchanged. Code written against 0.1.x mock mode that
+  relied on instant `VERIFIED`, terminal `COMPLETED` transfers, fixture-echoed
+  ids, or unvalidated bodies will see the new honest behavior - that is the fix.
+  The static `financeRoutes` export is deprecated; construct
+  `FinanceMockTransport` instead.
+
 ## 0.1.2 – 2026-08-03
 
 Compatible maintenance release supporting the Venly Finance MCP builder launch.

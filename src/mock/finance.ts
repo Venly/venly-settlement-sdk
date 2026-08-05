@@ -1,5 +1,14 @@
 import type { components } from "../generated/finance.js";
-import type { RouteTable } from "./transport.js";
+import { financeRequestShapes } from "../generated/finance-shapes.js";
+import {
+  itemEnvelope,
+  listEnvelope,
+  MockTransport,
+  type RouteTable,
+  type VenlyMock,
+} from "./transport.js";
+import { errorPresets } from "./errors.js";
+import { FinanceMockStore, type FinanceSeeds, type VerificationStatusInput } from "./store.js";
 
 type schemas = components["schemas"];
 
@@ -8,6 +17,10 @@ type schemas = components["schemas"];
  * the generated OpenAPI schema type, so a spec regeneration that changes a
  * shape breaks this file at compile time instead of teaching wrong shapes.
  * Seed lineage: the specs' request examples + the settlement-mcp mock corpus.
+ *
+ * These are SEEDS: mock mode is stateful. Creates mint new ids and are
+ * readable back; verification starts pending; transfers start PENDING.
+ * `client.mock.reset()` returns to exactly this data.
  */
 
 const address = {
@@ -143,6 +156,60 @@ export const wallet = {
   ],
 } satisfies schemas["Wallet"];
 
+/** Each seeded account has its own wallet – no cross-account leakage. */
+const walletSeeds: Record<string, schemas["Wallet"][]> = {
+  [accounts[0].id]: [wallet],
+  [accounts[1].id]: [
+    {
+      id: "w1f3a8c2-3333-4c30-9d74-000000000002",
+      chain: "BASE",
+      type: "VENLY_MANAGED",
+      address: "0x1b6c1e8a29f8b2ca4df2f3cbb3a2f6dc38c1ef4d",
+      amlStatus: "APPROVED",
+      balances: [
+        {
+          asset: "USDC",
+          contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          amount: { total: "2500.000000", available: "2500.000000", reserved: "0.000000" },
+        },
+      ],
+    },
+  ],
+  [accounts[2].id]: [
+    {
+      id: "w1f3a8c2-3333-4c30-9d74-000000000003",
+      chain: "AVALANCHE",
+      type: "VENLY_MANAGED",
+      address: "0x2f6dc38c1ef4d1b6c1e8a29f8b2ca4df2f3cbb3a",
+      amlStatus: "APPROVED",
+      balances: [
+        {
+          asset: "EURC",
+          contractAddress: "0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42",
+          amount: { total: "12000.000000", available: "12000.000000", reserved: "0.000000" },
+        },
+      ],
+    },
+  ],
+  // accounts[3] (suspended) has no wallet yet.
+  [accounts[4].id]: [
+    {
+      id: "w1f3a8c2-3333-4c30-9d74-000000000005",
+      chain: "BASE",
+      type: "VENLY_MANAGED",
+      address: "0x38c1ef4d1b6c1e8a29f8b2ca4df2f3cbb3a2f6dc",
+      amlStatus: "APPROVED",
+      balances: [
+        {
+          asset: "USDT",
+          contractAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
+          amount: { total: "500.000000", available: "500.000000", reserved: "0.000000" },
+        },
+      ],
+    },
+  ],
+};
+
 export const virtualBankAccounts = [
   {
     id: "vb7e5f19-4444-4d40-ae85-000000000001",
@@ -154,6 +221,7 @@ export const virtualBankAccounts = [
     targetCryptocurrency: "USDC",
     iban: "DE89370400440532013000",
     bic: "DEUTDEDBFRA",
+    bankName: "Example Bank N.V.",
     beneficiaryName: "Acme Corporation B.V.",
     referenceCode: "REF-ABC-123",
     createdAt: "2026-06-01T09:15:00Z",
@@ -279,6 +347,7 @@ export const transfers = [
   {
     id: "tr5e8c66-7777-4a70-9bb8-000000000002",
     senderAccountId: accounts[0].id,
+    receiverAccountId: accounts[2].id,
     chain: "BASE",
     asset: "USDC",
     amount: 420.5,
@@ -288,6 +357,7 @@ export const transfers = [
   {
     id: "tr5e8c66-7777-4a70-9bb8-000000000003",
     senderAccountId: accounts[2].id,
+    receiverAccountId: accounts[0].id,
     chain: "AVALANCHE",
     asset: "EURC",
     amount: 9800.0,
@@ -297,6 +367,7 @@ export const transfers = [
   {
     id: "tr5e8c66-7777-4a70-9bb8-000000000004",
     senderAccountId: accounts[0].id,
+    receiverAccountId: accounts[1].id,
     chain: "BASE",
     asset: "USDC",
     amount: 55.25,
@@ -307,6 +378,7 @@ export const transfers = [
   {
     id: "tr5e8c66-7777-4a70-9bb8-000000000005",
     senderAccountId: accounts[4].id,
+    receiverAccountId: accounts[2].id,
     chain: "BASE",
     asset: "USDT",
     amount: 12000.0,
@@ -349,60 +421,161 @@ export const allowances = [
   },
 ] satisfies schemas["Allowance"][];
 
-export const financeRoutes: RouteTable = {
-  // Parties
-  "GET /parties": { kind: "list", items: parties },
-  "POST /parties": { kind: "create", base: parties[0] },
-  "GET /parties/{partyId}": { kind: "item", result: parties[0] },
-  "PATCH /parties/{partyId}": { kind: "update", base: parties[0] },
-  "DELETE /parties/{partyId}": { kind: "none" },
-  // Accounts
-  "GET /accounts": { kind: "list", items: accounts },
-  "POST /accounts": { kind: "create", base: accounts[0] },
-  "GET /accounts/{accountId}": { kind: "item", result: accounts[0] },
-  "GET /accounts/{accountId}/party-roles": { kind: "list", items: [partyRole] },
-  "POST /accounts/{accountId}/party-roles": { kind: "create", base: partyRole },
-  "DELETE /accounts/{accountId}/party-roles/{partyId}": { kind: "none" },
-  // Wallets (read-only in the live API: auto-provisioned with the account)
-  "GET /accounts/{accountId}/wallets": { kind: "list", items: [wallet] },
-  // Virtual bank accounts
-  "GET /accounts/{accountId}/virtual-bank-accounts": { kind: "list", items: virtualBankAccounts },
-  "POST /accounts/{accountId}/virtual-bank-accounts": {
-    kind: "create",
-    base: virtualBankAccounts[0],
-  },
-  "GET /accounts/{accountId}/virtual-bank-accounts/{virtualBankAccountId}": {
-    kind: "item",
-    result: virtualBankAccounts[0],
-  },
-  // Payment sessions + payment requests. All of these use kind "item", not
-  // "create": the request bodies carry `amount` as a plain number (and fields
-  // like callbackUrl) while the responses type `amount` as {fiat, crypto} –
-  // a body echo would corrupt the response shape.
-  "POST /accounts/{accountId}/fiat-to-crypto/payment-sessions": {
-    kind: "item",
-    result: paymentSession,
-  },
-  "POST /accounts/{accountId}/payment-requests": { kind: "item", result: paymentRequest },
-  "POST /payment-requests": { kind: "item", result: paymentRequest },
-  "PATCH /payment-requests/{paymentRequestId}": { kind: "item", result: paymentRequest },
-  "POST /payment-requests/{paymentRequestId}/settlements": {
-    kind: "item",
-    result: paymentRequestSettling,
-  },
-  "POST /payment-requests/settlements": { kind: "item", result: paymentRequestSettling },
-  "POST /payment-requests/{paymentRequestId}/reversal": {
-    kind: "item",
-    result: paymentRequestReversing,
-  },
-  "POST /payment-requests/reversals": { kind: "item", result: paymentRequestReversing },
-  // Transfers
-  "POST /accounts/{senderAccountId}/transfers/fiat": { kind: "create", base: transfers[0] },
-  "POST /accounts/{senderAccountId}/transfers/crypto": { kind: "create", base: transfers[0] },
-  "GET /accounts/{accountId}/transfers": { kind: "list", items: transfers },
-  "GET /accounts/{accountId}/transfers/{transferId}": { kind: "item", result: transfers[0] },
-  // Permits + allowances
-  "GET /accounts/{accountId}/wallets/{walletId}/permits": { kind: "array", items: permitMessages },
-  "POST /accounts/{accountId}/wallets/{walletId}/permits": { kind: "create", base: permitResult },
-  "GET /accounts/{accountId}/wallets/{walletId}/allowances": { kind: "array", items: allowances },
+export const financeSeeds: FinanceSeeds = {
+  parties,
+  accounts,
+  wallets: walletSeeds,
+  partyRole,
+  virtualBankAccounts,
+  transfers,
 };
+
+/** Route table over a stateful store: creates persist, gets read back. */
+export function createFinanceRoutes(store: FinanceMockStore): RouteTable {
+  return {
+    // Parties
+    "GET /parties": {
+      kind: "handler",
+      handle: (ctx) => listEnvelope(store.listParties(ctx), ctx.query),
+    },
+    "POST /parties": { kind: "handler", handle: (ctx) => itemEnvelope(store.createParty(ctx)) },
+    "GET /parties/{partyId}": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.getParty(ctx)),
+    },
+    "PATCH /parties/{partyId}": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.updateParty(ctx)),
+    },
+    "DELETE /parties/{partyId}": {
+      kind: "handler",
+      handle: (ctx) => store.deleteParty(ctx),
+    },
+    // Accounts
+    "GET /accounts": {
+      kind: "handler",
+      handle: (ctx) => listEnvelope(store.listAccounts(ctx), ctx.query),
+    },
+    "POST /accounts": { kind: "handler", handle: (ctx) => itemEnvelope(store.createAccount(ctx)) },
+    "GET /accounts/{accountId}": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.getAccount(ctx)),
+    },
+    "GET /accounts/{accountId}/party-roles": {
+      kind: "handler",
+      handle: (ctx) => listEnvelope(store.listPartyRoles(ctx), ctx.query),
+    },
+    "POST /accounts/{accountId}/party-roles": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.addPartyRole(ctx)),
+    },
+    "DELETE /accounts/{accountId}/party-roles/{partyId}": {
+      kind: "handler",
+      handle: (ctx) => store.removePartyRole(ctx),
+    },
+    // Wallets (read-only in the live API: auto-provisioned with the account)
+    "GET /accounts/{accountId}/wallets": {
+      kind: "handler",
+      handle: (ctx) => listEnvelope(store.listWallets(ctx), ctx.query),
+    },
+    // Virtual bank accounts
+    "GET /accounts/{accountId}/virtual-bank-accounts": {
+      kind: "handler",
+      handle: (ctx) => listEnvelope(store.listVirtualBankAccounts(ctx), ctx.query),
+    },
+    "POST /accounts/{accountId}/virtual-bank-accounts": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.createVirtualBankAccount(ctx)),
+    },
+    "GET /accounts/{accountId}/virtual-bank-accounts/{virtualBankAccountId}": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.getVirtualBankAccount(ctx)),
+    },
+    // Payment sessions + payment requests. These stay static fixtures ("item",
+    // not "create"): the request bodies carry `amount` as a plain number while
+    // the responses type `amount` as {fiat, crypto} – a body echo would corrupt
+    // the response shape. Their request bodies are still spec-validated.
+    "POST /accounts/{accountId}/fiat-to-crypto/payment-sessions": {
+      kind: "item",
+      result: paymentSession,
+    },
+    "POST /accounts/{accountId}/payment-requests": { kind: "item", result: paymentRequest },
+    "POST /payment-requests": { kind: "item", result: paymentRequest },
+    "PATCH /payment-requests/{paymentRequestId}": { kind: "item", result: paymentRequest },
+    "POST /payment-requests/{paymentRequestId}/settlements": {
+      kind: "item",
+      result: paymentRequestSettling,
+    },
+    "POST /payment-requests/settlements": { kind: "item", result: paymentRequestSettling },
+    "POST /payment-requests/{paymentRequestId}/reversal": {
+      kind: "item",
+      result: paymentRequestReversing,
+    },
+    "POST /payment-requests/reversals": { kind: "item", result: paymentRequestReversing },
+    // Transfers
+    "POST /accounts/{senderAccountId}/transfers/fiat": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.createFiatTransfer(ctx)),
+    },
+    "POST /accounts/{senderAccountId}/transfers/crypto": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.createCryptoTransfer(ctx)),
+    },
+    "GET /accounts/{accountId}/transfers": {
+      kind: "handler",
+      handle: (ctx) => listEnvelope(store.listTransfers(ctx), ctx.query),
+    },
+    "GET /accounts/{accountId}/transfers/{transferId}": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.getTransfer(ctx)),
+    },
+    // Permits + allowances
+    "GET /accounts/{accountId}/wallets/{walletId}/permits": { kind: "array", items: permitMessages },
+    "POST /accounts/{accountId}/wallets/{walletId}/permits": { kind: "create", base: permitResult },
+    "GET /accounts/{accountId}/wallets/{walletId}/allowances": { kind: "array", items: allowances },
+  };
+}
+
+/** Finance mock controls: base controls plus lifecycle advancement. */
+export interface VenlyFinanceMock extends VenlyMock {
+  /**
+   * Complete (or reject) the verification that `create` started: sets
+   * `kycStatus` on individuals/accounts, `kybStatus` on organisations.
+   * Default target: "VERIFIED".
+   */
+  advanceVerification(id: string, status?: VerificationStatusInput): void;
+  /**
+   * Move a PENDING transfer to "COMPLETED" (sets a transactionHash) or
+   * "FAILED" (sets an errorMessage), so status polling can be exercised.
+   */
+  advanceTransfer(id: string, status?: "COMPLETED" | "FAILED"): void;
+  /** Restore the seed fixtures and clear the call log. */
+  reset(): void;
+}
+
+/** Stateful finance mock transport wired to a fresh store per client. */
+export class FinanceMockTransport extends MockTransport implements VenlyFinanceMock {
+  private readonly store: FinanceMockStore;
+
+  constructor() {
+    const store = new FinanceMockStore(financeSeeds);
+    super(createFinanceRoutes(store), errorPresets, financeRequestShapes);
+    this.store = store;
+  }
+
+  advanceVerification(id: string, status?: VerificationStatusInput): void {
+    this.store.advanceVerification(id, status);
+  }
+
+  advanceTransfer(id: string, status?: "COMPLETED" | "FAILED"): void {
+    this.store.advanceTransfer(id, status);
+  }
+
+  reset(): void {
+    this.store.reset();
+    this.clear();
+  }
+}
+
+/** @deprecated Construct `FinanceMockTransport` instead; kept for 0.1.x compatibility. */
+export const financeRoutes: RouteTable = createFinanceRoutes(new FinanceMockStore(financeSeeds));
