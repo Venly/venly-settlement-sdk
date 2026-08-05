@@ -43,7 +43,7 @@ Current boundaries:
     description: "Environment, write, compliance and secret-handling rules.",
     text: `# Venly Finance MCP safety
 
-- Set VENLY_ENV explicitly to mock, staging or production. An absent value remains staging for 0.x compatibility.
+- Set VENLY_ENV explicitly to mock, staging or production. An absent value defaults to mock (since 0.3.0), so an unconfigured server never points at real infrastructure.
 - Mock mode uses synthetic SDK fixtures, no credentials and no network. Every mutation result is labelled mode=mock.
 - Staging writes require confirm=true, VENLY_MCP_LIVE=1 and VENLY_CLIENT_ID/VENLY_CLIENT_SECRET.
 - Production requires every staging gate plus VENLY_MCP_PRODUCTION=1.

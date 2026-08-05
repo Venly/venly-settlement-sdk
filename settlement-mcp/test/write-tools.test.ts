@@ -61,7 +61,7 @@ test("create_account provisions the account through the mock client", async () =
 });
 
 test("create_virtual_bank_account preserves KYC boundary in dry-run output", async () => {
-  const h = await makeHarness({});
+  const h = await makeHarness({ VENLY_ENV: "staging" });
   const { data } = await callToolJson(h.client, "create_virtual_bank_account", {
     accountId: "acct-1",
     name: "EUR Receipts",
@@ -108,7 +108,7 @@ test("current fiat and crypto transfer tools use OpenAPI field names", async () 
 // ---------------------------------------------------------------------------
 
 test("stage_transfer: unconfirmed + disarmed => dry-run, no live call", async () => {
-  const h = await makeHarness({}); // no live flag, no creds
+  const h = await makeHarness({ VENLY_ENV: "staging" }); // no live flag, no creds
   const { data } = await callToolJson(h.client, "stage_transfer", {
     senderAccountId: "acct-1",
     receiverAccountId: "acct-2",
@@ -163,7 +163,7 @@ test("stage_transfer rejects a non-numeric legacy fiatAmount before transport", 
 // CRITICAL fail-closed test required by spec acceptance criterion 4:
 // confirm:true but VENLY_MCP_LIVE unset still dry-runs and does NOT call live.
 test("CRITICAL: confirm:true but VENLY_MCP_LIVE unset still dry-runs (fail-closed)", async () => {
-  const h = await makeHarness({ ...CREDS }); // creds present, but LIVE flag NOT set
+  const h = await makeHarness({ VENLY_ENV: "staging", ...CREDS }); // creds present, but LIVE flag NOT set
   const { data } = await callToolJson(h.client, "stage_transfer", {
     senderAccountId: "acct-1",
     receiverAccountId: "acct-2",
@@ -188,7 +188,7 @@ test("CRITICAL: confirm:true but VENLY_MCP_LIVE unset still dry-runs (fail-close
 });
 
 test("approve_ramp_request: confirm:true, armed flag, but NO creds => dry-run", async () => {
-  const h = await makeHarness({ VENLY_MCP_LIVE: "1" }); // flag armed, creds missing
+  const h = await makeHarness({ VENLY_ENV: "staging", VENLY_MCP_LIVE: "1" }); // flag armed, creds missing
   const { data } = await callToolJson(h.client, "approve_ramp_request", {
     id: "rr-1",
     version: 3,
@@ -203,7 +203,7 @@ test("approve_ramp_request: confirm:true, armed flag, but NO creds => dry-run", 
 });
 
 test("reject_ramp_request dry-run shape", async () => {
-  const h = await makeHarness({});
+  const h = await makeHarness({ VENLY_ENV: "staging" });
   const { data } = await callToolJson(h.client, "reject_ramp_request", {
     id: "rr-9",
     version: 2,
@@ -217,7 +217,7 @@ test("reject_ramp_request dry-run shape", async () => {
 });
 
 test("create_payment_session dry-run shape", async () => {
-  const h = await makeHarness({});
+  const h = await makeHarness({ VENLY_ENV: "staging" });
   const { data } = await callToolJson(h.client, "create_payment_session", {
     accountId: "acct-1",
     inAmount: "250.00",
@@ -237,7 +237,7 @@ test("create_payment_session dry-run shape", async () => {
 // This proves the gate opens correctly, so the fail-closed tests above are
 // meaningful (not just a tool that never calls the client).
 test("gate opens only with confirm + VENLY_MCP_LIVE=1 + creds => live call", async () => {
-  const h = await makeHarness({ VENLY_MCP_LIVE: "1", ...CREDS });
+  const h = await makeHarness({ VENLY_ENV: "staging", VENLY_MCP_LIVE: "1", ...CREDS });
   const { data } = await callToolJson(h.client, "stage_transfer", {
     senderAccountId: "acct-1",
     receiverAccountId: "acct-2",

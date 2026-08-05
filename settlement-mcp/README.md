@@ -190,7 +190,7 @@ Override via env:
 
 | Env var | Default (staging) |
 |---|---|
-| `VENLY_ENV` | `staging` for 0.x compatibility; set `mock` explicitly for fixtures |
+| `VENLY_ENV` | Defaults to `mock` (since 0.3.0): an unconfigured server never points at real infrastructure. Set `staging` or `production` explicitly |
 | `VENLY_FINANCE_BASE_URL` | `https://api-staging.venlyfinance.com/v1` |
 | `VENLY_FUNDFLOW_BASE_URL` | `https://api-fundflow-staging.venly.io` |
 | `VENLY_TOKEN_URL` | `https://login-staging.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token` (staging; use `login.venly.io` for production) |

@@ -17,6 +17,9 @@ import { normalizeLegacyFiatTransfer } from "../client/sdk-client.js";
 function executionResult(gate: ReturnType<typeof evaluateWriteGate>, result: unknown) {
   return jsonResult({
     mode: gate.environment === "mock" ? "mock" : "live",
+    // Explicit on every mutation result: this call DID execute (against local
+    // fixtures in mock, against the real API when armed).
+    dryRun: false,
     environment: gate.environment,
     result,
   });
@@ -196,8 +199,14 @@ export function registerWriteTools(
         "Create an account-to-account transfer using the current Finance OpenAPI fields. Dry-run by default outside explicit mock mode.",
       inputSchema: {
         senderAccountId: z.string(),
-        receiverAccountId: z.string().optional(),
-        receiverExternalId: z.string().optional(),
+        receiverAccountId: z
+          .string()
+          .optional()
+          .describe("Receiver's Venly account id. Exactly one of receiverAccountId / receiverExternalId is required."),
+        receiverExternalId: z
+          .string()
+          .optional()
+          .describe("Receiver's integrator-assigned externalId. Exactly one of receiverAccountId / receiverExternalId is required."),
         currency: z.enum(["EUR", "GBP", "USD"]),
         amount: z.number(),
         description: z.string().optional(),
@@ -208,8 +217,10 @@ export function registerWriteTools(
       annotations: WRITE_ANNOTATIONS,
     },
     async ({ senderAccountId, confirm, ...input }) => {
-      if (!input.receiverAccountId && !input.receiverExternalId) {
-        return errorResult("A receiverAccountId or receiverExternalId is required");
+      if (!input.receiverAccountId === !input.receiverExternalId) {
+        return errorResult(
+          "Provide exactly one of receiverAccountId or receiverExternalId - a transfer needs one receiver, addressed one way.",
+        );
       }
       const body = {
         ...input,
@@ -247,8 +258,14 @@ export function registerWriteTools(
         "Create an account-to-account asset transfer using the current Finance OpenAPI fields. Dry-run by default outside explicit mock mode.",
       inputSchema: {
         senderAccountId: z.string(),
-        receiverAccountId: z.string().optional(),
-        receiverExternalId: z.string().optional(),
+        receiverAccountId: z
+          .string()
+          .optional()
+          .describe("Receiver's Venly account id. Exactly one of receiverAccountId / receiverExternalId is required."),
+        receiverExternalId: z
+          .string()
+          .optional()
+          .describe("Receiver's integrator-assigned externalId. Exactly one of receiverAccountId / receiverExternalId is required."),
         chain: z.enum(["AVALANCHE", "BASE", "POLYGON"]),
         asset: z.string().min(1),
         amount: z.number(),
@@ -260,8 +277,10 @@ export function registerWriteTools(
       annotations: WRITE_ANNOTATIONS,
     },
     async ({ senderAccountId, confirm, ...input }) => {
-      if (!input.receiverAccountId && !input.receiverExternalId) {
-        return errorResult("A receiverAccountId or receiverExternalId is required");
+      if (!input.receiverAccountId === !input.receiverExternalId) {
+        return errorResult(
+          "Provide exactly one of receiverAccountId or receiverExternalId - a transfer needs one receiver, addressed one way.",
+        );
       }
       const body = {
         ...input,
@@ -294,9 +313,12 @@ export function registerWriteTools(
   server.registerTool(
     "stage_transfer",
     {
-      title: "Stage a fiat transfer (dry-run by default)",
+      title: "DEPRECATED - use create_fiat_transfer",
       description:
-        "Stage a fiat-to-crypto transfer (finance POST /accounts/{senderAccountId}/transfers/fiat). " +
+        "DEPRECATED: legacy alias of create_fiat_transfer kept for 0.1.x compatibility; " +
+        "it will be removed in 0.4.0. Prefer create_fiat_transfer, whose inputs match the " +
+        "current OpenAPI contract directly. " +
+        "Stages a fiat-to-crypto transfer (finance POST /accounts/{senderAccountId}/transfers/fiat). " +
         "Legacy fiatAmount/fiatCurrency inputs are normalized to the current OpenAPI fields; " +
         "the dry-run shows the exact normalized request. DISARMED by default: returns that " +
         "request without sending unless confirm:true AND VENLY_MCP_LIVE=1 AND credentials are present.",

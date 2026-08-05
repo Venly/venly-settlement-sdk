@@ -1,8 +1,8 @@
-/** Shared constants. Defaults point at STAGING so an accidental run never
- * touches production. Override via env for a real sandbox test. */
+/** Shared constants. The default environment is MOCK so an unconfigured run
+ * never touches real infrastructure; staging/production are explicit. */
 
 export const SERVER_NAME = "venly-finance-mcp-server";
-export const SERVER_VERSION = "0.2.0";
+export const SERVER_VERSION = "0.3.0";
 
 export const ENVIRONMENT_FLAG = "VENLY_ENV";
 export type VenlyEnvironment = "mock" | "staging" | "production";
@@ -10,7 +10,10 @@ export type VenlyEnvironment = "mock" | "staging" | "production";
 export function resolveVenlyEnvironment(
   env: Record<string, string | undefined>,
 ): VenlyEnvironment {
-  const value = env[ENVIRONMENT_FLAG] ?? "staging";
+  // Default is MOCK (since 0.3.0): the mock-first product must not point at
+  // real infrastructure when unconfigured. Set VENLY_ENV explicitly for
+  // staging or production.
+  const value = env[ENVIRONMENT_FLAG] ?? "mock";
   if (value === "mock" || value === "staging" || value === "production") {
     return value;
   }

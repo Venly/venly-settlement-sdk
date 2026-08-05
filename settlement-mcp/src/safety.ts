@@ -77,6 +77,8 @@ export function evaluateWriteGate(confirm: boolean, env: EnvLike): GateDecision 
 
 export interface DryRunRequest {
   mode: "dry-run";
+  /** Explicit on every mutation result: nothing was persisted. */
+  dryRun: true;
   environment: VenlyEnvironment;
   tool: string;
   method: "GET" | "POST" | "PUT" | "DELETE";
@@ -98,6 +100,7 @@ export function buildDryRun(
 ): DryRunRequest {
   return {
     mode: "dry-run",
+    dryRun: true,
     environment: gate.environment,
     tool,
     method,

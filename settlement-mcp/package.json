@@ -1,6 +1,6 @@
 {
   "name": "@venlyfinance/settlement-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Venly Finance MCP: SDK-backed tools, resources and prompts for building international money products safely.",
   "type": "module",
   "bin": {
@@ -27,7 +27,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@venlyfinance/sdk": "^0.1.1",
+    "@venlyfinance/sdk": "^0.2.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^3.23.8"
   },

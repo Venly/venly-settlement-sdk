@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { SdkVenlyClient } from "../src/client/sdk-client.js";
 
+const ACCT_1 = "a10c2d31-2222-4b20-8c63-000000000001";
+const ACCT_2 = "a10c2d31-2222-4b20-8c63-000000000002";
+const PARTY_1 = "0b54e9f1-1111-4a10-9b52-000000000001";
+const VBA_1 = "vb7e5f19-4444-4d40-ae85-000000000001";
+
 test("SDK client: mock mode executes Finance and Fundflow reads without network", async () => {
   const originalFetch = globalThis.fetch;
   let networkCalls = 0;
@@ -14,13 +19,13 @@ test("SDK client: mock mode executes Finance and Fundflow reads without network"
     const client = SdkVenlyClient.mock();
 
     const parties = await client.listParties();
-    const account = await client.getAccount("account-001");
-    const virtualBankAccounts = await client.listVirtualBankAccounts("account-001");
+    const account = await client.getAccount(ACCT_1);
+    const virtualBankAccounts = await client.listVirtualBankAccounts(ACCT_1);
     const rampRequests = await client.listRampRequests();
     const chains = await client.getSupportedChains();
 
     assert.ok(parties.length > 0);
-    assert.equal(account.id, "account-001");
+    assert.equal(account.id, ACCT_1);
     assert.ok(virtualBankAccounts.length > 0);
     assert.ok(rampRequests.length > 0);
     assert.ok(chains.length > 0);
@@ -33,8 +38,8 @@ test("SDK client: mock mode executes Finance and Fundflow reads without network"
 test("SDK client: legacy stage-transfer input is normalized to the live SDK contract", async () => {
   const client = SdkVenlyClient.mock();
 
-  await client.createFiatTransfer("account-001", {
-    receiverAccountId: "account-002",
+  await client.createFiatTransfer(ACCT_1, {
+    receiverAccountId: ACCT_2,
     fiatAmount: "25.50",
     fiatCurrency: "EUR",
     description: "Invoice 42",
@@ -50,7 +55,7 @@ test("SDK client: legacy stage-transfer input is normalized to the live SDK cont
   assert.notEqual(transferCall.body, null);
   const transferBody = transferCall.body as Record<string, unknown>;
   assert.deepEqual(transferBody, {
-    receiverAccountId: "account-002",
+    receiverAccountId: ACCT_2,
     currency: "EUR",
     amount: 25.5,
     description: "Invoice 42",
@@ -65,8 +70,8 @@ test("SDK client: legacy stage-transfer input is normalized to the live SDK cont
 test("SDK client: legacy normalization preserves a caller-supplied idempotency key", async () => {
   const client = SdkVenlyClient.mock();
 
-  await client.createFiatTransfer("account-001", {
-    receiverAccountId: "account-002",
+  await client.createFiatTransfer(ACCT_1, {
+    receiverAccountId: ACCT_2,
     fiatAmount: "10.00",
     fiatCurrency: "EUR",
     idempotencyKey: "legacy-key-42",
@@ -86,8 +91,8 @@ test("SDK client: legacy normalization rejects the retired cryptocurrency field"
   const client = SdkVenlyClient.mock();
 
   await assert.rejects(
-    client.createFiatTransfer("account-001", {
-      receiverAccountId: "account-002",
+    client.createFiatTransfer(ACCT_1, {
+      receiverAccountId: ACCT_2,
       fiatAmount: "10.00",
       fiatCurrency: "EUR",
       cryptocurrency: "USDC",
@@ -106,7 +111,7 @@ test("SDK client: existing approval and payment-session writes map to SDK resour
 
   await client.approveRampRequest("ramp-001", { version: 3 });
   await client.rejectRampRequest("ramp-002", { version: 4 });
-  await client.createPayInSession("account-001", {
+  await client.createPayInSession(ACCT_1, {
     inAmount: "100.00",
     inCurrency: "EUR",
     outCryptocurrency: "USDC",
@@ -128,7 +133,7 @@ test("SDK client: existing approval and payment-session writes map to SDK resour
     client.financeMockCalls.some(
       (call) =>
         call.method === "POST" &&
-        call.path === "/accounts/account-001/fiat-to-crypto/payment-sessions",
+        call.path === `/accounts/${ACCT_1}/fiat-to-crypto/payment-sessions`,
     ),
   );
 });
@@ -157,30 +162,30 @@ test("SDK client: builder operations map to current Finance SDK routes", async (
   const client = SdkVenlyClient.mock();
 
   await client.listAccounts();
-  await client.listWallets("account-001");
-  await client.getVirtualBankAccount("account-001", "vba-001");
-  await client.listTransfers("account-001");
-  await client.getParty("party-001");
+  await client.listWallets(ACCT_1);
+  await client.getVirtualBankAccount(ACCT_1, VBA_1);
+  await client.listTransfers(ACCT_1);
+  await client.getParty(PARTY_1);
   await client.createParty({ partyType: "ORGANISATION", name: "Acme" });
   await client.createAccount({
     externalId: "acme-main",
     chain: "BASE",
-    partyId: "party-001",
+    partyId: PARTY_1,
   });
-  await client.createVirtualBankAccount("account-001", {
+  await client.createVirtualBankAccount(ACCT_1, {
     name: "EUR Receipts",
     inCurrency: "EUR",
     targetCryptocurrency: "USDC",
-    idempotencyKey: "vba-001",
+    idempotencyKey: "vba-key-001",
   });
-  await client.createCurrentFiatTransfer("account-001", {
-    receiverAccountId: "account-002",
+  await client.createCurrentFiatTransfer(ACCT_1, {
+    receiverAccountId: ACCT_2,
     currency: "EUR",
     amount: 25,
     idempotencyKey: "fiat-001",
   });
-  await client.createCryptoTransfer("account-001", {
-    receiverAccountId: "account-002",
+  await client.createCryptoTransfer(ACCT_1, {
+    receiverAccountId: ACCT_2,
     chain: "BASE",
     asset: "USDC",
     amount: 10,
@@ -189,15 +194,15 @@ test("SDK client: builder operations map to current Finance SDK routes", async (
 
   for (const expected of [
     "GET /accounts",
-    "GET /accounts/account-001/wallets",
-    "GET /accounts/account-001/virtual-bank-accounts/vba-001",
-    "GET /accounts/account-001/transfers",
-    "GET /parties/party-001",
+    `GET /accounts/${ACCT_1}/wallets`,
+    `GET /accounts/${ACCT_1}/virtual-bank-accounts/${VBA_1}`,
+    `GET /accounts/${ACCT_1}/transfers`,
+    `GET /parties/${PARTY_1}`,
     "POST /parties",
     "POST /accounts",
-    "POST /accounts/account-001/virtual-bank-accounts",
-    "POST /accounts/account-001/transfers/fiat",
-    "POST /accounts/account-001/transfers/crypto",
+    `POST /accounts/${ACCT_1}/virtual-bank-accounts`,
+    `POST /accounts/${ACCT_1}/transfers/fiat`,
+    `POST /accounts/${ACCT_1}/transfers/crypto`,
   ]) {
     const [method, path] = expected.split(" ");
     assert.ok(

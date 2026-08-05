@@ -43,9 +43,11 @@ test("golden journey: official SDK mock builds an international account without 
       targetCryptocurrency: "USDC",
       idempotencyKey: "golden-viban-1",
     });
+    // The receiver must exist - the 0.2.0 SDK mock resolves external ids and
+    // rejects transfers to nobody. "acct-ops-usd" is a seeded account.
     const transfer = await callToolJson(client, "create_fiat_transfer", {
       senderAccountId: account.data.result.id,
-      receiverExternalId: "supplier-42",
+      receiverExternalId: "acct-ops-usd",
       currency: "EUR",
       amount: 250,
       description: "Invoice 42",
@@ -57,10 +59,16 @@ test("golden journey: official SDK mock builds an international account without 
 
     for (const mutation of [party, account, receiving, transfer]) {
       assert.equal(mutation.data.mode, "mock");
+      assert.equal(mutation.data.dryRun, false, "mock writes execute; dryRun is explicit");
       assert.equal(mutation.data.environment, "mock");
     }
     assert.equal(wallets.data.wallets[0].chain, "BASE");
-    assert.ok(wallets.data.wallets[0].balances[0].amount.available);
+    // A freshly provisioned wallet honestly holds nothing.
+    assert.deepEqual(wallets.data.wallets[0].balances, []);
+    // Creation starts KYB; it does not complete it (0.2.0 mock fidelity).
+    assert.equal(party.data.result.kybStatus, "PENDING");
+    assert.equal(account.data.result.kycStatus, "VERIFICATION_PENDING");
+    assert.equal(transfer.data.result.status, "PENDING");
     assert.equal(receiving.data.result.currency, "EUR");
     assert.equal(receiving.data.result.targetCryptocurrency, "USDC");
     assert.ok(history.data.count > 0);
