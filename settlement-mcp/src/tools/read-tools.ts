@@ -188,7 +188,11 @@ export function registerReadTools(server: McpServer, client: VenlyClient): void 
         "Match observed incoming bank transactions on an account's EUR vIBANs to " +
         "the vIBAN whose referenceCode they carry. Fetches the account's vIBANs " +
         "(finance GET .../virtual-bank-accounts) and matches against the supplied " +
-        "transactions. Read-only, no mutation. Returns the matched vIBAN, matched " +
+        "transactions. Matching is remittance-text tolerant: case- and " +
+        "separator-insensitive, and a transaction matches when its normalized " +
+        "reference CONTAINS the normalized code (real payers type 'invoice ref " +
+        "abc 123 ty'). Codes under 4 alphanumeric characters are refused. " +
+        "Read-only, no mutation. Returns the matched vIBAN, matched " +
         "transactions, and total amount.",
       inputSchema: {
         accountId: z.string().describe("Account UUID whose vIBANs to reconcile against"),
@@ -196,7 +200,9 @@ export function registerReadTools(server: McpServer, client: VenlyClient): void 
         transactions: z
           .array(
             z.object({
-              referenceCode: z.string(),
+              referenceCode: z
+                .string()
+                .describe("Remittance text as received - free-form is fine; matching normalizes it"),
               amount: z.number(),
               currency: z.string(),
               remitterName: z.string().optional(),

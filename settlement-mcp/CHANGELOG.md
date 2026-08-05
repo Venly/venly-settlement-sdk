@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.3.0 – 2026-08-04
+
+Wording-is-the-safety-surface release. An outside integrator audit (Report 1,
+2026-08-04) found the server's words disagreeing with its behavior in three
+places; all fixed, plus the SDK under the mock now teaches the documented
+lifecycle (see @venlyfinance/sdk 0.2.0).
+
+### Changed
+
+- **Default environment is `mock`** (was `staging`). A mock-first product must
+  not point at real infrastructure when unconfigured. Set `VENLY_ENV=staging`
+  or `production` explicitly for real calls; the safety resource and README
+  say so.
+- **State-accurate startup banner.** Mock: "writes execute against local
+  fixtures - no network, no credentials, nothing real". Staging/production
+  disarmed: "mutations return dry-run previews". Armed: "confirmed writes hit
+  the live API". No more "DISARMED" next to a write that visibly executes.
+- **Explicit `dryRun: true|false` on every mutation result** - agents no longer
+  infer persistence from `mode`.
+- **`reconcile_by_reference_code` reads real remittance text**: matching is
+  case- and separator-insensitive, transactions match by containment
+  ("invoice ref abc 123 ty" finds REF-ABC-123), and codes under 4 alphanumeric
+  characters are refused.
+- **Receiver XOR enforced**: `create_fiat_transfer` / `create_crypto_transfer`
+  reject a transfer with zero or two receivers (exactly one of
+  `receiverAccountId` / `receiverExternalId`), stated in the tool schema.
+- Requires `@venlyfinance/sdk` ^0.2.0: in mock mode, created parties/accounts
+  start verification-pending (`mock.advanceVerification`), transfers start
+  `PENDING` (`mock.advanceTransfer`), and request bodies are spec-validated.
+
+### Deprecated
+
+- **`stage_transfer`** is now plainly marked deprecated (legacy alias of
+  `create_fiat_transfer`); it will be removed in 0.4.0.
+
 ## 0.2.0 – 2026-08-03
 
 The Settlement MCP becomes the SDK-backed **Venly Finance MCP** builder while retaining

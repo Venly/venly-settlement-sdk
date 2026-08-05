@@ -23,6 +23,16 @@ export interface ReconcileResult {
   note: string;
 }
 
+/**
+ * Normalize a payment reference the way bank remittance text must be read:
+ * uppercase, alphanumerics only. Payer banks freely re-case, strip or pad
+ * separators, so "ref-abc-123", "REF ABC 123" and "invoice REFABC123 thanks"
+ * must all find REF-ABC-123.
+ */
+export function normalizeReference(text: string): string {
+  return text.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 export function reconcileByReferenceCode(
   referenceCode: string,
   virtualBankAccounts: VirtualBankAccount[],
@@ -32,18 +42,29 @@ export function reconcileByReferenceCode(
   if (!target) {
     throw new Error("referenceCode must not be blank");
   }
+  const normalizedTarget = normalizeReference(target);
+  if (normalizedTarget.length < 4) {
+    throw new Error(
+      `referenceCode "${target}" is too short after normalization ` +
+        `("${normalizedTarget}"): at least 4 alphanumeric characters are required ` +
+        "to match safely against free-form remittance text.",
+    );
+  }
 
+  // The vIBAN side is Venly-issued, so it matches exactly (after normalization).
   const vban =
     virtualBankAccounts.find(
-      (v) => (v.referenceCode ?? "").trim() === target,
+      (v) => normalizeReference(v.referenceCode ?? "") === normalizedTarget,
     ) ?? null;
 
   if (vban && !(vban.id ?? "").trim()) {
     throw new Error("matching vIBAN is missing an id");
   }
 
-  const matchedTransactions = transactions.filter(
-    (t) => (t.referenceCode ?? "").trim() === target,
+  // The transaction side is free-form remittance text typed by a payer, so a
+  // containment test on the normalized text is the honest match.
+  const matchedTransactions = transactions.filter((t) =>
+    normalizeReference(t.referenceCode ?? "").includes(normalizedTarget),
   );
 
   const totalAmount = matchedTransactions.reduce(

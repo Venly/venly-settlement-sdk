@@ -41,8 +41,9 @@ test("README documents the same defaults the code exports", () => {
   );
 });
 
-test("environment selection is explicit and defaults compatibly to staging", () => {
-  assert.equal(resolveVenlyEnvironment({}), "staging");
+test("environment selection is explicit and defaults to mock (0.3.0 behavior change)", () => {
+  // Since 0.3.0 an unconfigured server never points at real infrastructure.
+  assert.equal(resolveVenlyEnvironment({}), "mock");
   assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "mock" }), "mock");
   assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "staging" }), "staging");
   assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "production" }), "production");
@@ -66,10 +67,10 @@ test("package exposes finance and settlement compatibility binaries from one imp
   assert.match(packageJson.repository.url, /github\.com\/Venly\/venly-settlement-sdk/);
 });
 
-test("0.2.0 package and MCP server versions stay aligned", () => {
+test("package and MCP server versions stay aligned", () => {
   const packageJson = JSON.parse(
     readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
   );
-  assert.equal(packageJson.version, "0.2.0");
+  assert.equal(packageJson.version, "0.3.0");
   assert.equal(SERVER_VERSION, packageJson.version);
 });
