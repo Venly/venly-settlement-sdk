@@ -1,6 +1,7 @@
 import type { RequestOptions, Transport } from "../core/http.js";
 import { VenlyApiError } from "../core/errors.js";
 import { errorPresets, toErrorEnvelope, type ErrorPresetName, type ErrorSpec } from "./errors.js";
+import type { RequestShape } from "../generated/finance-shapes.js";
 
 /** One recorded call against a mock client. */
 export interface MockCall {
@@ -31,6 +32,19 @@ export interface VenlyMock {
   failNext(error: ErrorPresetName | ErrorSpec, match?: string): void;
 }
 
+/** Context handed to handler-kind routes. */
+export interface HandlerContext {
+  method: string;
+  /** Matched template, e.g. "GET /parties/{partyId}". */
+  template: string;
+  /** Concrete path. */
+  path: string;
+  /** Path parameters by template name, e.g. { partyId: "p-1" }. */
+  params: Record<string, string>;
+  query: Record<string, string | number | boolean | undefined>;
+  body: unknown;
+}
+
 /** How a mocked route answers. */
 export type RouteEntry =
   | { kind: "item"; result: unknown }
@@ -39,7 +53,9 @@ export type RouteEntry =
   | { kind: "create"; base: unknown }
   | { kind: "update"; base: unknown }
   | { kind: "none" }
-  | { kind: "text"; body: string };
+  | { kind: "text"; body: string }
+  /** Stateful route: the handler returns the full envelope (or throws). */
+  | { kind: "handler"; handle: (ctx: HandlerContext) => unknown };
 
 export type RouteTable = Record<string, RouteEntry>;
 
@@ -55,6 +71,17 @@ function matchTemplate(template: string, path: string): boolean {
   return t.every((seg, i) => seg === p[i] || (seg.startsWith("{") && seg.endsWith("}")));
 }
 
+/** Extract `{name: value}` path parameters from a matched template. */
+export function pathParams(template: string, path: string): Record<string, string> {
+  const t = template.split("/");
+  const p = path.split("/");
+  const params: Record<string, string> = {};
+  t.forEach((seg, i) => {
+    if (seg.startsWith("{") && seg.endsWith("}")) params[seg.slice(1, -1)] = p[i];
+  });
+  return params;
+}
+
 /** Substitute the last path parameter into a fixture's `id` field, when both exist. */
 function echoId(template: string, path: string, result: unknown): unknown {
   if (result === null || typeof result !== "object" || Array.isArray(result)) return result;
@@ -68,21 +95,134 @@ function echoId(template: string, path: string, result: unknown): unknown {
   return result;
 }
 
+/** Envelope for a paginated list, sliced by `page`/`size`. */
+export function listEnvelope(
+  items: unknown[],
+  query: Record<string, string | number | boolean | undefined> = {},
+): unknown {
+  const page = Math.max(1, Number(query.page ?? 1));
+  const size = Math.max(1, Number(query.size ?? 20));
+  const start = (page - 1) * size;
+  const slice = items.slice(start, start + size);
+  const numberOfPages = Math.max(1, Math.ceil(items.length / size));
+  return {
+    success: true,
+    result: slice,
+    pagination: {
+      pageNumber: page,
+      pageSize: size,
+      numberOfElements: slice.length,
+      numberOfPages,
+      hasNextPage: page < numberOfPages,
+      hasPreviousPage: page > 1,
+    },
+  };
+}
+
+/** Envelope for a single entity. */
+export function itemEnvelope(result: unknown): unknown {
+  return { success: true, result };
+}
+
+/** Throw a mock-side `VenlyApiError` with the given spec. */
+export function mockError(spec: ErrorSpec, method: string, path: string): never {
+  const { status, errors, body } = toErrorEnvelope(spec);
+  throw new VenlyApiError({ status, errors, method, path, body });
+}
+
+/**
+ * Validate a mutating request body against the vendored OpenAPI spec's shape:
+ * unknown top-level fields (and unknown keys of one-level object fields) are
+ * rejected, missing required fields are rejected. This is what stops an
+ * invented field from silently "working" in mock and failing in staging.
+ */
+export function validateRequestBody(
+  shape: RequestShape,
+  body: unknown,
+  routeKey: string,
+  method: string,
+  path: string,
+): void {
+  if (body === undefined || body === null || typeof body !== "object" || Array.isArray(body)) {
+    mockError(
+      {
+        status: 400,
+        code: "invalid-request",
+        message: `${routeKey} requires a JSON object body.`,
+      },
+      method,
+      path,
+    );
+  }
+  const record = body as Record<string, unknown>;
+  const allowed = shape.properties;
+  const unknown = Object.keys(record).filter((k) => !(k in allowed));
+  if (unknown.length > 0) {
+    mockError(
+      {
+        status: 400,
+        code: "invalid-request",
+        message:
+          `Unknown field${unknown.length > 1 ? "s" : ""} ${unknown.map((k) => `"${k}"`).join(", ")} for ${routeKey}. ` +
+          `Allowed fields: ${Object.keys(allowed).join(", ")}. (mock spec validation)`,
+      },
+      method,
+      path,
+    );
+  }
+  const missing = shape.required.filter((k) => record[k] === undefined);
+  if (missing.length > 0) {
+    mockError(
+      {
+        status: 400,
+        code: "invalid-request",
+        message: `Missing required field${missing.length > 1 ? "s" : ""} ${missing.map((k) => `"${k}"`).join(", ")} for ${routeKey}. (mock spec validation)`,
+      },
+      method,
+      path,
+    );
+  }
+  for (const [key, nestedKeys] of Object.entries(allowed)) {
+    const value = record[key];
+    if (!nestedKeys || value === undefined || value === null) continue;
+    if (typeof value !== "object" || Array.isArray(value)) continue;
+    const bad = Object.keys(value).filter((k) => !nestedKeys.includes(k));
+    if (bad.length > 0) {
+      mockError(
+        {
+          status: 400,
+          code: "invalid-request",
+          message: `Unknown key${bad.length > 1 ? "s" : ""} ${bad.map((k) => `"${k}"`).join(", ")} in "${key}" for ${routeKey}. Allowed: ${nestedKeys.join(", ")}. (mock spec validation)`,
+        },
+        method,
+        path,
+      );
+    }
+  }
+}
+
 /**
  * Fixture-backed `Transport`. Zero network by construction: it holds no fetch,
  * no token manager and no base URL. Successful responses are envelope-shaped
  * (`{success, result, pagination}`), so the resource classes' unwrap helpers
- * behave exactly as against the live API.
+ * behave exactly as against the live API. When constructed with request
+ * shapes, mutating request bodies are validated against the vendored spec.
  */
 export class MockTransport implements Transport, VenlyMock {
   private readonly routes: RouteTable;
   private readonly presets: Record<string, ErrorSpec>;
+  private readonly requestShapes: Record<string, RequestShape>;
   private readonly log: MockCall[] = [];
   private readonly failures: QueuedFailure[] = [];
 
-  constructor(routes: RouteTable, presets: Record<string, ErrorSpec> = errorPresets) {
+  constructor(
+    routes: RouteTable,
+    presets: Record<string, ErrorSpec> = errorPresets,
+    requestShapes: Record<string, RequestShape> = {},
+  ) {
     this.routes = routes;
     this.presets = presets;
+    this.requestShapes = requestShapes;
   }
 
   get calls(): readonly MockCall[] {
@@ -116,7 +256,11 @@ export class MockTransport implements Transport, VenlyMock {
       headers: options.headers,
     };
     if (method === "POST" || method === "PUT" || method === "PATCH") {
-      call.idempotencyKey = options.idempotencyKey ?? crypto.randomUUID();
+      const bodyKey =
+        options.body && typeof options.body === "object" && !Array.isArray(options.body)
+          ? ((options.body as Record<string, unknown>).idempotencyKey as string | undefined)
+          : undefined;
+      call.idempotencyKey = options.idempotencyKey ?? bodyKey ?? crypto.randomUUID();
     }
     this.log.push(call);
 
@@ -136,6 +280,11 @@ export class MockTransport implements Transport, VenlyMock {
         message: `No mock fixture for ${method} ${path}. Known mock routes:\n  ${known}`,
       });
       throw new VenlyApiError({ status: 404, errors, method, path, body });
+    }
+
+    const shape = this.requestShapes[routeKey];
+    if (shape && (method === "POST" || method === "PUT" || method === "PATCH")) {
+      validateRequestBody(shape, options.body ?? {}, routeKey, method, path);
     }
 
     return structuredClone(this.dispatch(this.routes[routeKey], routeKey, path, options)) as T;
@@ -162,25 +311,8 @@ export class MockTransport implements Transport, VenlyMock {
         return { success: true, result: echoId(template, path, entry.result) };
       case "array":
         return { success: true, result: entry.items };
-      case "list": {
-        const page = Math.max(1, Number(options.query?.page ?? 1));
-        const size = Math.max(1, Number(options.query?.size ?? 20));
-        const start = (page - 1) * size;
-        const items = entry.items.slice(start, start + size);
-        const numberOfPages = Math.max(1, Math.ceil(entry.items.length / size));
-        return {
-          success: true,
-          result: items,
-          pagination: {
-            pageNumber: page,
-            pageSize: size,
-            numberOfElements: items.length,
-            numberOfPages,
-            hasNextPage: page < numberOfPages,
-            hasPreviousPage: page > 1,
-          },
-        };
-      }
+      case "list":
+        return listEnvelope(entry.items, options.query);
       case "create":
       case "update": {
         const body =
@@ -199,6 +331,15 @@ export class MockTransport implements Transport, VenlyMock {
         return undefined;
       case "text":
         return entry.body;
+      case "handler":
+        return entry.handle({
+          method: routeKey.split(" ")[0],
+          template,
+          path,
+          params: pathParams(template, path),
+          query: options.query ?? {},
+          body: options.body,
+        });
     }
   }
 }

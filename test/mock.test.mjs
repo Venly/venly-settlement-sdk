@@ -53,16 +53,20 @@ test("mock: every namespace method returns a plausible fixture", async () => {
   const acct = "a10c2d31-2222-4b20-8c63-000000000001";
   const wal = "w1f3a8c2-3333-4c30-9d74-000000000001";
 
+  const party1 = "0b54e9f1-1111-4a10-9b52-000000000001";
+  const party5 = "0b54e9f1-1111-4a10-9b52-000000000005";
+  const vba1 = "vb7e5f19-4444-4d40-ae85-000000000001";
+  const tr1 = "tr5e8c66-7777-4a70-9bb8-000000000001";
   const smoke = [
     // [description, promise, assertion]
     ["parties.list", f.parties.list(), (r) => r.items.length > 0],
-    ["parties.get", f.parties.get("p-1"), (r) => r.id === "p-1"],
+    ["parties.get", f.parties.get(party1), (r) => r.id === party1 && r.firstName === "Ada"],
     [
       "parties.update",
-      f.parties.update("p-1", { version: 0, firstName: "G" }),
-      (r) => r.firstName === "G",
+      f.parties.update(party1, { version: 0, firstName: "G" }),
+      (r) => r.firstName === "G" && r.version === 1,
     ],
-    ["parties.delete", f.parties.delete("p-1"), (r) => r === undefined],
+    ["parties.delete", f.parties.delete(party5), (r) => r === undefined],
     ["accounts.list", f.accounts.list(), (r) => r.items.length === 5],
     ["accounts.get", f.accounts.get(acct), (r) => r.id === acct],
     ["accounts.listPartyRoles", f.accounts.listPartyRoles(acct), (r) => r.items.length > 0],
@@ -84,10 +88,14 @@ test("mock: every namespace method returns a plausible fixture", async () => {
     ],
     [
       "virtualBankAccounts.create",
-      f.virtualBankAccounts.create(acct, { name: "New EUR", inCurrency: "EUR" }),
-      (r) => r.name === "New EUR",
+      f.virtualBankAccounts.create(acct, {
+        name: "New EUR",
+        inCurrency: "EUR",
+        targetCryptocurrency: "USDC",
+      }),
+      (r) => r.name === "New EUR" && /^REF-MOCK-/.test(r.referenceCode),
     ],
-    ["virtualBankAccounts.get", f.virtualBankAccounts.get(acct, "vb-1"), (r) => r.id === "vb-1"],
+    ["virtualBankAccounts.get", f.virtualBankAccounts.get(acct, vba1), (r) => r.id === vba1],
     [
       "paymentSessions.create",
       f.paymentSessions.create(acct, {
@@ -139,11 +147,17 @@ test("mock: every namespace method returns a plausible fixture", async () => {
     ],
     [
       "transfers.createFiat",
-      f.transfers.createFiat(acct, { receiverAccountId: "acc-2", fiatAmount: "10.00", fiatCurrency: "EUR" }),
-      (r) => typeof r.id === "string",
+      f.transfers.createFiat(acct, {
+        receiverAccountId: "a10c2d31-2222-4b20-8c63-000000000002",
+        currency: "EUR",
+        amount: 10,
+        idempotencyKey: "7c9e6679-7425-40de-944b-e07fc1f90ae0",
+      }),
+      (r) => typeof r.id === "string" && r.status === "PENDING",
     ],
-    ["transfers.list", f.transfers.list(acct), (r) => r.items.length === 5],
-    ["transfers.get", f.transfers.get(acct, "tr-1"), (r) => r.id === "tr-1"],
+    // Seeded transfers involving this account (4) + the one created above.
+    ["transfers.list", f.transfers.list(acct), (r) => r.items.length >= 4],
+    ["transfers.get", f.transfers.get(acct, tr1), (r) => r.id === tr1],
     ["permits.getMessages", f.permits.getMessages(acct, wal), (r) => r.length > 0],
     ["allowances.list", f.allowances.list(acct, wal), (r) => r.length > 0],
     ["fundflow rampRequests.list", ff.rampRequests.list(), (r) => r.items.length === 5],
@@ -174,7 +188,10 @@ test("mock: create echoes the request body over fixture defaults", async () => {
   });
   assert.equal(created.name, "Borealis GmbH");
   assert.equal(created.partyType, "ORGANISATION");
-  assert.ok(created.id, "id comes from the fixture base");
+  assert.ok(created.id, "a real id is minted");
+  assert.notEqual(created.id, "0b54e9f1-1111-4a10-9b52-000000000002", "not a fixture echo");
+  assert.equal(created.kybStatus, "PENDING", "verification starts pending, as documented");
+  assert.equal(created.kycStatus, undefined, "organisations carry kybStatus, not kycStatus");
 });
 
 test("mock: pagination slices, reports correct metadata, and iterate() terminates", async () => {
@@ -219,9 +236,10 @@ test("mock: failNext supports custom specs and route matching", async () => {
   const f = mockFinance();
   f.mock.failNext({ status: 422, code: "INSUFFICIENT_FUNDS", message: "Not enough." }, "POST /parties");
   // A non-matching call passes through untouched...
-  const ok = await f.accounts.get("a-1");
-  assert.equal(ok.id, "a-1");
-  // ...the matching one fails with the custom spec.
+  const acct1 = "a10c2d31-2222-4b20-8c63-000000000001";
+  const ok = await f.accounts.get(acct1);
+  assert.equal(ok.id, acct1);
+  // ...the matching one fails with the custom spec (queued failures precede validation).
   await assert.rejects(
     () => f.parties.create({ partyType: "INDIVIDUAL" }),
     (err) => err instanceof VenlyApiError && err.status === 422 && err.errors[0].code === "INSUFFICIENT_FUNDS",
@@ -243,7 +261,10 @@ test("mock: unmocked path fails with a helpful 404 listing known routes", async 
 test("mock: call log records everything in order; clear() resets", async () => {
   const f = mockFinance();
   await f.parties.list({ page: 1, size: 2 });
-  await f.parties.create({ partyType: "INDIVIDUAL", firstName: "Ada" }, { idempotencyKey: "my-key" });
+  await f.parties.create(
+    { partyType: "INDIVIDUAL", firstName: "Ada", lastName: "Lovelace" },
+    { idempotencyKey: "my-key" },
+  );
   const calls = f.mock.calls;
   assert.equal(calls.length, 2);
   assert.equal(calls[0].method, "GET");
@@ -258,9 +279,10 @@ test("mock: call log records everything in order; clear() resets", async () => {
 
 test("mock: fixtures are cloned per call - mutating a result cannot poison later calls", async () => {
   const f = mockFinance();
-  const first = await f.accounts.get("a-1");
+  const acct1 = "a10c2d31-2222-4b20-8c63-000000000001";
+  const first = await f.accounts.get(acct1);
   first.status = "BLOCKED";
-  const second = await f.accounts.get("a-1");
+  const second = await f.accounts.get(acct1);
   assert.equal(second.status, "ACTIVE");
 });
 

@@ -2,8 +2,7 @@ import type { components, operations } from "../generated/finance.js";
 import { TokenManager } from "../core/auth.js";
 import { HttpClient, type RequestOptions, type Transport } from "../core/http.js";
 import { iteratePages, type Page, type PageParams } from "../core/pagination.js";
-import { MockTransport, type VenlyMock } from "../mock/transport.js";
-import { financeRoutes } from "../mock/finance.js";
+import { FinanceMockTransport, type VenlyFinanceMock } from "../mock/finance.js";
 
 type schemas = components["schemas"];
 type Query<Op extends keyof operations> = operations[Op]["parameters"] extends {
@@ -29,6 +28,24 @@ function unwrapPage<T>(res: Envelope<T[]>): Page<T> {
   return { items: res.result ?? [], pagination: res.pagination };
 }
 
+/**
+ * One idempotency key per request: the body's `idempotencyKey` (the field the
+ * API contract requires on money-moving endpoints) and the SDK's
+ * `Idempotency-Key` header always carry the same value. Body key wins when
+ * both are present; a missing body key is filled from the per-call option or
+ * a fresh UUID.
+ */
+function alignIdempotency<B extends { idempotencyKey?: string }>(
+  body: B,
+  opts?: CallOptions,
+): { body: B; opts: CallOptions } {
+  const key = body?.idempotencyKey ?? opts?.idempotencyKey ?? crypto.randomUUID();
+  return {
+    body: body?.idempotencyKey === key ? body : { ...body, idempotencyKey: key },
+    opts: { ...opts, idempotencyKey: key },
+  };
+}
+
 export type FinanceEnvironment = "production" | "staging";
 
 export interface VenlyFinanceCredentialOptions {
@@ -47,13 +64,26 @@ export interface VenlyFinanceCredentialOptions {
 }
 
 /**
- * Mock mode: zero credentials, zero network. Every method returns bundled
- * fixtures typed against the OpenAPI schemas; `client.mock` exposes the call
- * log and error injection.
+ * Mock mode: zero credentials, zero network. Every method answers from a
+ * stateful fixture store typed against the OpenAPI schemas; `client.mock`
+ * exposes the call log, error injection and lifecycle advancement
+ * (`advanceVerification`, `advanceTransfer`, `reset`).
+ *
+ * Credential fields are accepted and ignored, so one options object can vary
+ * only its `environment` string between mock, staging and production.
  */
 export interface VenlyFinanceMockOptions {
   environment: "mock";
+  clientId?: string;
+  clientSecret?: string;
+  baseUrl?: string;
+  tokenUrl?: string;
+  fetch?: typeof fetch;
+  maxAttempts?: number;
 }
+
+/** Every environment the client constructor accepts. */
+export type VenlyEnvironment = FinanceEnvironment | "mock";
 
 export type VenlyFinanceClientOptions = VenlyFinanceCredentialOptions | VenlyFinanceMockOptions;
 
@@ -97,13 +127,16 @@ export class VenlyFinanceClient {
 
   private readonly http: Transport;
 
-  /** Mock controls (call log, failNext); defined only when `environment: "mock"`. */
-  readonly mock?: VenlyMock;
+  /**
+   * Mock controls (call log, failNext, advanceVerification, advanceTransfer,
+   * reset); defined only when `environment: "mock"`.
+   */
+  readonly mock?: VenlyFinanceMock;
 
   constructor(options: VenlyFinanceClientOptions) {
     if (options.environment === "mock") {
       // Zero network by construction: no TokenManager, no HttpClient, no fetch.
-      const transport = new MockTransport(financeRoutes);
+      const transport = new FinanceMockTransport();
       this.http = transport;
       this.mock = transport;
     } else {
@@ -288,11 +321,12 @@ export class VirtualBankAccountsResource {
     body: schemas["CreateVirtualBankAccountRequest"],
     opts?: CallOptions,
   ): Promise<schemas["VirtualBankAccount"]> {
+    const aligned = alignIdempotency(body, opts);
     return this.http
       .request<Envelope<schemas["VirtualBankAccount"]>>(
         "POST",
         `/accounts/${accountId}/virtual-bank-accounts`,
-        { body, ...opts },
+        { body: aligned.body, ...aligned.opts },
       )
       .then(unwrap);
   }
@@ -325,11 +359,12 @@ export class PaymentSessionsResource {
     body: schemas["CreatePayInSessionRequest"],
     opts?: CallOptions,
   ): Promise<schemas["PaymentSession"]> {
+    const aligned = alignIdempotency(body, opts);
     return this.http
       .request<Envelope<schemas["PaymentSession"]>>(
         "POST",
         `/accounts/${accountId}/fiat-to-crypto/payment-sessions`,
-        { body, ...opts },
+        { body: aligned.body, ...aligned.opts },
       )
       .then(unwrap);
   }
@@ -344,11 +379,12 @@ export class PaymentRequestsResource {
     body: schemas["CreatePaymentRequestInput"],
     opts?: CallOptions,
   ): Promise<schemas["PaymentRequest"]> {
+    const aligned = alignIdempotency(body, opts);
     return this.http
       .request<Envelope<schemas["PaymentRequest"]>>(
         "POST",
         `/accounts/${accountId}/payment-requests`,
-        { body, ...opts },
+        { body: aligned.body, ...aligned.opts },
       )
       .then(unwrap);
   }
@@ -372,11 +408,12 @@ export class PaymentRequestsResource {
     body: schemas["UpdatePaymentRequestInput"],
     opts?: CallOptions,
   ): Promise<schemas["PaymentRequest"]> {
+    const aligned = alignIdempotency(body, opts);
     return this.http
       .request<Envelope<schemas["PaymentRequest"]>>(
         "PATCH",
         `/payment-requests/${paymentRequestId}`,
-        { body, ...opts },
+        { body: aligned.body, ...aligned.opts },
       )
       .then(unwrap);
   }
@@ -391,11 +428,12 @@ export class PaymentRequestsResource {
     body: schemas["SettlePaymentRequestInput"],
     opts?: CallOptions,
   ): Promise<schemas["PaymentRequest"]> {
+    const aligned = alignIdempotency(body, opts);
     return this.http
       .request<Envelope<schemas["PaymentRequest"]>>(
         "POST",
         `/payment-requests/${paymentRequestId}/settlements`,
-        { body, ...opts },
+        { body: aligned.body, ...aligned.opts },
       )
       .then(unwrap);
   }
@@ -405,10 +443,11 @@ export class PaymentRequestsResource {
     body: schemas["SettlePaymentRequestByReferenceInput"],
     opts?: CallOptions,
   ): Promise<schemas["PaymentRequest"]> {
+    const aligned = alignIdempotency(body, opts);
     return this.http
       .request<Envelope<schemas["PaymentRequest"]>>("POST", "/payment-requests/settlements", {
-        body,
-        ...opts,
+        body: aligned.body,
+        ...aligned.opts,
       })
       .then(unwrap);
   }
@@ -419,11 +458,12 @@ export class PaymentRequestsResource {
     body: schemas["ReversePaymentRequestInput"],
     opts?: CallOptions,
   ): Promise<schemas["PaymentRequest"]> {
+    const aligned = alignIdempotency(body, opts);
     return this.http
       .request<Envelope<schemas["PaymentRequest"]>>(
         "POST",
         `/payment-requests/${paymentRequestId}/reversal`,
-        { body, ...opts },
+        { body: aligned.body, ...aligned.opts },
       )
       .then(unwrap);
   }
@@ -433,10 +473,11 @@ export class PaymentRequestsResource {
     body: schemas["ReversePaymentRequestByReferenceInput"],
     opts?: CallOptions,
   ): Promise<schemas["PaymentRequest"]> {
+    const aligned = alignIdempotency(body, opts);
     return this.http
       .request<Envelope<schemas["PaymentRequest"]>>("POST", "/payment-requests/reversals", {
-        body,
-        ...opts,
+        body: aligned.body,
+        ...aligned.opts,
       })
       .then(unwrap);
   }
@@ -450,11 +491,12 @@ export class TransfersResource {
     body: schemas["CreateFiatTransferInput"],
     opts?: CallOptions,
   ): Promise<schemas["Transfer"]> {
+    const aligned = alignIdempotency(body, opts);
     return this.http
       .request<Envelope<schemas["Transfer"]>>(
         "POST",
         `/accounts/${senderAccountId}/transfers/fiat`,
-        { body, ...opts },
+        { body: aligned.body, ...aligned.opts },
       )
       .then(unwrap);
   }
@@ -464,11 +506,12 @@ export class TransfersResource {
     body: schemas["CreateCryptoTransferInput"],
     opts?: CallOptions,
   ): Promise<schemas["Transfer"]> {
+    const aligned = alignIdempotency(body, opts);
     return this.http
       .request<Envelope<schemas["Transfer"]>>(
         "POST",
         `/accounts/${senderAccountId}/transfers/crypto`,
-        { body, ...opts },
+        { body: aligned.body, ...aligned.opts },
       )
       .then(unwrap);
   }

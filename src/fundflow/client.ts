@@ -42,9 +42,19 @@ export interface FundflowCredentialOptions {
   maxAttempts?: number;
 }
 
-/** Mock mode: zero credentials, zero network, fixture-backed. See `client.mock`. */
+/**
+ * Mock mode: zero credentials, zero network, fixture-backed. See `client.mock`.
+ * Credential fields are accepted and ignored, so one options object can vary
+ * only its `environment` string across environments.
+ */
 export interface FundflowMockOptions {
   environment: "mock";
+  clientId?: string;
+  clientSecret?: string;
+  baseUrl?: string;
+  tokenUrl?: string;
+  fetch?: typeof fetch;
+  maxAttempts?: number;
 }
 
 export type FundflowClientOptions = FundflowCredentialOptions | FundflowMockOptions;

@@ -37,8 +37,12 @@ See the [Venly Finance MCP quickstart](settlement-mcp/README.md#try-the-builder-
 
 ## Try it in 0 minutes (mock mode)
 
-No signup, no credentials, no network. Every method returns realistic fixtures
-typed against the OpenAPI schemas:
+No signup, no credentials, no network. Mock mode is a **stateful, spec-validated
+simulation of the documented lifecycle**: creates mint real ids and read back,
+verification starts pending (exactly as the docs describe - creating a party
+starts KYC/KYB, it does not complete it), transfers start `PENDING`, and request
+bodies are validated against the vendored OpenAPI specs so an invented field
+fails here instead of in staging.
 
 ```ts
 import { VenlyFinanceClient } from "@venlyfinance/sdk";
@@ -48,18 +52,28 @@ const venly = new VenlyFinanceClient({ environment: "mock" });
 const party = await venly.parties.create({
   partyType: "INDIVIDUAL", firstName: "Ada", lastName: "Lovelace",
 });
-const accounts = await venly.accounts.list();          // paginated fixtures
-const vibans = await venly.virtualBankAccounts.list(accounts.items[0].id!);
+party.kycStatus;                                       // "VERIFICATION_PENDING" - honest
+venly.mock!.advanceVerification(party.id!);            // play the Venly admin
+(await venly.parties.get(party.id!)).kycStatus;        // "VERIFIED"
+
+const transfer = await venly.transfers.createFiat(accountId, {
+  receiverAccountId, currency: "EUR", amount: 25, idempotencyKey: crypto.randomUUID(),
+});
+transfer.status;                                       // "PENDING" - poll it like production
+venly.mock!.advanceTransfer(transfer.id!);             // → COMPLETED, with a transactionHash
+venly.mock!.advanceTransfer(other.id!, "FAILED");      // exercise the failure path
 
 venly.mock!.failNext("NOT_FOUND");                     // simulate an API error
 venly.mock!.calls;                                     // inspect everything your code sent
+venly.mock!.reset();                                   // back to the seed fixtures
 ```
 
 Error simulation throws the same `VenlyApiError` the live API produces
 (`failNext("OPTIMISTIC_LOCK_EXCEPTION")`, or a custom `{status, code, message}`;
 add a route filter like `failNext("VALIDATION_ERROR", "POST /parties")`).
-Ready for real calls? Swap the options for
-`{ clientId, clientSecret, environment: "staging" }` - nothing else changes.
+Ready for real calls? Change `environment` to `"staging"` and add
+`clientId`/`clientSecret` - nothing else changes, and the same options object
+type-checks in all three environments.
 
 ## Quickstart
 
