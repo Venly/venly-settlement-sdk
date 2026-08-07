@@ -21,7 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test   # builds ESM + CJS, runs the full suite
-      - run: npm audit
+      - run: npm audit --omit=dev   # gate what ships; dev-toolchain advisories cannot reach consumers (sdk has zero runtime deps)
       - run: npm pack --dry-run
       - name: Publish if version is new
         run: |
@@ -52,7 +52,7 @@ jobs:
       - run: npm run typecheck:test
       - run: npm test
       - run: npm run build
-      - run: npm audit
+      - run: npm audit --omit=dev   # gate what ships; dev-toolchain advisories cannot reach consumers (sdk has zero runtime deps)
       - run: npm pack --dry-run
       - name: Publish if version is new
         run: |
@@ -83,7 +83,7 @@ jobs:
       - run: npm run typecheck:test
       - run: npm test
       - run: npm run build
-      - run: npm audit
+      - run: npm audit --omit=dev   # gate what ships; dev-toolchain advisories cannot reach consumers (sdk has zero runtime deps)
       - run: npm pack --dry-run
       - name: Publish if version is new
         run: |
