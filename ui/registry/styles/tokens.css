@@ -1,0 +1,74 @@
+/**
+ * Venly UI – the white-label contract.
+ *
+ * A reskin must be this file and nothing else. Every component in the kit
+ * reads exclusively from these custom properties; no component carries a raw
+ * hex value at the call site.
+ *
+ * Acceptance test for any reskin: map every --state-*-fg/-bg pair to greys
+ * and confirm status is still legible. The kit guarantees its half of that
+ * contract by pairing every state hue with a glyph or word (state is never
+ * carried by colour alone); your palette must not break the other half
+ * (sufficient contrast between -fg and -bg).
+ *
+ * Colour budget by design: 3 semantic hues + 1 brand hue + a neutral ramp.
+ * Do not add a hue per status – reserve colour for states an operator must
+ * act on, and let glyphs discriminate beyond ~4 visible hues.
+ */
+:root {
+  /* Surfaces: base layer is flat – separation by hairline or one-step
+     background change, never shadow. Shadows belong to overlays only. */
+  --surface-page: #fafafa;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f4f4f5;
+
+  --border-hairline: rgba(9, 9, 11, 0.1);
+  --border-strong: rgba(9, 9, 11, 0.22);
+  --hover-tint: rgba(9, 9, 11, 0.03);
+  --selected-tint: rgba(9, 9, 11, 0.06);
+
+  /* Neutral text ramp: hierarchy at small sizes comes from tone, not size. */
+  --text-primary: rgba(9, 9, 11, 0.92);
+  --text-secondary: rgba(9, 9, 11, 0.6);
+  --text-tertiary: rgba(9, 9, 11, 0.5);
+
+  /* Brand: one primary button, active nav, inline links. The default is
+     deliberately unbranded near-black; a white-label consumer swaps it. */
+  --accent: #18181b;
+  --accent-fg: #ffffff;
+
+  /* State pairs: pale tint background + text at the dark step of the same
+     ramp. Cancelled is grey by design – a neutral terminal, never red. */
+  --state-success-fg: #166534;
+  --state-success-bg: #ecfdf3;
+  --state-pending-fg: #92400e;
+  --state-pending-bg: #fef6e7;
+  --state-danger-fg: #991b1b;
+  --state-danger-bg: #fef1f1;
+  --state-neutral-fg: rgba(9, 9, 11, 0.55);
+  --state-neutral-bg: rgba(9, 9, 11, 0.05);
+
+  /* Radius: pills read as data values, cards stay under 16px so the read
+     stays operator-grade rather than consumer. */
+  --radius-pill: 4px;
+  --radius-control: 6px;
+  --radius-card: 12px;
+  --radius-modal: 16px;
+
+  /* Density: row pitch / body size is the most diagnostic ratio in the
+     kit (target 2.4–3.8×). 40px / 14px = 2.86. */
+  --row-pitch: 40px;
+  --cell-pad-y: 8px;
+  --cell-pad-x: 12px;
+
+  /* Five sizes do all the work on one screen; the bottom three are nearly
+     identical on purpose – tone and weight separate them, not size. */
+  --font-size-title: 30px;
+  --font-size-value: 20px;
+  --font-size-body: 14px;
+  --font-size-label: 12px;
+  --font-size-micro: 11px;
+
+  --font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
