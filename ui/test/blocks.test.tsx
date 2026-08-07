@@ -164,6 +164,7 @@ import {
 import {
   GroupedActivityTable,
   activitySummary,
+  visibleTransferIds,
   scopeTransfers,
   signedTransferAmount,
   transferDirection,
@@ -310,4 +311,25 @@ test("activity keyboard: arrows step through visible rows without wrapping, from
   assert.equal(stepSelection(ids, null, 1), "a", "down from nothing selects the first row");
   assert.equal(stepSelection(ids, "gone", 1), "a", "a filtered-away selection resets to the top");
   assert.equal(stepSelection([], "a", 1), null);
+});
+
+test("activity keyboard: a collapsed group's rows are excluded from the stepper - never select a row with no tr", () => {
+  const transfers = [
+    { id: "p1", status: "PENDING" as const, asset: "USDC", amount: 1 },
+    { id: "s1", status: "COMPLETED" as const, asset: "USDC", amount: 2 },
+    { id: "s2", status: "FAILED" as const, asset: "USDC", amount: 3 },
+  ];
+  assert.deepEqual(visibleTransferIds(transfers, {}), ["p1", "s1", "s2"]);
+  assert.deepEqual(visibleTransferIds(transfers, { settled: true }), ["p1"]);
+  assert.deepEqual(visibleTransferIds(transfers, { pending: true }), ["s1", "s2"]);
+  // Stepping from the last visible row cannot land in the collapsed group.
+  const ids = visibleTransferIds(transfers, { settled: true });
+  assert.equal(stepSelection(ids, "p1", 1), "p1");
+
+  // The controlled table renders no rows for a collapsed group.
+  const html = renderToStaticMarkup(
+    <GroupedActivityTable transfers={transfers} collapsedGroups={{ settled: true }} />,
+  );
+  assert.ok(html.includes("Settled"), "collapsed band still drawn");
+  assert.doesNotMatch(html, /2\.00 |3\.00/, "settled rows not rendered while collapsed");
 });

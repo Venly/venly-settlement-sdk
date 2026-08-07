@@ -48,6 +48,14 @@ export interface DataTableProps<Row> {
    * its own collapsible band. `rows` is ignored while groups are set.
    */
   groups?: DataTableGroup<Row>[];
+  /**
+   * Controlled collapse state per group key. Provide it (with
+   * onGroupToggle) when anything OUTSIDE the table depends on which rows
+   * are actually rendered – e.g. a keyboard row-stepper must never select
+   * a row whose group is collapsed. Uncontrolled when omitted.
+   */
+  collapsedGroups?: Record<string, boolean>;
+  onGroupToggle?: (key: string, collapsed: boolean) => void;
   emptyMessage?: string;
   style?: CSSProperties;
   className?: string;
@@ -66,11 +74,18 @@ export function DataTable<Row>({
   onRowClick,
   selectedKey,
   groups,
+  collapsedGroups,
+  onGroupToggle,
   emptyMessage = "Nothing here yet",
   style,
   className,
 }: DataTableProps<Row>): ReactElement {
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [internalCollapsed, setInternalCollapsed] = useState<Record<string, boolean>>({});
+  const collapsed = collapsedGroups ?? internalCollapsed;
+  const toggleGroup = (key: string, next: boolean) => {
+    if (collapsedGroups === undefined) setInternalCollapsed((c) => ({ ...c, [key]: next }));
+    onGroupToggle?.(key, next);
+  };
 
   const renderRow = (row: Row): ReactElement => {
     const key = rowKey(row);
@@ -152,11 +167,7 @@ export function DataTable<Row>({
                   <button
                     type="button"
                     aria-expanded={!isCollapsed}
-                    onClick={
-                      isEmpty
-                        ? undefined
-                        : () => setCollapsed((c) => ({ ...c, [group.key]: !isCollapsed }))
-                    }
+                    onClick={isEmpty ? undefined : () => toggleGroup(group.key, !isCollapsed)}
                     style={{
                       display: "flex",
                       alignItems: "center",

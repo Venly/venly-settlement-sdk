@@ -146,6 +146,26 @@ export function transfersToCsv(transfers: Transfer[], accountId?: string): strin
   return [header, ...lines].join("\n");
 }
 
+/** The activity table's group for a transfer: pending above settled. */
+export function transferGroupKey(transfer: Transfer): "pending" | "settled" {
+  return transfer.status === "PENDING" ? "pending" : "settled";
+}
+
+/**
+ * The ids the keyboard stepper may visit: exactly the rows the grouped
+ * table renders. A collapsed group renders no rows, so its ids are
+ * excluded – the stepper must never select a row with no <tr>, or the
+ * "source row stays tinted" contract silently breaks.
+ */
+export function visibleTransferIds(
+  transfers: Transfer[],
+  collapsedGroups: Record<string, boolean>,
+): string[] {
+  return transfers
+    .filter((t) => !collapsedGroups[transferGroupKey(t)])
+    .map((t) => t.id ?? "");
+}
+
 /** Row-stepping: ↑/↓ move through the visible rows; never wraps. */
 export function stepSelection(
   visibleIds: string[],
@@ -222,23 +242,28 @@ export function GroupedActivityTable({
   selectedId,
   onSelect,
   accountId,
+  collapsedGroups,
+  onGroupToggle,
 }: {
   transfers: Transfer[];
   selectedId?: string;
   onSelect?: (transfer: Transfer) => void;
   accountId?: string;
+  /** Controlled collapse state – required when a stepper reads the rows. */
+  collapsedGroups?: Record<string, boolean>;
+  onGroupToggle?: (key: string, collapsed: boolean) => void;
 }): ReactElement {
   const groups: DataTableGroup<Transfer>[] = [
     {
       key: "pending",
       label: "Pending",
-      rows: transfers.filter((t) => t.status === "PENDING"),
+      rows: transfers.filter((t) => transferGroupKey(t) === "pending"),
       attention: true,
     },
     {
       key: "settled",
       label: "Settled",
-      rows: transfers.filter((t) => t.status !== "PENDING"),
+      rows: transfers.filter((t) => transferGroupKey(t) === "settled"),
     },
   ];
   return (
@@ -246,6 +271,8 @@ export function GroupedActivityTable({
       columns={transferColumns(accountId)}
       rows={[]}
       groups={groups}
+      collapsedGroups={collapsedGroups}
+      onGroupToggle={onGroupToggle}
       rowKey={(t) => t.id ?? ""}
       selectedKey={selectedId}
       onRowClick={onSelect}
@@ -368,6 +395,9 @@ export function ActivityBlock({
   const [scope, setScope] = useState<ActivityScope>(initialScope);
   const [assetFilter, setAssetFilter] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  // Collapse state is lifted out of the table so the keyboard stepper
+  // knows exactly which rows are rendered.
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   // Selection is held by id and re-derived from the live list on every
   // render: when a refetch moves a transfer from PENDING to COMPLETED or
   // FAILED while its panel is open, the panel shows the new state, not a
@@ -398,7 +428,16 @@ export function ActivityBlock({
     [visible],
   );
 
-  const selected = selectedId ? (visibleOrdered.find((t) => t.id === selectedId) ?? null) : null;
+  // The stepper may only visit rows the table actually renders: a
+  // selection inside a collapsed group would tint no row at all.
+  const steppableIds = useMemo(
+    () => visibleTransferIds(visibleOrdered, collapsedGroups),
+    [visibleOrdered, collapsedGroups],
+  );
+  const selected =
+    selectedId && steppableIds.includes(selectedId)
+      ? (visibleOrdered.find((t) => t.id === selectedId) ?? null)
+      : null;
   const filtered = assetFilter !== null || scope !== "all";
 
   // ↑/↓ step the open panel through the visible rows; Esc closes. The
@@ -413,13 +452,14 @@ export function ActivityBlock({
         setSelectedId(null);
       } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
-        const ids = visibleOrdered.map((t) => t.id ?? "");
-        setSelectedId((current) => stepSelection(ids, current, event.key === "ArrowDown" ? 1 : -1));
+        setSelectedId((current) =>
+          stepSelection(steppableIds, current, event.key === "ArrowDown" ? 1 : -1),
+        );
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [selected, visibleOrdered]);
+  }, [selected, steppableIds]);
 
   const toggleScope = (next: ActivityScope) => {
     setScope((current) => (current === next ? "all" : next));
@@ -589,6 +629,10 @@ export function ActivityBlock({
             accountId={accountId}
             selectedId={selected?.id}
             onSelect={(t) => setSelectedId(t.id ?? null)}
+            collapsedGroups={collapsedGroups}
+            onGroupToggle={(key, isCollapsed) =>
+              setCollapsedGroups((c) => ({ ...c, [key]: isCollapsed }))
+            }
           />
         </>
       )}
