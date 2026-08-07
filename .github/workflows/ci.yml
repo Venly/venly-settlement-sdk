@@ -57,6 +57,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # The example imports the ui kit's source in place (../../ui/registry),
+      # and those files resolve react/@venlyfinance/* from ui/node_modules.
+      - run: npm ci
+        working-directory: ui
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
