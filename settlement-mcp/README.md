@@ -228,7 +228,7 @@ reads, and fail-closed write gate without mutating staging:
 VENLY_CLIENT_ID=... VENLY_CLIENT_SECRET=... npm run smoke:staging
 ```
 
-The command starts the MCP with `VENLY_ENV=staging`, lists the expected 25 tools,
+The command starts the MCP with `VENLY_ENV=staging`, lists the expected 24 tools,
 five resources, and builder prompt, then reads parties, accounts, and reference data.
 It deliberately removes `VENLY_MCP_LIVE` and `VENLY_MCP_PRODUCTION` from the child
 process before submitting one confirmed `create_party` request. Passing requires that
