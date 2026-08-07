@@ -27,8 +27,8 @@ const SCHEMA_ITEM = "https://ui.shadcn.com/schema/registry-item.json";
 const SCHEMA_INDEX = "https://ui.shadcn.com/schema/registry.json";
 
 const RUNTIME_DEPENDENCIES = [
-  "@venlyfinance/react@^0.1.1",
-  "@venlyfinance/sdk@^0.2.0",
+  "@venlyfinance/react@^0.2.0",
+  "@venlyfinance/sdk@^0.3.0",
   "@tanstack/react-query@^5.0.0",
 ];
 

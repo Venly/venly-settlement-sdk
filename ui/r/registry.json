@@ -163,8 +163,8 @@
       "title": "Receive block",
       "description": "Bank details a payer's finance team actually reads: mandatory payment-reference enforcement, warning above the fields, copy that names the field.",
       "dependencies": [
-        "@venlyfinance/react@^0.1.1",
-        "@venlyfinance/sdk@^0.2.0",
+        "@venlyfinance/react@^0.2.0",
+        "@venlyfinance/sdk@^0.3.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -187,8 +187,8 @@
       "title": "Send block",
       "description": "Stage-then-confirm rendered: form, arithmetic-ladder review, a commit button that restates the amount, single execution on a pinned idempotency key, status timeline.",
       "dependencies": [
-        "@venlyfinance/react@^0.1.1",
-        "@venlyfinance/sdk@^0.2.0",
+        "@venlyfinance/react@^0.2.0",
+        "@venlyfinance/sdk@^0.3.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -212,8 +212,8 @@
       "title": "Activity block",
       "description": "Ledger plus a live-synced scrimless detail panel: pending sectioned above settled, a recomputing summary strip that doubles as the scope switch, export that declares scope before format, and arrow-key row stepping.",
       "dependencies": [
-        "@venlyfinance/react@^0.1.1",
-        "@venlyfinance/sdk@^0.2.0",
+        "@venlyfinance/react@^0.2.0",
+        "@venlyfinance/sdk@^0.3.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -239,8 +239,8 @@
       "title": "Balances block",
       "description": "The home surface on the real wallet balance source: available/reserved hero per asset, segmented bar behind the two-bucket threshold, per-asset table, and masking that covers every figure including the chrome miniature.",
       "dependencies": [
-        "@venlyfinance/react@^0.1.1",
-        "@venlyfinance/sdk@^0.2.0",
+        "@venlyfinance/react@^0.2.0",
+        "@venlyfinance/sdk@^0.3.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
