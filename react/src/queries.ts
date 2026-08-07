@@ -9,6 +9,9 @@ import {
   type TransfersQuery,
   type VirtualBankAccountsQuery,
   type WalletsQuery,
+  type CompanyBankAccountsQuery,
+  type CompanyWalletsQuery,
+  type DepositWalletsQuery,
 } from "./query-options.js";
 
 // Consumers may tune any TanStack option except the key/fn pair, which this
@@ -148,3 +151,65 @@ export function useFeeQuote(input: FeeQuoteInput | undefined, options?: Tune<Fee
   });
 }
 type FeeQuote = Awaited<ReturnType<ReturnType<typeof venlyQueries.feeQuote>["queryFn"]>>;
+
+export function useCompanyBankAccounts(
+  query?: CompanyBankAccountsQuery,
+  options?: Tune<BankAccountsPage>,
+) {
+  const clients = useVenly();
+  return useQuery({ ...venlyQueries.companyBankAccounts(clients, query), ...options });
+}
+type BankAccountsPage = Awaited<
+  ReturnType<ReturnType<typeof venlyQueries.companyBankAccounts>["queryFn"]>
+>;
+
+export function useCompanyBankAccount(id: string | undefined, options?: Tune<BankAccountDetail>) {
+  const clients = useVenly();
+  return useQuery({
+    ...venlyQueries.companyBankAccount(clients, id ?? ""),
+    enabled: Boolean(id) && (options?.enabled ?? true),
+    ...options,
+  });
+}
+type BankAccountDetail = Awaited<
+  ReturnType<ReturnType<typeof venlyQueries.companyBankAccount>["queryFn"]>
+>;
+
+export function useCompanyWallets(query?: CompanyWalletsQuery, options?: Tune<WalletsListPage>) {
+  const clients = useVenly();
+  return useQuery({ ...venlyQueries.companyWallets(clients, query), ...options });
+}
+type WalletsListPage = Awaited<
+  ReturnType<ReturnType<typeof venlyQueries.companyWallets>["queryFn"]>
+>;
+
+export function useBankAccountConfig(options?: Tune<BankAccountConfigData>) {
+  const clients = useVenly();
+  return useQuery({
+    ...venlyQueries.bankAccountConfig(clients),
+    staleTime: Infinity, // enabled types/countries change on deploys, not minutes
+    ...options,
+  });
+}
+type BankAccountConfigData = Awaited<
+  ReturnType<ReturnType<typeof venlyQueries.bankAccountConfig>["queryFn"]>
+>;
+
+export function useDepositWallets(query?: DepositWalletsQuery, options?: Tune<DepositWalletsData>) {
+  const clients = useVenly();
+  return useQuery({ ...venlyQueries.depositWallets(clients, query), ...options });
+}
+type DepositWalletsData = Awaited<
+  ReturnType<ReturnType<typeof venlyQueries.depositWallets>["queryFn"]>
+>;
+
+/** Supported on/off-ramp currency pairs, for destination/asset pickers. */
+export function useRampPairs(direction: "on" | "off", options?: Tune<RampPairsData>) {
+  const clients = useVenly();
+  return useQuery({
+    ...venlyQueries.rampPairs(clients, direction),
+    staleTime: Infinity,
+    ...options,
+  });
+}
+type RampPairsData = Awaited<ReturnType<ReturnType<typeof venlyQueries.rampPairs>["queryFn"]>>;

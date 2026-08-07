@@ -36,6 +36,12 @@ export {
   useTransfers,
   useVirtualBankAccounts,
   useWallets,
+  useCompanyBankAccount,
+  useCompanyBankAccounts,
+  useCompanyWallets,
+  useBankAccountConfig,
+  useDepositWallets,
+  useRampPairs,
 } from "./queries.js";
 
 // Write hooks
@@ -45,6 +51,10 @@ export {
   useCreatePaymentSession,
   useCreateRampRequest,
   useCreateVirtualBankAccount,
+  useCreateCompanyBankAccount,
+  useCreateCompanyWallet,
+  useSetRampAmount,
+  useInitiateRamp,
 } from "./mutations.js";
 
 // Flow machines: the regulated-money lifecycles
