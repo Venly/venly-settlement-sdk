@@ -2,18 +2,22 @@ import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { VenlyProvider, useAccounts } from "@venlyfinance/react";
 import "../../../ui/registry/styles/tokens.css";
-import { BalanceCard } from "../../../ui/registry/components/balance-card.js";
+import { BalancesBlock, BalanceMiniature } from "../../../ui/registry/blocks/balances.js";
 import { ConnectedReceiveBlock } from "../../../ui/registry/blocks/receive.js";
 import { SendBlock } from "../../../ui/registry/blocks/send.js";
-import { ActivityBlock } from "../../../ui/registry/blocks/activity.js";
+import { ActivityBlock, type ActivityScope } from "../../../ui/registry/blocks/activity.js";
 
-type Tab = "activity" | "send" | "receive";
+type Tab = "home" | "activity" | "send" | "receive";
 
 function Shell() {
   const { data } = useAccounts();
   const account = data?.items[0];
-  const [tab, setTab] = useState<Tab>("activity");
+  const [tab, setTab] = useState<Tab>("home");
   const [toast, setToast] = useState<string | null>(null);
+  // Masking is a surface-wide contract: the shell owns it so the hero,
+  // the per-asset rows AND the rail miniature hide together.
+  const [masked, setMasked] = useState(false);
+  const [activityScope, setActivityScope] = useState<ActivityScope>("all");
 
   if (!account?.id) {
     return <p style={{ fontFamily: "var(--font-family)", color: "var(--text-tertiary)", padding: 32 }}>Loading…</p>;
@@ -49,11 +53,14 @@ function Shell() {
         >
           Mock Bank
         </div>
-        {(["activity", "send", "receive"] as const).map((t) => (
+        {(["home", "activity", "send", "receive"] as const).map((t) => (
           <button
             key={t}
             type="button"
-            onClick={() => setTab(t)}
+            onClick={() => {
+              if (t === "activity") setActivityScope("all");
+              setTab(t);
+            }}
             style={{
               textAlign: "left",
               border: "none",
@@ -70,6 +77,11 @@ function Shell() {
             {t}
           </button>
         ))}
+        {/* Persistent miniature: the primary available figure echoed in the
+            chrome, sharing the surface's masked state. */}
+        <div style={{ marginTop: "auto", padding: "var(--space-md)" }}>
+          <BalanceMiniature accountId={account.id} masked={masked} />
+        </div>
       </nav>
 
       <main style={{ flex: 1, padding: "var(--space-2xl)", minWidth: 0 }}>
@@ -85,20 +97,21 @@ function Shell() {
           {tab}
         </h1>
 
-        <div style={{ marginBottom: "var(--space-2xl)" }}>
-          <BalanceCard
-            label="Available"
-            available={15100.5}
-            currency="EUR"
+        {tab === "home" ? (
+          <BalancesBlock
+            accountId={account.id}
             qualifier={account.name ?? account.id}
-            buckets={[
-              { label: "Total", amount: 15230.5 },
-              { label: "Reserved out", amount: 130, locked: true },
-            ]}
+            masked={masked}
+            onToggleMasked={() => setMasked((m) => !m)}
+            onReservedDrill={() => {
+              setActivityScope("pending");
+              setTab("activity");
+            }}
           />
-        </div>
-
-        {tab === "activity" ? <ActivityBlock accountId={account.id} /> : null}
+        ) : null}
+        {tab === "activity" ? (
+          <ActivityBlock key={activityScope} accountId={account.id} initialScope={activityScope} />
+        ) : null}
         {tab === "send" ? <SendBlock senderAccountId={account.id} /> : null}
         {tab === "receive" ? (
           <ConnectedReceiveBlock

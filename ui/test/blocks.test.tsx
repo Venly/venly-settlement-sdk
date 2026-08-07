@@ -153,3 +153,161 @@ test("connected receive block renders its loading state under the mock provider 
   );
   assert.match(html, /Loading account details/);
 });
+
+// ── Session A: balances on the real wallet source ─────────────────────
+
+import {
+  assetBalanceRows,
+  segmentedBarBuckets,
+  BalancesView,
+} from "../registry/blocks/balances.js";
+import {
+  GroupedActivityTable,
+  activitySummary,
+  scopeTransfers,
+  signedTransferAmount,
+  transferDirection,
+  exportScopeSentence,
+  transfersToCsv,
+  stepSelection,
+} from "../registry/blocks/activity.js";
+
+const wallets = [
+  {
+    id: "w1",
+    chain: "BASE" as const,
+    type: "VENLY_MANAGED" as const,
+    address: "0x1",
+    amlStatus: "APPROVED" as const,
+    balances: [
+      { asset: "USDC", amount: { total: "15230.500000", available: "15100.500000", reserved: "130.000000" } },
+      { asset: "EURC", amount: { total: "8020.000000", available: "8020.000000", reserved: "0.000000" } },
+    ],
+  },
+  {
+    id: "w2",
+    chain: "AVALANCHE" as const,
+    type: "VENLY_MANAGED" as const,
+    address: "0x2",
+    amlStatus: "APPROVED" as const,
+    balances: [
+      { asset: "USDC", amount: { total: "100.000000", available: "100.000000", reserved: "0.000000" } },
+    ],
+  },
+];
+
+test("balances: rows aggregate per asset across wallets, sorted by available descending", () => {
+  const rows = assetBalanceRows(wallets);
+  assert.deepEqual(
+    rows.map((r) => r.asset),
+    ["USDC", "EURC"],
+  );
+  const usdc = rows[0]!;
+  assert.equal(usdc.total, 15330.5, "totals sum across wallets");
+  assert.equal(usdc.available, 15200.5);
+  assert.equal(usdc.reserved, 130);
+  assert.deepEqual(usdc.chains, ["BASE", "AVALANCHE"]);
+});
+
+test("balances: the segmented bar needs two non-zero buckets - a single band implies a split that isn't there", () => {
+  const rows = assetBalanceRows(wallets);
+  assert.equal(segmentedBarBuckets(rows[0]!).length, 2, "USDC has available AND reserved");
+  assert.equal(segmentedBarBuckets(rows[1]!).length, 0, "EURC has no reserve: no bar");
+  const html = renderToStaticMarkup(<BalancesView rows={rows} />);
+  assert.match(html, /role="img"/, "bar rendered for the primary asset");
+  const eurOnly = renderToStaticMarkup(<BalancesView rows={[rows[1]!]} />);
+  assert.doesNotMatch(eurOnly, /role="img"/, "no bar without a real split");
+});
+
+test("balances: available is the hero from the wallet source; zero reserves render the em-dash", () => {
+  const rows = assetBalanceRows(wallets);
+  const html = renderToStaticMarkup(<BalancesView rows={rows} qualifier="Acme" />);
+  assert.match(html, /15,200\.50/, "hero available comes from the aggregated wallet data");
+  assert.match(html, /15,330\.50/, "total demoted below the rule");
+  // EURC row has reserved 0 -> em-dash, not 0.00 noise.
+  const eurcCells = html.slice(html.indexOf(">EURC<"));
+  const eurcRow = eurcCells.slice(0, eurcCells.indexOf("</tr>"));
+  assert.match(eurcRow, /—/, "zero reserve renders the em-dash");
+});
+
+test("balances: masking covers the hero, the buckets AND every row - not just the headline", () => {
+  const rows = assetBalanceRows(wallets);
+  const html = renderToStaticMarkup(
+    <BalancesView rows={rows} masked onToggleMasked={() => {}} />,
+  );
+  assert.doesNotMatch(html, /15,200|15,330|8,020|130\.00/, "no figure survives masking");
+  assert.match(html, /••••/, "fixed-length mask leaks no magnitude");
+  assert.match(html, /Show/, "masking control is a labelled text link, not an ambiguous icon");
+});
+
+test("activity: pending sits in its own section above settled; the empty section is still drawn", () => {
+  const transfers = [
+    { id: "s1", description: "Old settled", status: "COMPLETED" as const, amount: 10, asset: "USDC" },
+    { id: "p1", description: "In flight", status: "PENDING" as const, amount: 20, asset: "USDC" },
+  ];
+  const html = renderToStaticMarkup(<GroupedActivityTable transfers={transfers} />);
+  const pendingBand = html.indexOf("Pending");
+  const settledBand = html.indexOf("Settled");
+  assert.ok(pendingBand >= 0 && settledBand >= 0, "both section bands drawn");
+  assert.ok(pendingBand < settledBand, "pending above settled");
+  assert.ok(html.indexOf("In flight") < html.indexOf("Old settled"), "rows follow their bands");
+
+  const settledOnly = renderToStaticMarkup(
+    <GroupedActivityTable transfers={[transfers[0]!]} />,
+  );
+  assert.match(settledOnly, /Pending/, "empty pending section still drawn - a zero count is a state");
+});
+
+test("activity: amounts are signed relative to the account, and the level stays neutral", () => {
+  const t = { id: "t1", senderAccountId: "me", receiverAccountId: "them", amount: 50, asset: "USDC", status: "COMPLETED" as const };
+  assert.equal(transferDirection(t, "me"), "out");
+  assert.equal(transferDirection(t, "them"), "in");
+  assert.equal(signedTransferAmount(t, "me"), -50);
+  assert.equal(signedTransferAmount(t, "them"), 50);
+  assert.equal(signedTransferAmount(t), 50, "unsigned without an account perspective");
+
+  const html = renderToStaticMarkup(<GroupedActivityTable transfers={[t]} accountId="me" />);
+  assert.match(html, /−50\.00/, "true minus sign on outgoing");
+  assert.doesNotMatch(html, /state-danger-fg[^"]*">−50/, "debits are not red");
+});
+
+test("activity: the summary recomputes per filter and the scope switch actually scopes", () => {
+  const transfers = [
+    { id: "1", status: "COMPLETED" as const, asset: "USDC", amount: 1 },
+    { id: "2", status: "PENDING" as const, asset: "USDC", amount: 2 },
+    { id: "3", status: "FAILED" as const, asset: "EURC", amount: 3 },
+  ];
+  assert.deepEqual(activitySummary(transfers), { transfers: 3, pending: 1, failed: 1 });
+  const usdcOnly = transfers.filter((t) => t.asset === "USDC");
+  assert.deepEqual(activitySummary(usdcOnly), { transfers: 2, pending: 1, failed: 0 });
+  assert.deepEqual(scopeTransfers(transfers, "pending").map((t) => t.id), ["2"]);
+  assert.deepEqual(scopeTransfers(transfers, "failed").map((t) => t.id), ["3"]);
+  assert.equal(scopeTransfers(transfers, "all").length, 3);
+});
+
+test("activity export: scope is declared in prose before any format choice", () => {
+  assert.equal(exportScopeSentence(3, 3), "Exports all 3 transfers on this account.");
+  assert.equal(
+    exportScopeSentence(2, 5),
+    "Exports the 2 transfers matching your current filters, out of 5.",
+  );
+  const csv = transfersToCsv(
+    [{ id: "t1", senderAccountId: "me", amount: 12.5, asset: "USDC", status: "COMPLETED" as const, description: "Has, comma" }],
+    "me",
+  );
+  const [header, row] = csv.split("\n");
+  assert.match(header!, /^id,createdAt,direction,asset,chain,amount,status/);
+  assert.match(row!, /"Has, comma"/, "csv fields with commas are quoted");
+  assert.match(row!, /,out,/, "direction travels with the export");
+  assert.match(row!, /-12\.5/, "signed amount in the export");
+});
+
+test("activity keyboard: arrows step through visible rows without wrapping, from and to the edges", () => {
+  const ids = ["a", "b", "c"];
+  assert.equal(stepSelection(ids, "a", 1), "b");
+  assert.equal(stepSelection(ids, "c", 1), "c", "no wrap at the bottom");
+  assert.equal(stepSelection(ids, "a", -1), "a", "no wrap at the top");
+  assert.equal(stepSelection(ids, null, 1), "a", "down from nothing selects the first row");
+  assert.equal(stepSelection(ids, "gone", 1), "a", "a filtered-away selection resets to the top");
+  assert.equal(stepSelection([], "a", 1), null);
+});

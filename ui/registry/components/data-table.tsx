@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactElement, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 
 /**
  * Data table – the ledger register.
@@ -12,6 +12,11 @@ import type { CSSProperties, ReactElement, ReactNode } from "react";
  * - Empty cells render an em-dash – blank reads as a load failure.
  * - Cells truncate with ellipsis; wrapping rows destroy scanability.
  * - No zebra striping: hairline separators only.
+ * - Grouped mode: section bands at ~60% of a data row ([chevron] name ·
+ *   count). Empty groups are still DRAWN, collapsed to the single band –
+ *   "Pending: 0" is a state, not a missing feature. Needs-attention groups
+ *   carry a small dot; the count is the signal, absence of a count means
+ *   nothing to do.
  */
 export interface DataTableColumn<Row> {
   key: string;
@@ -23,6 +28,14 @@ export interface DataTableColumn<Row> {
   cell: (row: Row) => ReactNode;
 }
 
+export interface DataTableGroup<Row> {
+  key: string;
+  label: string;
+  rows: Row[];
+  /** Renders the small dot beside the label when the group has rows. */
+  attention?: boolean;
+}
+
 export interface DataTableProps<Row> {
   columns: DataTableColumn<Row>[];
   rows: Row[];
@@ -30,6 +43,11 @@ export interface DataTableProps<Row> {
   onRowClick?: (row: Row) => void;
   /** Row currently opened in a side panel; stays tinted. */
   selectedKey?: string;
+  /**
+   * Sectioned rendering: rows come from the groups, in order, each under
+   * its own collapsible band. `rows` is ignored while groups are set.
+   */
+  groups?: DataTableGroup<Row>[];
   emptyMessage?: string;
   style?: CSSProperties;
   className?: string;
@@ -47,10 +65,48 @@ export function DataTable<Row>({
   rowKey,
   onRowClick,
   selectedKey,
+  groups,
   emptyMessage = "Nothing here yet",
   style,
   className,
 }: DataTableProps<Row>): ReactElement {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const renderRow = (row: Row): ReactElement => {
+    const key = rowKey(row);
+    const selected = key === selectedKey;
+    return (
+      <tr
+        key={key}
+        data-selected={selected || undefined}
+        onClick={onRowClick ? () => onRowClick(row) : undefined}
+        style={{
+          height: "var(--row-pitch)",
+          borderBottom: "var(--border-w-hairline) solid var(--border-hairline)",
+          background: selected ? "var(--selected-tint)" : undefined,
+          cursor: onRowClick ? "pointer" : undefined,
+        }}
+      >
+        {columns.map((col) => (
+          <td
+            key={col.key}
+            style={{
+              padding: "var(--cell-pad-y) var(--cell-pad-x)",
+              textAlign: col.money ? "right" : (col.align ?? "left"),
+              fontVariantNumeric: col.money ? "tabular-nums" : undefined,
+              maxWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {cellContent(col.cell(row))}
+          </td>
+        ))}
+      </tr>
+    );
+  };
+
   return (
     <table
       className={className}
@@ -86,7 +142,61 @@ export function DataTable<Row>({
         </tr>
       </thead>
       <tbody>
-        {rows.length === 0 ? (
+        {groups ? (
+          groups.flatMap((group) => {
+            const isEmpty = group.rows.length === 0;
+            const isCollapsed = isEmpty || (collapsed[group.key] ?? false);
+            const band = (
+              <tr key={`group-${group.key}`} data-group={group.key}>
+                <td colSpan={columns.length} style={{ padding: 0, borderBottom: "var(--border-w-hairline) solid var(--border-hairline)" }}>
+                  <button
+                    type="button"
+                    aria-expanded={!isCollapsed}
+                    onClick={
+                      isEmpty
+                        ? undefined
+                        : () => setCollapsed((c) => ({ ...c, [group.key]: !isCollapsed }))
+                    }
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "var(--space-xs)",
+                      width: "100%",
+                      height: "var(--group-header-pitch)",
+                      border: "none",
+                      background: "none",
+                      cursor: isEmpty ? "default" : "pointer",
+                      padding: "0 var(--cell-pad-x)",
+                      fontFamily: "var(--font-family)",
+                      fontSize: "var(--font-size-micro)",
+                      fontWeight: 500,
+                      color: "var(--text-secondary)",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span aria-hidden="true">{isCollapsed ? "▸" : "▾"}</span>
+                    <span>{group.label}</span>
+                    <span style={{ color: "var(--text-tertiary)", fontWeight: 400 }}>
+                      {group.rows.length}
+                    </span>
+                    {group.attention && group.rows.length > 0 ? (
+                      <span
+                        aria-label="needs attention"
+                        style={{
+                          width: "var(--attention-dot)",
+                          height: "var(--attention-dot)",
+                          borderRadius: "var(--radius-pill)",
+                          background: "var(--accent)",
+                        }}
+                      />
+                    ) : null}
+                  </button>
+                </td>
+              </tr>
+            );
+            return isCollapsed ? [band] : [band, ...group.rows.map(renderRow)];
+          })
+        ) : rows.length === 0 ? (
           <tr>
             <td
               colSpan={columns.length}
@@ -100,40 +210,7 @@ export function DataTable<Row>({
             </td>
           </tr>
         ) : (
-          rows.map((row) => {
-            const key = rowKey(row);
-            const selected = key === selectedKey;
-            return (
-              <tr
-                key={key}
-                data-selected={selected || undefined}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                style={{
-                  height: "var(--row-pitch)",
-                  borderBottom: "var(--border-w-hairline) solid var(--border-hairline)",
-                  background: selected ? "var(--selected-tint)" : undefined,
-                  cursor: onRowClick ? "pointer" : undefined,
-                }}
-              >
-                {columns.map((col) => (
-                  <td
-                    key={col.key}
-                    style={{
-                      padding: "var(--cell-pad-y) var(--cell-pad-x)",
-                      textAlign: col.money ? "right" : (col.align ?? "left"),
-                      fontVariantNumeric: col.money ? "tabular-nums" : undefined,
-                      maxWidth: 0,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {cellContent(col.cell(row))}
-                  </td>
-                ))}
-              </tr>
-            );
-          })
+          rows.map(renderRow)
         )}
       </tbody>
     </table>

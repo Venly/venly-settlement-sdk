@@ -146,8 +146,15 @@ const BLOCKS = [
     name: "activity",
     title: "Activity block",
     description:
-      "Ledger plus a live-synced scrimless detail panel; settled rows stay quiet, the failure reason rides the terminal timeline node.",
+      "Ledger plus a live-synced scrimless detail panel: pending sectioned above settled, a recomputing summary strip that doubles as the scope switch, export that declares scope before format, and arrow-key row stepping.",
     deps: ["data-table", "status-pill", "side-panel", "timeline"],
+  },
+  {
+    name: "balances",
+    title: "Balances block",
+    description:
+      "The home surface on the real wallet balance source: available/reserved hero per asset, segmented bar behind the two-bucket threshold, per-asset table, and masking that covers every figure including the chrome miniature.",
+    deps: ["balance-card", "data-table"],
   },
 ].map((b) => ({
   $schema: SCHEMA_ITEM,
