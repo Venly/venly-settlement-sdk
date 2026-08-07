@@ -132,6 +132,29 @@ test("a rejected submit lands in failed/submit-error with the API error attached
   c.dispose();
 });
 
+test("StrictMode lifecycle: dispose then re-subscribe revives the controller", async () => {
+  // React StrictMode runs mount -> cleanup -> mount on the same instance;
+  // the hook's cleanup calls dispose() and the remount re-subscribes.
+  const clients = mockClients();
+  const c = new StagedTransferController(clients, { pollIntervalMs: 5, maxPollMs: 4_000 });
+
+  c.subscribe(() => {});
+  c.dispose(); // simulated StrictMode unmount
+  const seen: string[] = [];
+  c.subscribe(() => seen.push(c.getSnapshot().phase)); // remount
+
+  c.stage(await seededDraft(clients));
+  await c.confirm();
+  const s = c.getSnapshot();
+  assert.notEqual(s.phase, "submitting", "flow must not stick in submitting after remount");
+  assert.ok(
+    s.phase === "pending" || s.phase === "completed",
+    `unexpected phase ${s.phase}`,
+  );
+  assert.ok(seen.length > 0, "re-subscribed listener received updates");
+  c.dispose();
+});
+
 test("confirm() is a no-op unless staged (no double execution)", async () => {
   const clients = mockClients();
   const c = new StagedTransferController(clients, { pollIntervalMs: 5, maxPollMs: 4_000 });

@@ -102,6 +102,12 @@ export class StagedTransferController {
   ) {}
 
   subscribe = (listener: () => void): (() => void) => {
+    // A new subscription revives a disposed controller. React StrictMode
+    // mounts, unmounts and remounts the same component instance: the
+    // cleanup dispose() must not leave the controller permanently dead for
+    // the remount, or confirm()'s continuation silently drops its state
+    // updates and the flow sticks in "submitting".
+    this.#disposed = false;
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   };

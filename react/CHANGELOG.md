@@ -10,3 +10,7 @@ Initial release.
 - `proxyClientOptions()` for the browser-safe production shape; its placeholder credential is the exported `VENLY_PROXY_SECRET_SENTINEL`, which the browser guard recognises as not-a-secret.
 - The browser guard covers every path a secret can take into the provider: the top-level prop and both per-client options objects.
 - 30 node:test cases against the SDK's mock transport; zero network.
+
+## 0.1.1
+
+- Fix: `useStagedTransfer` stuck in "submitting" under React StrictMode – the hook cleanup's `dispose()` left the controller permanently dead for the remount, so `confirm()`'s continuation dropped its state updates. A new subscription now revives the controller. Found by driving the flow in a real browser; regression test added.
