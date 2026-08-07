@@ -87,3 +87,16 @@ its package name and compatibility binary throughout the 0.x line.
 ### Security
 
 - Runtime dependency audits report zero findings after the MCP SDK/Hono upgrade.
+
+## 0.4.0 – 2026-08-07
+
+Frontend toolset: the judgment layer for interface assembly.
+
+- `get_journey_blueprint` – screen inventory, required states, registry items and binding hooks for eight money-product journeys.
+- `review_screen` – deterministic design audit (raw colours, hyphen-minus amounts, success styling on cancelled steps, masked review values, zebra striping, off-token shadows, gradients, colour-only state). Findings, not a score.
+- `venly://frontend/agents` resource – composition rules plus the @venlyfinance shadcn-registry wiring (delivery of UI source rides the registry standard; these tools carry what a registry cannot).
+- `build_international_account` prompt now assembles the interface from the registry and gates every screen on `review_screen`.
+
+### Removed
+
+- **`stage_transfer`**, as promised in 0.3.0's deprecation: use `create_fiat_transfer`, whose inputs match the OpenAPI contract directly. The skills pack is updated accordingly.

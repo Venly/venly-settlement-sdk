@@ -92,7 +92,7 @@ Builder writes: `create_party`, `create_account`,
 `create_crypto_transfer`, `create_payment_session`.
 
 Operator writes: `approve_ramp_request`, `reject_ramp_request`. The legacy
-`stage_transfer` name remains as a compatibility tool; new builds use
+`stage_transfer` alias was removed in 0.4.0 as deprecated in 0.3.0; use
 `create_fiat_transfer` and its current OpenAPI field names.
 
 Each is dry-run by default and returns the exact request it would send. See the
@@ -105,6 +105,23 @@ chain) for a settlement action, following the x402 `PaymentRequirements` model.
 It documents the machine-to-machine rail. It never executes a payment, never
 calls a facilitator, and never moves funds. Production x402 settlement needs a
 facilitator decision and live rails.
+
+## Frontend toolset (interface assembly)
+
+Delivery of UI source rides the shadcn registry standard – add
+`{ "registries": { "@venlyfinance": "https://raw.githubusercontent.com/Venly/venly-settlement-sdk/main/ui/r/{name}.json" } }`
+to `components.json`, then `npx shadcn@latest add @venlyfinance/receive`. The MCP carries
+what a registry cannot:
+
+- `get_journey_blueprint` – screen inventory, required states, registry items and binding
+  hooks for eight money-product journeys.
+- `review_screen` – deterministic design audit of a screen's source (raw colours,
+  hyphen-minus amounts, success styling on cancelled steps, masked review values, zebra
+  striping, off-token shadows, colour-only state). Findings, not a score.
+- `venly://frontend/agents` – the composition rules an agent should read before building.
+
+The `build_international_account` prompt assembles the interface from the registry and
+gates every finished screen on `review_screen`. See [`ui/`](../ui/README.md) for the kit itself.
 
 ## Safety model (fail closed)
 
@@ -211,8 +228,8 @@ reads, and fail-closed write gate without mutating staging:
 VENLY_CLIENT_ID=... VENLY_CLIENT_SECRET=... npm run smoke:staging
 ```
 
-The command starts the MCP with `VENLY_ENV=staging`, lists the expected 23 tools,
-four resources, and builder prompt, then reads parties, accounts, and reference data.
+The command starts the MCP with `VENLY_ENV=staging`, lists the expected 24 tools,
+five resources, and builder prompt, then reads parties, accounts, and reference data.
 It deliberately removes `VENLY_MCP_LIVE` and `VENLY_MCP_PRODUCTION` from the child
 process before submitting one confirmed `create_party` request. Passing requires that
 request to return `mode: dry-run`, `environment: staging`, and an unarmed gate. Output

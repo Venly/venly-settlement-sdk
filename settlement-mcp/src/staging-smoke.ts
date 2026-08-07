@@ -26,11 +26,12 @@ export const EXPECTED_TOOLS = [
   "create_virtual_bank_account",
   "create_fiat_transfer",
   "create_crypto_transfer",
-  "stage_transfer",
   "approve_ramp_request",
   "reject_ramp_request",
   "create_payment_session",
   "quote_x402_payment",
+  "get_journey_blueprint",
+  "review_screen",
 ] as const;
 
 export const EXPECTED_RESOURCE_URIS = [
@@ -38,6 +39,7 @@ export const EXPECTED_RESOURCE_URIS = [
   "venly://safety",
   "venly://workflows/international-account",
   "venly://workflows/mock-to-staging",
+  "venly://frontend/agents",
 ] as const;
 
 export const EXPECTED_PROMPTS = ["build_international_account"] as const;

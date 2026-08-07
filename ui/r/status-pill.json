@@ -1,0 +1,18 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "status-pill",
+  "type": "registry:component",
+  "title": "Status pill",
+  "description": "Word plus glyph on every state so status survives greyscale; tinted background, 4px data-value rectangle.",
+  "registryDependencies": [
+    "@venlyfinance/venly-tokens"
+  ],
+  "files": [
+    {
+      "path": "registry/components/status-pill.tsx",
+      "type": "registry:component",
+      "target": "~/components/venly/components/status-pill.tsx",
+      "content": "import type { CSSProperties, ReactElement } from \"react\";\n\n/**\n * Status pill – reads as a data value in a table column.\n *\n * Design contract encoded by this component:\n * - 4px radius rectangle (not fully rounded) in data contexts.\n * - Tinted background + text at the dark step of the same ramp; you should\n *   be able to read row text through the pill.\n * - State is never carried by colour alone: every pill renders word AND\n *   glyph. Glyph trails the word (`Failed ✕`) – trailing is calmer.\n * - Cancelled is a neutral terminal: grey with ↺, never red, never green.\n */\nexport type StatusIntent = \"positive\" | \"negative\" | \"pending\" | \"neutral\" | \"active\";\n\nconst INTENT_VARS: Record<StatusIntent, { fg: string; bg: string }> = {\n  positive: { fg: \"var(--state-success-fg)\", bg: \"var(--state-success-bg)\" },\n  negative: { fg: \"var(--state-danger-fg)\", bg: \"var(--state-danger-bg)\" },\n  pending: { fg: \"var(--state-pending-fg)\", bg: \"var(--state-pending-bg)\" },\n  neutral: { fg: \"var(--state-neutral-fg)\", bg: \"var(--state-neutral-bg)\" },\n  active: { fg: \"var(--accent)\", bg: \"var(--state-neutral-bg)\" },\n};\n\nconst DEFAULT_GLYPH: Record<StatusIntent, string> = {\n  positive: \"✓\", // ✓\n  negative: \"✕\", // ✕\n  pending: \"○\", // ○\n  neutral: \"↺\", // ↺ (cancelled/returned family)\n  active: \"●\", // ●\n};\n\nexport interface StatusPillProps {\n  label: string;\n  intent: StatusIntent;\n  /** Override the default glyph for this intent; pass one character. */\n  glyph?: string;\n  style?: CSSProperties;\n  className?: string;\n}\n\nexport function StatusPill({\n  label,\n  intent,\n  glyph,\n  style,\n  className,\n}: StatusPillProps): ReactElement {\n  const colors = INTENT_VARS[intent];\n  return (\n    <span\n      className={className}\n      data-intent={intent}\n      style={{\n        display: \"inline-flex\",\n        alignItems: \"center\",\n        gap: \"var(--space-2xs)\",\n        padding: \"var(--pill-pad)\",\n        borderRadius: \"var(--radius-pill)\",\n        fontSize: \"var(--font-size-micro)\",\n        fontWeight: 500,\n        lineHeight: 1.4,\n        color: colors.fg,\n        background: colors.bg,\n        whiteSpace: \"nowrap\",\n        ...style,\n      }}\n    >\n      {label}\n      <span aria-hidden=\"true\">{glyph ?? DEFAULT_GLYPH[intent]}</span>\n    </span>\n  );\n}\n"
+    }
+  ]
+}

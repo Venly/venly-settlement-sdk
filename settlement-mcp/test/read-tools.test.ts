@@ -27,8 +27,7 @@ test("server enumerates all read + write + x402 tools over the harness", async (
   }
   // Write tier
   for (const t of [
-    "stage_transfer",
-    "approve_ramp_request",
+        "approve_ramp_request",
     "reject_ramp_request",
     "create_payment_session",
   ]) {
@@ -37,7 +36,7 @@ test("server enumerates all read + write + x402 tools over the harness", async (
   // x402 tier
   assert.ok(names.includes("quote_x402_payment"), "missing x402 tool");
 
-  assert.equal(tools.length, 23, "expected 23 tools total");
+  assert.equal(tools.length, 24, "expected 24 tools total");
   await h.close();
 });
 

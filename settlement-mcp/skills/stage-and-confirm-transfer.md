@@ -11,13 +11,13 @@ fiat to crypto.
 ## Tools
 
 - `get_account` (read)
-- `stage_transfer` (write, disarmed by default)
+- `create_fiat_transfer` (write, disarmed by default)
 - `get_transfer` (read)
 
 ## Steps
 
 1. `get_account` for the `senderAccountId` to confirm it is active.
-2. Stage the transfer: call `stage_transfer` with `senderAccountId`,
+2. Stage the transfer: call `create_fiat_transfer` with `senderAccountId`,
    `receiverAccountId`, `fiatAmount` (decimal string), `fiatCurrency`, and
    optionally `cryptocurrency`, `description`, `merchantReference`. Omit
    `confirm` (or set it false).

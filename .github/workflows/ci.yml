@@ -46,6 +46,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      # The committed registry JSON under ui/r/ is generated; fail on drift.
+      - run: npm run build:registry && git diff --exit-code -- r
 
   example-mock-bank:
     runs-on: ubuntu-latest

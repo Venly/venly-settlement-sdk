@@ -18,6 +18,7 @@ import { registerWriteTools } from "./tools/write-tools.js";
 import { registerX402Tools } from "./tools/x402-tools.js";
 import { registerBuilderResources } from "./resources.js";
 import { registerBuilderPrompts } from "./prompts.js";
+import { registerFrontendTools } from "./frontend.js";
 
 export interface CreateServerOptions {
   client: VenlyClient;
@@ -51,6 +52,7 @@ export function createServer(options: CreateServerOptions): McpServer {
   registerReadTools(server, options.client);
   registerWriteTools(server, options.client, env);
   registerX402Tools(server);
+  registerFrontendTools(server);
   registerBuilderResources(server);
   registerBuilderPrompts(server);
 
