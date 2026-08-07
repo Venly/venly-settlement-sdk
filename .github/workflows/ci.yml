@@ -17,6 +17,22 @@ jobs:
       - run: npm run check
       - run: npm test   # builds ESM + CJS, then runs the full node:test suite
 
+  react:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: react
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run typecheck:test
+      - run: npm test
+      - run: npm run build
+
   settlement-mcp:
     runs-on: ubuntu-latest
     defaults:
