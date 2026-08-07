@@ -121,7 +121,7 @@ const COMPONENTS = [
   type: "registry:component",
   title: c.title,
   description: c.description,
-  registryDependencies: ["venly-tokens", ...c.deps],
+  registryDependencies: ["@venlyfinance/venly-tokens", ...c.deps.map((d) => `@venlyfinance/${d}`)],
   files: [file(`components/${c.name}.tsx`, "registry:component")],
 }));
 
@@ -154,7 +154,7 @@ const BLOCKS = [
   title: b.title,
   description: b.description,
   dependencies: RUNTIME_DEPENDENCIES,
-  registryDependencies: ["venly-tokens", "money", ...b.deps],
+  registryDependencies: ["@venlyfinance/venly-tokens", "@venlyfinance/money", ...b.deps.map((d) => `@venlyfinance/${d}`)],
   files: [file(`blocks/${b.name}.tsx`, "registry:component")],
 }));
 
@@ -171,6 +171,19 @@ for (const dir of ["styles", "lib", "components", "blocks"]) {
 const missing = sources.filter((s) => !delivered.has(s));
 if (missing.length > 0) {
   console.error("Registry item missing for source file(s):", missing.join(", "));
+  process.exit(1);
+}
+
+// Bare names would resolve against the DEFAULT shadcn registry and 404;
+// every cross-item reference must be namespaced and must exist here.
+const itemNames = new Set(items.map((i) => i.name));
+const badRefs = items.flatMap((i) =>
+  (i.registryDependencies ?? [])
+    .filter((d) => !d.startsWith("@venlyfinance/") || !itemNames.has(d.slice("@venlyfinance/".length)))
+    .map((d) => `${i.name} -> ${d}`),
+);
+if (badRefs.length > 0) {
+  console.error("Unresolvable or un-namespaced registryDependencies:", badRefs.join(", "));
   process.exit(1);
 }
 

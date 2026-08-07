@@ -5,7 +5,7 @@
   "title": "Field list with copy",
   "description": "The receive surface: bare values, per-field copy naming the field, amber Required pill, '(not required)' variants instead of vanishing rows.",
   "registryDependencies": [
-    "venly-tokens"
+    "@venlyfinance/venly-tokens"
   ],
   "files": [
     {

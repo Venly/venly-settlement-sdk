@@ -5,7 +5,7 @@
   "title": "Data table",
   "description": "The ledger register: token-driven row pitch, hairline-only header, right-aligned tabular money, em-dash empties, no zebra, no shadow.",
   "registryDependencies": [
-    "venly-tokens"
+    "@venlyfinance/venly-tokens"
   ],
   "files": [
     {

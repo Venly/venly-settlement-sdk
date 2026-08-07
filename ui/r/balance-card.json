@@ -5,8 +5,8 @@
   "title": "Balance card",
   "description": "The available/reserved composition: available is the only figure above the rule; reserved demoted by position and scale, padlocked when unspendable.",
   "registryDependencies": [
-    "venly-tokens",
-    "money"
+    "@venlyfinance/venly-tokens",
+    "@venlyfinance/money"
   ],
   "files": [
     {

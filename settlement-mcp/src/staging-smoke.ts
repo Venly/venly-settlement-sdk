@@ -26,7 +26,6 @@ export const EXPECTED_TOOLS = [
   "create_virtual_bank_account",
   "create_fiat_transfer",
   "create_crypto_transfer",
-  "stage_transfer",
   "approve_ramp_request",
   "reject_ramp_request",
   "create_payment_session",

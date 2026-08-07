@@ -5,8 +5,8 @@
   "title": "Side panel",
   "description": "Record detail beside the table, never a navigation: scrimless, the amount is the hero, arrow-key row stepping.",
   "registryDependencies": [
-    "venly-tokens",
-    "money"
+    "@venlyfinance/venly-tokens",
+    "@venlyfinance/money"
   ],
   "files": [
     {

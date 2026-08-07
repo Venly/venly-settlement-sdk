@@ -5,7 +5,7 @@
   "title": "Status pill",
   "description": "Word plus glyph on every state so status survives greyscale; tinted background, 4px data-value rectangle.",
   "registryDependencies": [
-    "venly-tokens"
+    "@venlyfinance/venly-tokens"
   ],
   "files": [
     {

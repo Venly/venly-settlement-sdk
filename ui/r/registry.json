@@ -39,7 +39,7 @@
       "title": "Status pill",
       "description": "Word plus glyph on every state so status survives greyscale; tinted background, 4px data-value rectangle.",
       "registryDependencies": [
-        "venly-tokens"
+        "@venlyfinance/venly-tokens"
       ],
       "files": [
         {
@@ -56,7 +56,7 @@
       "title": "Data table",
       "description": "The ledger register: token-driven row pitch, hairline-only header, right-aligned tabular money, em-dash empties, no zebra, no shadow.",
       "registryDependencies": [
-        "venly-tokens"
+        "@venlyfinance/venly-tokens"
       ],
       "files": [
         {
@@ -73,7 +73,7 @@
       "title": "Vertical timeline",
       "description": "Three-axis state story: solid past, dotted future, donut current; terminal failure is never a green check.",
       "registryDependencies": [
-        "venly-tokens"
+        "@venlyfinance/venly-tokens"
       ],
       "files": [
         {
@@ -90,8 +90,8 @@
       "title": "Balance card",
       "description": "The available/reserved composition: available is the only figure above the rule; reserved demoted by position and scale, padlocked when unspendable.",
       "registryDependencies": [
-        "venly-tokens",
-        "money"
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/money"
       ],
       "files": [
         {
@@ -108,8 +108,8 @@
       "title": "Side panel",
       "description": "Record detail beside the table, never a navigation: scrimless, the amount is the hero, arrow-key row stepping.",
       "registryDependencies": [
-        "venly-tokens",
-        "money"
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/money"
       ],
       "files": [
         {
@@ -126,7 +126,7 @@
       "title": "Field list with copy",
       "description": "The receive surface: bare values, per-field copy naming the field, amber Required pill, '(not required)' variants instead of vanishing rows.",
       "registryDependencies": [
-        "venly-tokens"
+        "@venlyfinance/venly-tokens"
       ],
       "files": [
         {
@@ -143,8 +143,8 @@
       "title": "Arithmetic ladder",
       "description": "Transfer review: literal operators in the gutter, working before the answer, tint-band total, uncertainty attached to the number.",
       "registryDependencies": [
-        "venly-tokens",
-        "money"
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/money"
       ],
       "files": [
         {
@@ -166,9 +166,9 @@
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
-        "venly-tokens",
-        "money",
-        "field-list"
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/money",
+        "@venlyfinance/field-list"
       ],
       "files": [
         {
@@ -190,10 +190,10 @@
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
-        "venly-tokens",
-        "money",
-        "arithmetic-ladder",
-        "timeline"
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/money",
+        "@venlyfinance/arithmetic-ladder",
+        "@venlyfinance/timeline"
       ],
       "files": [
         {
@@ -215,12 +215,12 @@
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
-        "venly-tokens",
-        "money",
-        "data-table",
-        "status-pill",
-        "side-panel",
-        "timeline"
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/money",
+        "@venlyfinance/data-table",
+        "@venlyfinance/status-pill",
+        "@venlyfinance/side-panel",
+        "@venlyfinance/timeline"
       ],
       "files": [
         {

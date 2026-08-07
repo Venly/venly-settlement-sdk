@@ -10,10 +10,10 @@
     "@tanstack/react-query@^5.0.0"
   ],
   "registryDependencies": [
-    "venly-tokens",
-    "money",
-    "arithmetic-ladder",
-    "timeline"
+    "@venlyfinance/venly-tokens",
+    "@venlyfinance/money",
+    "@venlyfinance/arithmetic-ladder",
+    "@venlyfinance/timeline"
   ],
   "files": [
     {

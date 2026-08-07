@@ -10,9 +10,9 @@
     "@tanstack/react-query@^5.0.0"
   ],
   "registryDependencies": [
-    "venly-tokens",
-    "money",
-    "field-list"
+    "@venlyfinance/venly-tokens",
+    "@venlyfinance/money",
+    "@venlyfinance/field-list"
   ],
   "files": [
     {

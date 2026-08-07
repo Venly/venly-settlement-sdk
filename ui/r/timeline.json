@@ -5,7 +5,7 @@
   "title": "Vertical timeline",
   "description": "Three-axis state story: solid past, dotted future, donut current; terminal failure is never a green check.",
   "registryDependencies": [
-    "venly-tokens"
+    "@venlyfinance/venly-tokens"
   ],
   "files": [
     {

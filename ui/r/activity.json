@@ -10,12 +10,12 @@
     "@tanstack/react-query@^5.0.0"
   ],
   "registryDependencies": [
-    "venly-tokens",
-    "money",
-    "data-table",
-    "status-pill",
-    "side-panel",
-    "timeline"
+    "@venlyfinance/venly-tokens",
+    "@venlyfinance/money",
+    "@venlyfinance/data-table",
+    "@venlyfinance/status-pill",
+    "@venlyfinance/side-panel",
+    "@venlyfinance/timeline"
   ],
   "files": [
     {

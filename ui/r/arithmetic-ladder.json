@@ -5,8 +5,8 @@
   "title": "Arithmetic ladder",
   "description": "Transfer review: literal operators in the gutter, working before the answer, tint-band total, uncertainty attached to the number.",
   "registryDependencies": [
-    "venly-tokens",
-    "money"
+    "@venlyfinance/venly-tokens",
+    "@venlyfinance/money"
   ],
   "files": [
     {
