@@ -13,6 +13,11 @@ import { Money } from "../lib/money.js";
  *   greyscale and needs no legend.
  * - Bucket labels name the mechanism ("Reserved against card authorisation,
  *   releases 14 Mar"), never a bare "Reserved".
+ * - Masking is a labelled text control (never an ambiguous icon) and covers
+ *   the hero AND the demoted buckets – a masked hero beside visible deltas
+ *   leaks what masking promised to hide.
+ * - Every reserved aggregate drills through to the records causing it:
+ *   pass onDrill on a bucket and it becomes a real control.
  * - No shadow: the card sits in the base layer, separated by a hairline.
  */
 export interface BalanceBucket {
@@ -21,6 +26,8 @@ export interface BalanceBucket {
   amount: number | null | undefined;
   /** Marks unspendable money with the padlock glyph. */
   locked?: boolean;
+  /** Drill-through to the records causing this bucket. */
+  onDrill?: () => void;
 }
 
 export interface BalanceCardProps {
@@ -32,6 +39,10 @@ export interface BalanceCardProps {
   buckets?: BalanceBucket[];
   /** Secondary line under the hero: a qualifier naming the figure. */
   qualifier?: ReactNode;
+  /** Masks every figure on the card (hero and buckets alike). */
+  masked?: boolean;
+  /** When provided, renders the labelled Hide/Show control on the label row. */
+  onToggleMasked?: () => void;
   style?: CSSProperties;
   className?: string;
 }
@@ -42,6 +53,8 @@ export function BalanceCard({
   currency,
   buckets = [],
   qualifier,
+  masked = false,
+  onToggleMasked,
   style,
   className,
 }: BalanceCardProps): ReactElement {
@@ -60,16 +73,37 @@ export function BalanceCard({
     >
       <div
         style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
           fontSize: "var(--font-size-micro)",
           fontWeight: 500,
           color: "var(--text-tertiary)",
           marginBottom: "var(--space-xs)",
         }}
       >
-        {label}
+        <span>{label}</span>
+        {onToggleMasked ? (
+          <button
+            type="button"
+            onClick={onToggleMasked}
+            style={{
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              padding: 0,
+              fontFamily: "var(--font-family)",
+              fontSize: "var(--font-size-micro)",
+              color: "var(--text-secondary)",
+              textDecoration: "underline",
+            }}
+          >
+            {masked ? "Show" : "Hide"}
+          </button>
+        ) : null}
       </div>
       <div>
-        <Money amount={available} currency={currency} emphasis="hero" />
+        <Money amount={available} currency={currency} emphasis="hero" masked={masked} />
       </div>
       {qualifier !== undefined ? (
         <div
@@ -92,30 +126,55 @@ export function BalanceCard({
             gap: "var(--space-2xl)",
           }}
         >
-          {buckets.map((bucket) => (
-            <div key={bucket.label} data-locked={bucket.locked || undefined}>
-              <div
+          {buckets.map((bucket) => {
+            const body = (
+              <>
+                <div
+                  style={{
+                    fontSize: "var(--font-size-micro)",
+                    color: "var(--text-tertiary)",
+                    marginBottom: "var(--space-3xs)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {bucket.locked ? (
+                    <span aria-label="not spendable" style={{ marginRight: "var(--space-2xs)" }}>
+                      🔒
+                    </span>
+                  ) : null}
+                  {bucket.label}
+                </div>
+                <Money
+                  amount={bucket.amount}
+                  fractionDigits={2}
+                  masked={masked}
+                  style={{ fontSize: "var(--font-size-label)", fontWeight: 400 }}
+                />
+              </>
+            );
+            return bucket.onDrill ? (
+              <button
+                key={bucket.label}
+                type="button"
+                data-locked={bucket.locked || undefined}
+                onClick={bucket.onDrill}
                 style={{
-                  fontSize: "var(--font-size-micro)",
-                  color: "var(--text-tertiary)",
-                  marginBottom: "var(--space-3xs)",
-                  whiteSpace: "nowrap",
+                  border: "none",
+                  background: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "var(--font-family)",
                 }}
               >
-                {bucket.locked ? (
-                  <span aria-label="not spendable" style={{ marginRight: "var(--space-2xs)" }}>
-                    🔒
-                  </span>
-                ) : null}
-                {bucket.label}
+                {body}
+              </button>
+            ) : (
+              <div key={bucket.label} data-locked={bucket.locked || undefined}>
+                {body}
               </div>
-              <Money
-                amount={bucket.amount}
-                fractionDigits={2}
-                style={{ fontSize: "var(--font-size-label)", fontWeight: 400 }}
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
     </section>

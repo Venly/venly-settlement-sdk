@@ -210,7 +210,7 @@
       "name": "activity",
       "type": "registry:block",
       "title": "Activity block",
-      "description": "Ledger plus a live-synced scrimless detail panel; settled rows stay quiet, the failure reason rides the terminal timeline node.",
+      "description": "Ledger plus a live-synced scrimless detail panel: pending sectioned above settled, a recomputing summary strip that doubles as the scope switch, export that declares scope before format, and arrow-key row stepping.",
       "dependencies": [
         "@venlyfinance/react@^0.1.1",
         "@venlyfinance/sdk@^0.2.0",
@@ -229,6 +229,31 @@
           "path": "registry/blocks/activity.tsx",
           "type": "registry:component",
           "target": "~/components/venly/blocks/activity.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "balances",
+      "type": "registry:block",
+      "title": "Balances block",
+      "description": "The home surface on the real wallet balance source: available/reserved hero per asset, segmented bar behind the two-bucket threshold, per-asset table, and masking that covers every figure including the chrome miniature.",
+      "dependencies": [
+        "@venlyfinance/react@^0.1.1",
+        "@venlyfinance/sdk@^0.2.0",
+        "@tanstack/react-query@^5.0.0"
+      ],
+      "registryDependencies": [
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/money",
+        "@venlyfinance/balance-card",
+        "@venlyfinance/data-table"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/balances.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/balances.tsx"
         }
       ]
     }

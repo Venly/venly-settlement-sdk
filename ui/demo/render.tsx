@@ -6,15 +6,26 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
+import { VenlyFinanceClient } from "@venlyfinance/sdk";
 import { Money, formatAmount } from "../registry/lib/money.js";
 import { StatusPill } from "../registry/components/status-pill.js";
 import { DataTable, RowText, type DataTableColumn } from "../registry/components/data-table.js";
 import { Timeline } from "../registry/components/timeline.js";
 import { BalanceCard } from "../registry/components/balance-card.js";
 import { SidePanel } from "../registry/components/side-panel.js";
+import { assetBalanceRows } from "../registry/blocks/balances.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const tokens = readFileSync(join(here, "../registry/styles/tokens.css"), "utf8");
+
+// The balance figures come from the SDK's mock client – the same balance
+// source the live app reads (wallet balances: total / available / reserved
+// per asset) – never from literals in this file.
+const client = new VenlyFinanceClient({ environment: "mock" });
+const demoAccount = (await client.accounts.list()).items[0];
+const demoWallets = (await client.wallets.list(demoAccount.id as string)).items;
+const balanceRows = assetBalanceRows(demoWallets);
+const primary = balanceRows[0];
 
 interface Row {
   id: string;
@@ -54,13 +65,12 @@ const page = renderToStaticMarkup(
     </h1>
     <div style={{ display: "flex", gap: 24, alignItems: "flex-start", marginBottom: 24 }}>
       <BalanceCard
-        available={15100.5}
-        currency="EUR"
-        qualifier="Spendable now · settles from the EUR account"
+        available={primary.available}
+        currency={primary.asset}
+        qualifier={`Spendable now · ${demoAccount.name ?? "account"}`}
         buckets={[
-          { label: "Total", amount: 15230.5 },
-          { label: "Reserved in", amount: 0 },
-          { label: "Reserved out, releases 14 Aug", amount: 130, locked: true },
+          { label: "Total", amount: primary.total },
+          { label: "Reserved for in-flight transfers", amount: primary.reserved, locked: true },
         ]}
       />
       <section style={{ background: "var(--surface-raised)", border: "1px solid var(--border-hairline)", borderRadius: "var(--radius-card)", padding: 22, width: 280 }}>

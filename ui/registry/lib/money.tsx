@@ -11,6 +11,9 @@ import type { CSSProperties, ReactElement } from "react";
  *   Red is reserved for failure. Deltas may colour, but must also carry an
  *   arrow so colour is never the sole carrier.
  * - Empty value renders an em-dash, never blank, never 0.00.
+ * - Masking is fixed-length: it hides the magnitude as well as the digits,
+ *   and it must cover every figure on the surface (rows and deltas too),
+ *   never just the hero.
  */
 
 export function formatAmount(amount: number, fractionDigits = 2): string {
@@ -36,9 +39,19 @@ export interface MoneyProps {
    */
   emphasis?: "row" | "value" | "hero";
   fractionDigits?: number;
+  /**
+   * Replaces the digits with a fixed-length mask that leaks no magnitude.
+   * The currency code stays visible; the amount does not. Masking is a
+   * surface-wide contract: if the hero is masked, every row and delta on
+   * the same surface must receive the same flag.
+   */
+  masked?: boolean;
   style?: CSSProperties;
   className?: string;
 }
+
+/** Fixed-length mask: four dots regardless of the amount's magnitude. */
+export const MASK = "••••";
 
 const EMPHASIS: Record<NonNullable<MoneyProps["emphasis"]>, CSSProperties> = {
   row: { fontSize: "var(--font-size-body)", fontWeight: 600 },
@@ -51,6 +64,7 @@ export function Money({
   currency,
   emphasis = "row",
   fractionDigits = 2,
+  masked = false,
   style,
   className,
 }: MoneyProps): ReactElement {
@@ -71,8 +85,8 @@ export function Money({
   }
 
   return (
-    <span className={className} style={base}>
-      {formatAmount(amount, fractionDigits)}
+    <span className={className} style={base} aria-label={masked ? "amount hidden" : undefined}>
+      {masked ? MASK : formatAmount(amount, fractionDigits)}
       {currency ? (
         <span
           style={{

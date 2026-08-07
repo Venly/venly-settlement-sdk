@@ -95,6 +95,16 @@
   /* Table header band: hairline-only, no fill. */
   --header-pitch: 32px;
 
+  /* Section band inside a grouped table: ~60% of a data row, so groups
+     read as structure, not content. Empty groups still render at this
+     height – "Pending: 0" is a state, not a missing feature. */
+  --group-header-pitch: 28px;
+
+  /* The needs-attention dot and the segmented balance bar: small geometry
+     that must survive a reskin without the components hardcoding px. */
+  --attention-dot: 6px;
+  --bar-height: 6px;
+
   /* Overlay geometry. The side panel is the one base-layer boundary
      allowed elevation; everything else is flat by contract. */
   --panel-width: 28%;
