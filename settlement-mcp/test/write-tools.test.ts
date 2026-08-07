@@ -17,7 +17,7 @@ test("builder write tools enumerate on the existing MCP server", async () => {
   ]) {
     assert.ok(names.includes(name), `missing builder write tool ${name}`);
   }
-  assert.equal(tools.length, 23);
+  assert.equal(tools.length, 25);
   await h.close();
 });
 

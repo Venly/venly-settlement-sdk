@@ -7,6 +7,7 @@ const EXPECTED_URIS = [
   "venly://safety",
   "venly://workflows/international-account",
   "venly://workflows/mock-to-staging",
+  "venly://frontend/agents",
 ];
 
 function firstText(

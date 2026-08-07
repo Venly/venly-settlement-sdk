@@ -1,0 +1,234 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "venlyfinance",
+  "homepage": "https://github.com/Venly/venly-settlement-sdk/tree/main/ui",
+  "items": [
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "venly-tokens",
+      "type": "registry:item",
+      "title": "Venly design tokens",
+      "description": "The white-label contract: every colour, radius, type size, density and spacing value the kit reads. A reskin edits this file and nothing else.",
+      "files": [
+        {
+          "path": "registry/styles/tokens.css",
+          "type": "registry:file",
+          "target": "~/components/venly/styles/tokens.css"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "money",
+      "type": "registry:lib",
+      "title": "Money rendering",
+      "description": "Tabular figures, trailing currency code at 0.6x, true minus, debits never red, em-dash empty values.",
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "registry/lib/money.tsx",
+          "type": "registry:lib",
+          "target": "~/components/venly/lib/money.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "status-pill",
+      "type": "registry:component",
+      "title": "Status pill",
+      "description": "Word plus glyph on every state so status survives greyscale; tinted background, 4px data-value rectangle.",
+      "registryDependencies": [
+        "venly-tokens"
+      ],
+      "files": [
+        {
+          "path": "registry/components/status-pill.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/components/status-pill.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "data-table",
+      "type": "registry:component",
+      "title": "Data table",
+      "description": "The ledger register: token-driven row pitch, hairline-only header, right-aligned tabular money, em-dash empties, no zebra, no shadow.",
+      "registryDependencies": [
+        "venly-tokens"
+      ],
+      "files": [
+        {
+          "path": "registry/components/data-table.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/components/data-table.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "timeline",
+      "type": "registry:component",
+      "title": "Vertical timeline",
+      "description": "Three-axis state story: solid past, dotted future, donut current; terminal failure is never a green check.",
+      "registryDependencies": [
+        "venly-tokens"
+      ],
+      "files": [
+        {
+          "path": "registry/components/timeline.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/components/timeline.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "balance-card",
+      "type": "registry:component",
+      "title": "Balance card",
+      "description": "The available/reserved composition: available is the only figure above the rule; reserved demoted by position and scale, padlocked when unspendable.",
+      "registryDependencies": [
+        "venly-tokens",
+        "money"
+      ],
+      "files": [
+        {
+          "path": "registry/components/balance-card.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/components/balance-card.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "side-panel",
+      "type": "registry:component",
+      "title": "Side panel",
+      "description": "Record detail beside the table, never a navigation: scrimless, the amount is the hero, arrow-key row stepping.",
+      "registryDependencies": [
+        "venly-tokens",
+        "money"
+      ],
+      "files": [
+        {
+          "path": "registry/components/side-panel.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/components/side-panel.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "field-list",
+      "type": "registry:component",
+      "title": "Field list with copy",
+      "description": "The receive surface: bare values, per-field copy naming the field, amber Required pill, '(not required)' variants instead of vanishing rows.",
+      "registryDependencies": [
+        "venly-tokens"
+      ],
+      "files": [
+        {
+          "path": "registry/components/field-list.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/components/field-list.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "arithmetic-ladder",
+      "type": "registry:component",
+      "title": "Arithmetic ladder",
+      "description": "Transfer review: literal operators in the gutter, working before the answer, tint-band total, uncertainty attached to the number.",
+      "registryDependencies": [
+        "venly-tokens",
+        "money"
+      ],
+      "files": [
+        {
+          "path": "registry/components/arithmetic-ladder.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/components/arithmetic-ladder.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "receive",
+      "type": "registry:block",
+      "title": "Receive block",
+      "description": "Bank details a payer's finance team actually reads: mandatory payment-reference enforcement, warning above the fields, copy that names the field.",
+      "dependencies": [
+        "@venlyfinance/react@^0.1.1",
+        "@venlyfinance/sdk@^0.2.0",
+        "@tanstack/react-query@^5.0.0"
+      ],
+      "registryDependencies": [
+        "venly-tokens",
+        "money",
+        "field-list"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/receive.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/receive.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "send",
+      "type": "registry:block",
+      "title": "Send block",
+      "description": "Stage-then-confirm rendered: form, arithmetic-ladder review, a commit button that restates the amount, single execution on a pinned idempotency key, status timeline.",
+      "dependencies": [
+        "@venlyfinance/react@^0.1.1",
+        "@venlyfinance/sdk@^0.2.0",
+        "@tanstack/react-query@^5.0.0"
+      ],
+      "registryDependencies": [
+        "venly-tokens",
+        "money",
+        "arithmetic-ladder",
+        "timeline"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/send.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/send.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "activity",
+      "type": "registry:block",
+      "title": "Activity block",
+      "description": "Ledger plus a live-synced scrimless detail panel; settled rows stay quiet, the failure reason rides the terminal timeline node.",
+      "dependencies": [
+        "@venlyfinance/react@^0.1.1",
+        "@venlyfinance/sdk@^0.2.0",
+        "@tanstack/react-query@^5.0.0"
+      ],
+      "registryDependencies": [
+        "venly-tokens",
+        "money",
+        "data-table",
+        "status-pill",
+        "side-panel",
+        "timeline"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/activity.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/activity.tsx"
+        }
+      ]
+    }
+  ]
+}

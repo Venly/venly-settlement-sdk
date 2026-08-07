@@ -31,6 +31,8 @@ export const EXPECTED_TOOLS = [
   "reject_ramp_request",
   "create_payment_session",
   "quote_x402_payment",
+  "get_journey_blueprint",
+  "review_screen",
 ] as const;
 
 export const EXPECTED_RESOURCE_URIS = [
@@ -38,6 +40,7 @@ export const EXPECTED_RESOURCE_URIS = [
   "venly://safety",
   "venly://workflows/international-account",
   "venly://workflows/mock-to-staging",
+  "venly://frontend/agents",
 ] as const;
 
 export const EXPECTED_PROMPTS = ["build_international_account"] as const;

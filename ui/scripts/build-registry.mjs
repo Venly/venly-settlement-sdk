@@ -1,0 +1,194 @@
+/**
+ * Builds the shadcn-standard registry from ui/registry sources.
+ *
+ * Emits ui/r/{name}.json (one per item, file content inlined) plus
+ * ui/r/registry.json (the index). The output is committed so any static
+ * host can serve it; until venlyfinance.com/r/ is wired, consumers point
+ * their components.json at the raw GitHub URL template:
+ *
+ *   { "registries": { "@venlyfinance":
+ *     "https://raw.githubusercontent.com/Venly/venly-settlement-sdk/main/ui/r/{name}.json" } }
+ *
+ * Install targets mirror the registry layout under components/venly/ so the
+ * sources' relative imports keep working verbatim after installation.
+ *
+ * CI runs this script and fails on any diff: the committed JSON can never
+ * drift from the sources.
+ */
+import { mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const uiRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+const outDir = join(uiRoot, "r");
+
+const HOMEPAGE = "https://github.com/Venly/venly-settlement-sdk/tree/main/ui";
+const SCHEMA_ITEM = "https://ui.shadcn.com/schema/registry-item.json";
+const SCHEMA_INDEX = "https://ui.shadcn.com/schema/registry.json";
+
+const RUNTIME_DEPENDENCIES = [
+  "@venlyfinance/react@^0.1.1",
+  "@venlyfinance/sdk@^0.2.0",
+  "@tanstack/react-query@^5.0.0",
+];
+
+/** target root that keeps the sources' relative imports intact */
+const TARGET_ROOT = "~/components/venly";
+
+function file(relPath, fileType, target) {
+  return {
+    path: `registry/${relPath}`,
+    type: fileType,
+    target: target ?? `${TARGET_ROOT}/${relPath}`,
+    content: readFileSync(join(uiRoot, "registry", relPath), "utf8"),
+  };
+}
+
+const TOKENS = {
+  $schema: SCHEMA_ITEM,
+  name: "venly-tokens",
+  type: "registry:item",
+  title: "Venly design tokens",
+  description:
+    "The white-label contract: every colour, radius, type size, density and spacing value the kit reads. A reskin edits this file and nothing else.",
+  files: [file("styles/tokens.css", "registry:file", `${TARGET_ROOT}/styles/tokens.css`)],
+};
+
+const MONEY = {
+  $schema: SCHEMA_ITEM,
+  name: "money",
+  type: "registry:lib",
+  title: "Money rendering",
+  description:
+    "Tabular figures, trailing currency code at 0.6x, true minus, debits never red, em-dash empty values.",
+  registryDependencies: [],
+  files: [file("lib/money.tsx", "registry:lib")],
+};
+
+const COMPONENTS = [
+  {
+    name: "status-pill",
+    title: "Status pill",
+    description:
+      "Word plus glyph on every state so status survives greyscale; tinted background, 4px data-value rectangle.",
+    deps: [],
+  },
+  {
+    name: "data-table",
+    title: "Data table",
+    description:
+      "The ledger register: token-driven row pitch, hairline-only header, right-aligned tabular money, em-dash empties, no zebra, no shadow.",
+    deps: [],
+  },
+  {
+    name: "timeline",
+    title: "Vertical timeline",
+    description:
+      "Three-axis state story: solid past, dotted future, donut current; terminal failure is never a green check.",
+    deps: [],
+  },
+  {
+    name: "balance-card",
+    title: "Balance card",
+    description:
+      "The available/reserved composition: available is the only figure above the rule; reserved demoted by position and scale, padlocked when unspendable.",
+    deps: ["money"],
+  },
+  {
+    name: "side-panel",
+    title: "Side panel",
+    description:
+      "Record detail beside the table, never a navigation: scrimless, the amount is the hero, arrow-key row stepping.",
+    deps: ["money"],
+  },
+  {
+    name: "field-list",
+    title: "Field list with copy",
+    description:
+      "The receive surface: bare values, per-field copy naming the field, amber Required pill, '(not required)' variants instead of vanishing rows.",
+    deps: [],
+  },
+  {
+    name: "arithmetic-ladder",
+    title: "Arithmetic ladder",
+    description:
+      "Transfer review: literal operators in the gutter, working before the answer, tint-band total, uncertainty attached to the number.",
+    deps: ["money"],
+  },
+].map((c) => ({
+  $schema: SCHEMA_ITEM,
+  name: c.name,
+  type: "registry:component",
+  title: c.title,
+  description: c.description,
+  registryDependencies: ["venly-tokens", ...c.deps],
+  files: [file(`components/${c.name}.tsx`, "registry:component")],
+}));
+
+const BLOCKS = [
+  {
+    name: "receive",
+    title: "Receive block",
+    description:
+      "Bank details a payer's finance team actually reads: mandatory payment-reference enforcement, warning above the fields, copy that names the field.",
+    deps: ["field-list"],
+  },
+  {
+    name: "send",
+    title: "Send block",
+    description:
+      "Stage-then-confirm rendered: form, arithmetic-ladder review, a commit button that restates the amount, single execution on a pinned idempotency key, status timeline.",
+    deps: ["arithmetic-ladder", "timeline"],
+  },
+  {
+    name: "activity",
+    title: "Activity block",
+    description:
+      "Ledger plus a live-synced scrimless detail panel; settled rows stay quiet, the failure reason rides the terminal timeline node.",
+    deps: ["data-table", "status-pill", "side-panel", "timeline"],
+  },
+].map((b) => ({
+  $schema: SCHEMA_ITEM,
+  name: b.name,
+  type: "registry:block",
+  title: b.title,
+  description: b.description,
+  dependencies: RUNTIME_DEPENDENCIES,
+  registryDependencies: ["venly-tokens", "money", ...b.deps],
+  files: [file(`blocks/${b.name}.tsx`, "registry:component")],
+}));
+
+const items = [TOKENS, MONEY, ...COMPONENTS, ...BLOCKS];
+
+// Guard: every source file in the registry must be delivered by exactly one item.
+const delivered = new Set(items.flatMap((i) => i.files.map((f) => f.path)));
+const sources = [];
+for (const dir of ["styles", "lib", "components", "blocks"]) {
+  for (const f of readdirSync(join(uiRoot, "registry", dir))) {
+    sources.push(`registry/${dir}/${f}`);
+  }
+}
+const missing = sources.filter((s) => !delivered.has(s));
+if (missing.length > 0) {
+  console.error("Registry item missing for source file(s):", missing.join(", "));
+  process.exit(1);
+}
+
+rmSync(outDir, { recursive: true, force: true });
+mkdirSync(outDir, { recursive: true });
+for (const item of items) {
+  writeFileSync(join(outDir, `${item.name}.json`), JSON.stringify(item, null, 2) + "\n");
+}
+
+const index = {
+  $schema: SCHEMA_INDEX,
+  name: "venlyfinance",
+  homepage: HOMEPAGE,
+  items: items.map(({ files, ...meta }) => ({
+    ...meta,
+    files: files.map(({ content: _content, ...f }) => f),
+  })),
+};
+writeFileSync(join(outDir, "registry.json"), JSON.stringify(index, null, 2) + "\n");
+
+console.log(`wrote ${items.length} items + registry.json to ${outDir}`);

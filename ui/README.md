@@ -1,6 +1,18 @@
 # @venlyfinance/ui
 
-Copy-owned UI kit for money products built on [`@venlyfinance/react`](../react/README.md). Not an npm package: these files are meant to land in your repo, where you own and restyle them. Registry-based install (shadcn registry standard) is planned; **today, copy the files you want directly from [`registry/`](registry/)** – they are self-contained apart from `tokens.css` and the `react` peer.
+Copy-owned UI kit for money products built on [`@venlyfinance/react`](../react/README.md). Not an npm package: these files land in your repo, where you own and restyle them. Delivery rides the shadcn registry standard – add one line to your `components.json`:
+
+```json
+{ "registries": { "@venlyfinance": "https://raw.githubusercontent.com/Venly/venly-settlement-sdk/main/ui/r/{name}.json" } }
+```
+
+then install blocks with the CLI you already use:
+
+```bash
+npx shadcn@latest add @venlyfinance/receive @venlyfinance/send @venlyfinance/activity
+```
+
+Each block pulls its components, the `venly-tokens` file and the `@venlyfinance/react` data layer transitively. The registry JSON under [`r/`](r/) is generated from [`registry/`](registry/) by `npm run build:registry` and CI fails on drift; copying files straight from `registry/` also works.
 
 ## The white-label contract
 
