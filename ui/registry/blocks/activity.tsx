@@ -157,7 +157,14 @@ export function ActivityBlock({
   className?: string;
 }): ReactElement {
   const { data, isPending } = useTransfers(accountId);
-  const [selected, setSelected] = useState<Transfer | null>(null);
+  // Selection is held by id and re-derived from the live list on every
+  // render: when a refetch moves a transfer from PENDING to COMPLETED or
+  // FAILED while its panel is open, the panel shows the new state, not a
+  // snapshot from click time.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = selectedId
+    ? (data?.items.find((t) => t.id === selectedId) ?? null)
+    : null;
 
   return (
     <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
@@ -167,11 +174,11 @@ export function ActivityBlock({
         <ActivityTable
           transfers={data?.items ?? []}
           selectedId={selected?.id}
-          onSelect={setSelected}
+          onSelect={(t) => setSelectedId(t.id ?? null)}
         />
       )}
       {selected ? (
-        <TransferDetailPanel transfer={selected} onClose={() => setSelected(null)} />
+        <TransferDetailPanel transfer={selected} onClose={() => setSelectedId(null)} />
       ) : null}
     </section>
   );

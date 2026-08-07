@@ -48,6 +48,18 @@ export interface SendFormValues {
   description: string;
 }
 
+/**
+ * Amount input guard. Number("")/Number(" ") are 0 and Number("Infinity")
+ * is > 0, so a falsy/NaN check alone lets nonsense reach the review step.
+ * Returns the parsed amount, or null when the input must not stage.
+ */
+export function parseAmountInput(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const amount = Number(trimmed);
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
 export function SendForm({
   values,
   issues,
@@ -255,7 +267,7 @@ export function SendBlock({
     body: {
       receiverAccountId: values.receiverAccountId,
       currency: values.currency,
-      amount: Number(values.amount),
+      amount: parseAmountInput(values.amount) ?? 0,
       description: values.description || undefined,
     },
   });
@@ -268,8 +280,8 @@ export function SendBlock({
           issues={issues.length > 0 ? issues : state.issues}
           onChange={setValues}
           onStage={() => {
-            if (!values.amount || Number.isNaN(Number(values.amount))) {
-              setIssues(["amount must be a number"]);
+            if (parseAmountInput(values.amount) === null) {
+              setIssues(["amount must be a positive number"]);
               return;
             }
             setIssues([]);

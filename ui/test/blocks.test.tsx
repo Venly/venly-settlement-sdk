@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { VenlyProvider } from "@venlyfinance/react";
 import { ReceiveBlock, ConnectedReceiveBlock } from "../registry/blocks/receive.js";
-import { SendReview, transferProgressSteps } from "../registry/blocks/send.js";
+import { SendReview, parseAmountInput, transferProgressSteps } from "../registry/blocks/send.js";
 import {
   ActivityTable,
   TransferDetailPanel,
@@ -37,6 +37,28 @@ test("receive: a missing field renders the (not required) variant, never disappe
   );
   assert.match(html, /BIC/, "the row is still present");
   assert.match(html, /\(not required\)/);
+});
+
+test("receive: a MISSING required reference never reads '(not required)'", () => {
+  const html = renderToStaticMarkup(
+    <ReceiveBlock virtualBankAccount={{ ...viba, referenceCode: undefined }} />,
+  );
+  const refRow = html.slice(html.indexOf("Payment reference"));
+  assert.match(refRow, /Not assigned yet/);
+  assert.match(refRow, /Required/, "the Required pill stays");
+  assert.doesNotMatch(
+    refRow.slice(0, refRow.indexOf("</dd>")),
+    /\(not required\)/,
+    "a required row must never claim to be optional",
+  );
+});
+
+test("send: the amount guard rejects empty, zero, negative and Infinity inputs", () => {
+  assert.equal(parseAmountInput("1240"), 1240);
+  assert.equal(parseAmountInput(" 12.5 "), 12.5);
+  for (const bad of ["", "   ", "0", "-100", "Infinity", "abc", "NaN"]) {
+    assert.equal(parseAmountInput(bad), null, `"${bad}" must not stage`);
+  }
 });
 
 test("send review: components before the total, and the button restates the amount", () => {

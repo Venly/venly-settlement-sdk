@@ -29,9 +29,14 @@ export interface ReceiveBlockProps {
   className?: string;
 }
 
-async function copyText(value: string): Promise<void> {
-  if (typeof navigator !== "undefined" && navigator.clipboard) {
+/** True only when the text actually reached the clipboard. */
+async function copyText(value: string): Promise<boolean> {
+  if (typeof navigator === "undefined" || !navigator.clipboard) return false;
+  try {
     await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -49,13 +54,14 @@ export function ReceiveBlock({
     { label: "Payment reference", value: viba.referenceCode, mono: true, required: true },
   ];
 
-  const copyAll = () => {
+  // The confirmation only fires when the write actually landed: a toast
+  // saying "copied" over an empty clipboard is worse than no toast.
+  const copyAll = async () => {
     const text = fields
       .filter((f) => f.value)
       .map((f) => `${f.label}: ${f.value}`)
       .join("\n");
-    void copyText(text);
-    onCopied?.("all payment details", text);
+    if (await copyText(text)) onCopied?.("all payment details", text);
   };
 
   return (
@@ -107,8 +113,9 @@ export function ReceiveBlock({
       <FieldList
         fields={fields}
         onCopy={(label, value) => {
-          void copyText(value);
-          onCopied?.(label, value);
+          void copyText(value).then((ok) => {
+            if (ok) onCopied?.(label, value);
+          });
         }}
       />
 

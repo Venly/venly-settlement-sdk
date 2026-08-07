@@ -106,7 +106,10 @@ export function FieldList({ fields, onCopy, style, className }: FieldListProps):
                 overflowWrap: "anywhere",
               }}
             >
-              {hasValue ? field.value : "(not required)"}
+              {/* A required field can never read "(not required)": a missing
+                  mandatory value is a state ("not assigned yet"), not an
+                  exemption. */}
+              {hasValue ? field.value : field.required ? "Not assigned yet" : "(not required)"}
             </dd>
             {field.required ? <RequiredPill /> : null}
             {copyable ? (
