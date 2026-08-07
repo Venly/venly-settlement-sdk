@@ -47,7 +47,7 @@ function Node({ state }: { state: TimelineStepState }): ReactElement {
   switch (state) {
     case "completed":
       return (
-        <span aria-hidden="true" style={{ ...base, background: "var(--state-success-bg)", color: "var(--state-success-fg)", border: "1px solid var(--state-success-fg)" }}>
+        <span aria-hidden="true" style={{ ...base, background: "var(--state-success-bg)", color: "var(--state-success-fg)", border: "var(--border-w-hairline) solid var(--state-success-fg)" }}>
           ✓
         </span>
       );
@@ -57,7 +57,7 @@ function Node({ state }: { state: TimelineStepState }): ReactElement {
           aria-hidden="true"
           style={{
             ...base,
-            border: "2px solid var(--accent)",
+            border: "var(--border-w-emphasis) solid var(--accent)",
             background: "var(--surface-raised)",
           }}
         >
@@ -66,13 +66,13 @@ function Node({ state }: { state: TimelineStepState }): ReactElement {
       );
     case "failed":
       return (
-        <span aria-hidden="true" style={{ ...base, background: "var(--state-danger-bg)", color: "var(--state-danger-fg)", border: "1px solid var(--state-danger-fg)" }}>
+        <span aria-hidden="true" style={{ ...base, background: "var(--state-danger-bg)", color: "var(--state-danger-fg)", border: "var(--border-w-hairline) solid var(--state-danger-fg)" }}>
           ✕
         </span>
       );
     case "cancelled":
       return (
-        <span aria-hidden="true" style={{ ...base, background: "var(--state-neutral-bg)", color: "var(--state-neutral-fg)", border: "1px solid var(--border-strong)" }}>
+        <span aria-hidden="true" style={{ ...base, background: "var(--state-neutral-bg)", color: "var(--state-neutral-fg)", border: "var(--border-w-hairline) solid var(--border-strong)" }}>
           ↺
         </span>
       );
@@ -80,7 +80,7 @@ function Node({ state }: { state: TimelineStepState }): ReactElement {
       return (
         <span
           aria-hidden="true"
-          style={{ ...base, border: "1.5px solid var(--border-strong)", background: "var(--surface-raised)" }}
+          style={{ ...base, border: "var(--border-w-strong) solid var(--border-strong)", background: "var(--surface-raised)" }}
         />
       );
   }
@@ -125,10 +125,10 @@ export function Timeline({ steps, style, className }: TimelineProps): ReactEleme
                     flex: 1,
                     minHeight: "var(--space-lg)",
                     width: 0,
-                    margin: "3px 0",
+                    margin: "var(--space-2xs) 0",
                     borderLeft: railFuture
-                      ? "1px dotted var(--border-strong)"
-                      : "2px solid var(--state-success-fg)",
+                      ? "var(--border-w-hairline) dotted var(--border-strong)"
+                      : "var(--border-w-emphasis) solid var(--state-success-fg)",
                     opacity: railFuture ? 1 : 0.5,
                   }}
                 />

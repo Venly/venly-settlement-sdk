@@ -36,7 +36,7 @@ function KeyChip({ label }: { label: string }): ReactElement {
   return (
     <kbd
       style={{
-        border: "1px solid var(--border-hairline)",
+        border: "var(--border-w-hairline) solid var(--border-hairline)",
         borderRadius: "var(--radius-pill)",
         padding: "var(--pill-pad)",
         fontSize: "var(--font-size-micro)",
@@ -75,7 +75,7 @@ export function SidePanel({
         display: "flex",
         flexDirection: "column",
         background: "var(--surface-raised)",
-        borderLeft: "1px solid var(--border-hairline)",
+        borderLeft: "var(--border-w-hairline) solid var(--border-hairline)",
         boxShadow: "var(--shadow-overlay)",
         fontFamily: "var(--font-family)",
         fontSize: "var(--font-size-body)",
@@ -106,7 +106,7 @@ export function SidePanel({
                 color: "var(--text-secondary)",
                 fontSize: "var(--font-size-body)",
                 lineHeight: 1,
-                padding: "4px",
+                padding: "var(--space-2xs)",
               }}
             >
               ✕
@@ -132,7 +132,7 @@ export function SidePanel({
       {keyboardFooter ? (
         <footer
           style={{
-            borderTop: "1px solid var(--border-hairline)",
+            borderTop: "var(--border-w-hairline) solid var(--border-hairline)",
             padding: "var(--space-sm) var(--space-xl)",
             display: "flex",
             gap: "var(--space-sm)",

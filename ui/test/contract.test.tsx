@@ -178,6 +178,13 @@ test("tokens carry the skin: no raw colours and no off-scale font sizes at call 
       // currency code at 0.6x its digits), not skin - tokens stay in charge.
       const sizes = src.match(/fontSize: "(?!var\(|calc\()(?![\d.]+em")[^"]+"/g) ?? [];
       assert.deepEqual(sizes, [], `${file}: off-token font size(s) ${sizes.join(", ")}`);
+      // Spacing, borders and box geometry must route through tokens too:
+      // any raw px inside these property values is a contract regression.
+      const rawBox =
+        src.match(
+          /(?:padding|margin|gap|border|width|height|maxWidth|minWidth|top|right|bottom|left)[A-Za-z]*: "[^"]*\dpx[^"]*"/g,
+        ) ?? [];
+      assert.deepEqual(rawBox, [], `${file}: raw px in box property ${rawBox.join(" | ")}`);
     }
   }
 });

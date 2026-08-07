@@ -4,7 +4,7 @@ Copy-owned UI kit for money products built on [`@venlyfinance/react`](../react/R
 
 ## The white-label contract
 
-[`registry/styles/tokens.css`](registry/styles/tokens.css) is the reskin surface – **a reskin must be that file and nothing else**. Every skin-relevant value – colour, radius, type scale, density, spacing rhythm, panel geometry, elevation – is a custom property read from that file; no component carries a raw colour or radius, and the only literals left at call sites are structural geometry a reskin should not change (positioning zeros, 50% circles, font weights, 1px hairline widths).
+[`registry/styles/tokens.css`](registry/styles/tokens.css) is the reskin surface – **a reskin must be that file and nothing else**. Every skin-relevant value – colour, radius, type scale, density, spacing rhythm, border weights, panel geometry, elevation – is a custom property read from that file. No component carries a raw colour or a raw pixel value in any box property; the only literals left at call sites are structural geometry a reskin should not change (positioning zeros, 50% circles, font weights, unitless line-heights, and em-relative proportions like the currency code at 0.6× its digits). A test enforces this – see the last case in [`test/contract.test.tsx`](test/contract.test.tsx).
 
 Acceptance test for any palette: map every `--state-*` pair to greys and confirm status is still legible. The kit holds up its half by pairing every state with a glyph or word; your palette must keep `-fg`/`-bg` contrast.
 

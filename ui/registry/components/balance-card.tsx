@@ -50,11 +50,11 @@ export function BalanceCard({
       className={className}
       style={{
         background: "var(--surface-raised)",
-        border: "1px solid var(--border-hairline)",
+        border: "var(--border-w-hairline) solid var(--border-hairline)",
         borderRadius: "var(--radius-card)",
         padding: "var(--card-pad)",
         fontFamily: "var(--font-family)",
-        maxWidth: 420,
+        maxWidth: "var(--card-max-width)",
         ...style,
       }}
     >
@@ -85,7 +85,7 @@ export function BalanceCard({
       {buckets.length > 0 ? (
         <div
           style={{
-            borderTop: "1px solid var(--border-hairline)",
+            borderTop: "var(--border-w-hairline) solid var(--border-hairline)",
             marginTop: "var(--space-md)",
             paddingTop: "var(--space-sm)",
             display: "flex",
@@ -98,7 +98,7 @@ export function BalanceCard({
                 style={{
                   fontSize: "var(--font-size-micro)",
                   color: "var(--text-tertiary)",
-                  marginBottom: "2px",
+                  marginBottom: "var(--space-3xs)",
                   whiteSpace: "nowrap",
                 }}
               >

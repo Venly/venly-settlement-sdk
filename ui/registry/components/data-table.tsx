@@ -65,7 +65,7 @@ export function DataTable<Row>({
       }}
     >
       <thead>
-        <tr style={{ height: "var(--header-pitch)", borderBottom: "1px solid var(--border-hairline)" }}>
+        <tr style={{ height: "var(--header-pitch)", borderBottom: "var(--border-w-hairline) solid var(--border-hairline)" }}>
           {columns.map((col) => (
             <th
               key={col.key}
@@ -110,7 +110,7 @@ export function DataTable<Row>({
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 style={{
                   height: "var(--row-pitch)",
-                  borderBottom: "1px solid var(--border-hairline)",
+                  borderBottom: "var(--border-w-hairline) solid var(--border-hairline)",
                   background: selected ? "var(--selected-tint)" : undefined,
                   cursor: onRowClick ? "pointer" : undefined,
                 }}
