@@ -47,6 +47,20 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  example-mock-bank:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/mock-bank
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
   settlement-mcp:
     runs-on: ubuntu-latest
     defaults:

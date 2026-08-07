@@ -29,6 +29,8 @@ npx tsx demo/render.tsx          # writes demo/out/index.html – the composed p
 
 The demo page composes all five components into a payments screen plus a greyscale strip that demonstrates the legibility contract.
 
+For the kit running against live hooks, see [`examples/mock-bank`](../examples/mock-bank/): a full account experience in mock mode – `npm install && npm run dev`, fake data, zero credentials.
+
 ## Styling approach
 
 Components use inline styles bound to the token variables rather than a utility framework. That keeps the kit runnable in any React stack (Tailwind or not), keeps the measured ratios exact, and keeps `tokens.css` the single source of visual truth. Consumers who want utility-class styling own the files and can convert them – that is the point of copy-owned distribution.
