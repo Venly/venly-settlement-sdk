@@ -168,11 +168,27 @@ export function reviewScreenSource(source: string): Finding[] {
 
 const AGENTS_TEXT = `# Composition rules for coding agents building on the Venly UI registry
 
-Delivery: add the registry once to components.json -
+Delivery: the shadcn CLI expects a working shadcn environment BEFORE any
+registry install. On a fresh Vite/React app that means, in order:
+1. Install Tailwind (\`npm i tailwindcss @tailwindcss/vite\`) and wire the
+   \`@/\` path alias in tsconfig + vite config - \`shadcn init\` refuses to
+   run without both.
+2. \`npx shadcn@latest init -y -b radix -p nova\` (the -b/-p flags keep it
+   non-interactive; the kit is plain React + Radix-compatible, so any base
+   works - it never imports base-library components itself).
+3. Add the registry once to components.json -
   { "registries": { "@venlyfinance": "${REGISTRY_URL_TEMPLATE}" } }
-then install blocks with the shadcn CLI, e.g. \`npx shadcn@latest add @venlyfinance/receive\`.
-Each block auto-installs its components, the venly-tokens file and the
-@venlyfinance/react data layer. Import tokens.css once at the app root.
+4. \`npx shadcn@latest add @venlyfinance/receive @venlyfinance/send @venlyfinance/activity -y -o\`.
+   Each block auto-installs its components, the venly-tokens file AND its
+   npm dependencies (@venlyfinance/react, @venlyfinance/sdk, TanStack
+   Query) - no separate npm install step is needed.
+
+Install layout: files land under \`components/venly/\` at the PROJECT ROOT
+(not src/), preserving their relative imports - import them with a relative
+path (e.g. \`../components/venly/blocks/receive.js\`), not the \`@/\` alias.
+The sources use TypeScript-style \`.js\` extensions on .tsx imports: fine
+under Vite/esbuild/Next; webpack needs \`extensionAlias\`. Import the
+installed venly-tokens css once at the app root.
 
 1. Never hand-roll API calls, auth, retries, or transfer state - every read
    is a hook, every regulated lifecycle is a flow machine from

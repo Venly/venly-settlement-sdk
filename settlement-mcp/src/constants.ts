@@ -2,7 +2,7 @@
  * never touches real infrastructure; staging/production are explicit. */
 
 export const SERVER_NAME = "venly-finance-mcp-server";
-export const SERVER_VERSION = "0.4.0";
+export const SERVER_VERSION = "0.4.1";
 
 export const ENVIRONMENT_FLAG = "VENLY_ENV";
 export type VenlyEnvironment = "mock" | "staging" | "production";

@@ -100,3 +100,7 @@ Frontend toolset: the judgment layer for interface assembly.
 ### Removed
 
 - **`stage_transfer`**, as promised in 0.3.0's deprecation: use `create_fiat_transfer`, whose inputs match the OpenAPI contract directly. The skills pack is updated accordingly.
+
+## 0.4.1 – 2026-08-07
+
+- `venly://frontend/agents` now carries the full cold-start recipe, learned from a fresh-agent build run: Tailwind + path-alias prerequisites before `shadcn init`, the non-interactive `-y -b radix -p nova` flags, that blocks land under `components/venly/` at the project root (relative imports, not the `@/` alias), that `shadcn add` auto-installs the npm dependencies, and the `.js`-extension bundler note.
