@@ -26,6 +26,13 @@ export const venlyKeys = {
   rampRequest: (id: string) => ["venly", "ramp-request", id] as const,
 
   referenceData: () => ["venly", "reference-data"] as const,
+  companyBankAccounts: (query?: unknown) =>
+    ["venly", "company-bank-accounts", query ?? null] as const,
+  companyBankAccount: (id: string) => ["venly", "company-bank-account", id] as const,
+  companyWallets: (query?: unknown) => ["venly", "company-wallets", query ?? null] as const,
+  bankAccountConfig: () => ["venly", "bank-account-config"] as const,
+  depositWallets: (query?: unknown) => ["venly", "deposit-wallets", query ?? null] as const,
+  rampPairs: (direction: "on" | "off") => ["venly", "ramp-pairs", direction] as const,
   companyFees: () => ["venly", "company-fees"] as const,
   feeQuote: (input: unknown) => ["venly", "fee-quote", input] as const,
 } as const;

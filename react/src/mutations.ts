@@ -69,3 +69,61 @@ export function useCreateRampRequest() {
     },
   });
 }
+
+type CreateBankAccountBody = Parameters<FundflowClient["bankAccounts"]["create"]>[0];
+type CreateCompanyWalletBody = Parameters<FundflowClient["companyWallets"]["create"]>[0];
+type SetRampAmountBody = Parameters<FundflowClient["rampRequests"]["setAmount"]>[1];
+type InitiateRampBody = Parameters<FundflowClient["rampRequests"]["initiate"]>[1];
+
+/** Whitelist a company bank account (created PENDING, verified out-of-band). */
+export function useCreateCompanyBankAccount() {
+  const { fundflow } = useVenly();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateBankAccountBody) => fundflow.bankAccounts.create(body),
+    onSuccess: (account) => {
+      if (account.id) queryClient.setQueryData(venlyKeys.companyBankAccount(account.id), account);
+      void queryClient.invalidateQueries({ queryKey: ["venly", "company-bank-accounts"] });
+    },
+  });
+}
+
+/** Whitelist a company wallet (created PENDING; prove ownership out-of-band). */
+export function useCreateCompanyWallet() {
+  const { fundflow } = useVenly();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateCompanyWalletBody) => fundflow.companyWallets.create(body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["venly", "company-wallets"] });
+    },
+  });
+}
+
+/** Edit a ramp amount while AWAITING_APPROVAL; carries the optimistic lock. */
+export function useSetRampAmount() {
+  const { fundflow } = useVenly();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; body: SetRampAmountBody }) =>
+      fundflow.rampRequests.setAmount(input.id, input.body),
+    onSuccess: (ramp, input) => {
+      queryClient.setQueryData(venlyKeys.rampRequest(input.id), ramp);
+      void queryClient.invalidateQueries({ queryKey: ["venly", "ramp-requests"] });
+    },
+  });
+}
+
+/** Report the off-ramp crypto leg's transaction hash (initiates processing). */
+export function useInitiateRamp() {
+  const { fundflow } = useVenly();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; body: InitiateRampBody }) =>
+      fundflow.rampRequests.initiate(input.id, input.body),
+    onSuccess: (ramp, input) => {
+      queryClient.setQueryData(venlyKeys.rampRequest(input.id), ramp);
+      void queryClient.invalidateQueries({ queryKey: ["venly", "ramp-requests"] });
+    },
+  });
+}

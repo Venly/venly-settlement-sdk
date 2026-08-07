@@ -1,6 +1,6 @@
 {
   "name": "@venlyfinance/react",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Headless React layer for the Venly Finance and Fundflow APIs: provider, TanStack Query hooks, and flow state machines for regulated money movement. Runs with zero credentials in mock mode.",
   "type": "module",
   "main": "./dist/index.js",
@@ -30,7 +30,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@venlyfinance/sdk": "^0.2.0"
+    "@venlyfinance/sdk": "^0.3.0"
   },
   "peerDependencies": {
     "@tanstack/react-query": "^5.0.0",

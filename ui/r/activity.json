@@ -5,8 +5,8 @@
   "title": "Activity block",
   "description": "Ledger plus a live-synced scrimless detail panel: pending sectioned above settled, a recomputing summary strip that doubles as the scope switch, export that declares scope before format, and arrow-key row stepping.",
   "dependencies": [
-    "@venlyfinance/react@^0.1.1",
-    "@venlyfinance/sdk@^0.2.0",
+    "@venlyfinance/react@^0.2.0",
+    "@venlyfinance/sdk@^0.3.0",
     "@tanstack/react-query@^5.0.0"
   ],
   "registryDependencies": [

@@ -17,6 +17,15 @@ export type RampRequestsQuery = NonNullable<
   Parameters<FundflowClient["rampRequests"]["list"]>[0]
 >;
 export type FeeQuoteInput = Parameters<FundflowClient["fees"]["calculate"]>[0];
+export type CompanyBankAccountsQuery = NonNullable<
+  Parameters<FundflowClient["bankAccounts"]["list"]>[0]
+>;
+export type CompanyWalletsQuery = NonNullable<
+  Parameters<FundflowClient["companyWallets"]["list"]>[0]
+>;
+export type DepositWalletsQuery = NonNullable<
+  Parameters<FundflowClient["referenceData"]["depositWallets"]>[0]
+>;
 
 /**
  * Pure `{ queryKey, queryFn }` factories, one per read. The hooks in
@@ -104,5 +113,38 @@ export const venlyQueries = {
   feeQuote: (clients: VenlyClients, input: FeeQuoteInput) => ({
     queryKey: venlyKeys.feeQuote(input),
     queryFn: () => clients.fundflow.fees.calculate(input),
+  }),
+
+  companyBankAccounts: (clients: VenlyClients, query?: CompanyBankAccountsQuery) => ({
+    queryKey: venlyKeys.companyBankAccounts(query),
+    queryFn: () => clients.fundflow.bankAccounts.list(query),
+  }),
+
+  companyBankAccount: (clients: VenlyClients, id: string) => ({
+    queryKey: venlyKeys.companyBankAccount(id),
+    queryFn: () => clients.fundflow.bankAccounts.get(id),
+  }),
+
+  companyWallets: (clients: VenlyClients, query?: CompanyWalletsQuery) => ({
+    queryKey: venlyKeys.companyWallets(query),
+    queryFn: () => clients.fundflow.companyWallets.list(query),
+  }),
+
+  bankAccountConfig: (clients: VenlyClients) => ({
+    queryKey: venlyKeys.bankAccountConfig(),
+    queryFn: () => clients.fundflow.referenceData.bankAccountConfig(),
+  }),
+
+  depositWallets: (clients: VenlyClients, query?: DepositWalletsQuery) => ({
+    queryKey: venlyKeys.depositWallets(query),
+    queryFn: () => clients.fundflow.referenceData.depositWallets(query),
+  }),
+
+  rampPairs: (clients: VenlyClients, direction: "on" | "off") => ({
+    queryKey: venlyKeys.rampPairs(direction),
+    queryFn: () =>
+      direction === "on"
+        ? clients.fundflow.rampRequests.onRampPairs()
+        : clients.fundflow.rampRequests.offRampPairs(),
   }),
 } as const;
