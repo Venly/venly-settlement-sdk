@@ -12,6 +12,7 @@ import {
   type FundflowClientOptions,
   type VenlyFinanceClientOptions,
 } from "@venlyfinance/sdk";
+import { VENLY_PROXY_SECRET_SENTINEL } from "./proxy.js";
 
 /**
  * Environments the provider accepts. "mock" constructs both clients with
@@ -60,14 +61,33 @@ export interface VenlyProviderProps {
   children?: ReactNode;
 }
 
+/**
+ * A secret is dangerous when it would actually be used: mock-mode options
+ * ignore credentials by construction, and the proxy sentinel is a
+ * placeholder the backend never honours. Everything else is a real secret.
+ */
+function armedSecret(
+  options: VenlyFinanceClientOptions | FundflowClientOptions | undefined,
+): string | undefined {
+  if (!options || options.environment === "mock") return undefined;
+  const secret = options.clientSecret;
+  return secret && secret !== VENLY_PROXY_SECRET_SENTINEL ? secret : undefined;
+}
+
 function buildClients(props: VenlyProviderProps): VenlyClients {
   const environment = props.environment ?? "mock";
 
-  if (
-    environment !== "mock" &&
-    props.clientSecret &&
-    typeof window !== "undefined"
-  ) {
+  // Guard every path a secret can take into this component: the top-level
+  // prop AND the per-client options objects (the options path would
+  // otherwise short-circuit past a top-level-only check).
+  const secretInBrowser =
+    typeof window !== "undefined" &&
+    Boolean(
+      (environment !== "mock" && props.clientSecret) ||
+        armedSecret(props.financeOptions) ||
+        armedSecret(props.fundflowOptions),
+    );
+  if (secretInBrowser) {
     throw new Error(
       "[@venlyfinance/react] Refusing to construct a credentialed client in the browser: " +
         "a bundled clientSecret is full API access for anyone who opens devtools. " +

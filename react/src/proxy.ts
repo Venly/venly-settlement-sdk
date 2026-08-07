@@ -28,6 +28,14 @@ export interface ProxyClientOptions {
   fundflow: FundflowClientOptions;
 }
 
+/**
+ * The placeholder credential used by proxy options. It is not a secret –
+ * the proxy backend ignores the Authorization header entirely – and the
+ * provider's browser guard recognises it as safe. Never assign a real
+ * secret this value.
+ */
+export const VENLY_PROXY_SECRET_SENTINEL = "venly-proxy";
+
 const SYNTHETIC_TOKEN_PATH = "/__venly-proxy-token";
 
 export function proxyClientOptions(
@@ -59,16 +67,16 @@ export function proxyClientOptions(
   return {
     finance: {
       environment: "production",
-      clientId: "proxy",
-      clientSecret: "proxy",
+      clientId: "venly-proxy",
+      clientSecret: VENLY_PROXY_SECRET_SENTINEL,
       baseUrl: `${base}${options?.financePath ?? "/finance"}`,
       tokenUrl,
       fetch: proxyFetch,
     },
     fundflow: {
       environment: "production",
-      clientId: "proxy",
-      clientSecret: "proxy",
+      clientId: "venly-proxy",
+      clientSecret: VENLY_PROXY_SECRET_SENTINEL,
       baseUrl: `${base}${options?.fundflowPath ?? "/fundflow"}`,
       tokenUrl,
       fetch: proxyFetch,

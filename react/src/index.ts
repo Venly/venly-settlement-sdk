@@ -74,7 +74,11 @@ export {
 } from "./flows/ramp-lifecycle.js";
 
 // Browser-safe deployment shape
-export { proxyClientOptions, type ProxyClientOptions } from "./proxy.js";
+export {
+  proxyClientOptions,
+  VENLY_PROXY_SECRET_SENTINEL,
+  type ProxyClientOptions,
+} from "./proxy.js";
 
 // Re-export the SDK surface consumers need alongside the hooks, so app code
 // can import one package. The SDK remains the canonical home.

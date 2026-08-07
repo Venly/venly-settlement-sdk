@@ -15,6 +15,7 @@
   "sideEffects": false,
   "files": [
     "dist",
+    "LICENSE",
     "README.md",
     "CHANGELOG.md",
     "AGENTS.md"

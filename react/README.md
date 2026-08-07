@@ -1,8 +1,14 @@
 # @venlyfinance/react
 
+[![ci](https://github.com/Venly/venly-settlement-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/Venly/venly-settlement-sdk/actions/workflows/ci.yml)
+
 Headless React layer for the [Venly Finance and Fundflow APIs](https://github.com/Venly/venly-settlement-sdk). Provider, TanStack Query hooks, and flow state machines for the lifecycles that make money movement different from CRUD: stage-then-confirm execution, four-eyes approval, and status models where "pending" has four different meanings.
 
-No components, no CSS. This package owns data and state; your UI (or the one your coding agent assembles) owns the pixels.
+No components, no CSS. This package owns data and state; your UI (or the one your coding agent assembles) owns the pixels. The full behaviour is covered by a node:test suite that runs with zero network.
+
+> **Not yet on npm.** Until the first publish lands, run it from the monorepo:
+> `git clone https://github.com/Venly/venly-settlement-sdk && cd venly-settlement-sdk/react && npm install && npm test`
+> Everything below works identically from the checkout; the install line is what it will be once published.
 
 ## Try it in 0 minutes (mock mode)
 
@@ -15,7 +21,7 @@ import { VenlyProvider, useAccounts } from "@venlyfinance/react";
 
 function Accounts() {
   const { data } = useAccounts();
-  return <ul>{data?.items.map((a) => <li key={a.id}>{a.description ?? a.id}</li>)}</ul>;
+  return <ul>{data?.items.map((a) => <li key={a.id}>{a.name ?? a.id}</li>)}</ul>;
 }
 
 export default function App() {

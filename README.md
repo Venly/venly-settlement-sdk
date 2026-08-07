@@ -2,7 +2,7 @@
 
 TypeScript SDK for the [Venly Finance](https://docs.venlyfinance.com) and Fundflow APIs. Types are generated from the OpenAPI specs in [`specs/`](specs/); the runtime layer is hand-written and has **zero runtime dependencies** (Node ≥ 18, or any environment with `fetch`).
 
-> **Status: v0.1.2.** MIT licensed. Built on the roadmap commitment "[TypeScript SDK on npm](https://github.com/timdierckxsens/venly-roadmap)" (Q3 2026). v0.1.2 is a compatible maintenance release supporting the SDK-backed Venly Finance MCP builder; see [CHANGELOG](CHANGELOG.md).
+> **Status: v0.2.0.** MIT licensed. See the [CHANGELOG](CHANGELOG.md) for what each release added.
 
 ## Packages in this repository
 

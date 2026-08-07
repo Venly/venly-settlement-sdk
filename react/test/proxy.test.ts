@@ -14,7 +14,7 @@ test("proxy options never leak a real secret and route through the proxy base", 
   };
 
   const proxy = proxyClientOptions("https://app.example.com/api/venly", { fetch: fakeBackend });
-  assert.equal((proxy.finance as { clientSecret?: string }).clientSecret, "proxy");
+  assert.equal((proxy.finance as { clientSecret?: string }).clientSecret, "venly-proxy");
 
   const client = new VenlyFinanceClient(proxy.finance);
   await client.parties.list();
