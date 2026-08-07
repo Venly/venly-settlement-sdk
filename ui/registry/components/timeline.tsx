@@ -3,7 +3,7 @@ import type { CSSProperties, ReactElement, ReactNode } from "react";
 /**
  * Vertical timeline – status story for one money movement.
  *
- * Contract points from the design library:
+ * Design contract encoded by this component:
  * - State is distinguished on three axes at once: node, rail below, label.
  * - Solid rail = past, dotted rail = future; the switch happens at the
  *   current node. Never inverted.
@@ -30,7 +30,7 @@ export interface TimelineProps {
   className?: string;
 }
 
-const NODE_SIZE = 16;
+const NODE_SIZE = "var(--timeline-node)";
 
 function Node({ state }: { state: TimelineStepState }): ReactElement {
   const base: CSSProperties = {
@@ -40,7 +40,7 @@ function Node({ state }: { state: TimelineStepState }): ReactElement {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 10,
+    fontSize: "calc(var(--timeline-node) * 0.625)",
     lineHeight: 1,
     flex: "none",
   };
@@ -61,7 +61,7 @@ function Node({ state }: { state: TimelineStepState }): ReactElement {
             background: "var(--surface-raised)",
           }}
         >
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)" }} />
+          <span style={{ width: "calc(var(--timeline-node) * 0.375)", height: "calc(var(--timeline-node) * 0.375)", borderRadius: "50%", background: "var(--accent)" }} />
         </span>
       );
     case "failed":
@@ -115,7 +115,7 @@ export function Timeline({ steps, style, className }: TimelineProps): ReactEleme
               ? "var(--text-secondary)"
               : "var(--text-primary)";
         return (
-          <li key={step.key} data-state={step.state} style={{ display: "flex", gap: "12px" }}>
+          <li key={step.key} data-state={step.state} style={{ display: "flex", gap: "var(--space-md)" }}>
             <span style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <Node state={step.state} />
               {!isLast ? (
@@ -123,7 +123,7 @@ export function Timeline({ steps, style, className }: TimelineProps): ReactEleme
                   aria-hidden="true"
                   style={{
                     flex: 1,
-                    minHeight: 16,
+                    minHeight: "var(--space-lg)",
                     width: 0,
                     margin: "3px 0",
                     borderLeft: railFuture
@@ -134,7 +134,7 @@ export function Timeline({ steps, style, className }: TimelineProps): ReactEleme
                 />
               ) : null}
             </span>
-            <span style={{ paddingBottom: isLast ? 0 : 20, minWidth: 0 }}>
+            <span style={{ paddingBottom: isLast ? 0 : "var(--space-xl)", minWidth: 0 }}>
               <span
                 style={{
                   display: "block",

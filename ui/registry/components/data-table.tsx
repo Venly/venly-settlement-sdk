@@ -3,7 +3,7 @@ import type { CSSProperties, ReactElement, ReactNode } from "react";
 /**
  * Data table – the ledger register.
  *
- * Contract points from the design library:
+ * Design contract encoded by this component:
  * - Density is the diagnostic number: row pitch ÷ body size targets
  *   2.4–3.8×. Pitch comes from --row-pitch; never inflate with padding.
  * - Header: hairline-only, no fill, micro-size grey sentence case, ~32px.
@@ -65,7 +65,7 @@ export function DataTable<Row>({
       }}
     >
       <thead>
-        <tr style={{ height: "32px", borderBottom: "1px solid var(--border-hairline)" }}>
+        <tr style={{ height: "var(--header-pitch)", borderBottom: "1px solid var(--border-hairline)" }}>
           {columns.map((col) => (
             <th
               key={col.key}
@@ -91,7 +91,7 @@ export function DataTable<Row>({
             <td
               colSpan={columns.length}
               style={{
-                padding: "24px var(--cell-pad-x)",
+                padding: "var(--space-2xl) var(--cell-pad-x)",
                 color: "var(--text-secondary)",
                 textAlign: "center",
               }}

@@ -1,5 +1,5 @@
 /**
- * Renders the five P2 components into a static demo page for visual
+ * Renders the UI kit's five components into a static demo page for visual
  * verification. Not shipped; run with:  npx tsx demo/render.tsx
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -122,7 +122,7 @@ const html = `<!doctype html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Venly UI – P2 core components</title>
+<title>Venly UI – component demo</title>
 <style>
 ${tokens}
 * { box-sizing: border-box; }

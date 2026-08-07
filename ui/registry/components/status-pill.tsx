@@ -3,7 +3,7 @@ import type { CSSProperties, ReactElement } from "react";
 /**
  * Status pill – reads as a data value in a table column.
  *
- * Contract points from the design library:
+ * Design contract encoded by this component:
  * - 4px radius rectangle (not fully rounded) in data contexts.
  * - Tinted background + text at the dark step of the same ramp; you should
  *   be able to read row text through the pill.
@@ -53,8 +53,8 @@ export function StatusPill({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: "4px",
-        padding: "2px 6px",
+        gap: "var(--space-2xs)",
+        padding: "var(--pill-pad)",
         borderRadius: "var(--radius-pill)",
         fontSize: "var(--font-size-micro)",
         fontWeight: 500,

@@ -10,6 +10,8 @@ TypeScript SDK for the [Venly Finance](https://docs.venlyfinance.com) and Fundfl
 |---|---|
 | [`@venlyfinance/sdk`](.) (root) | The TypeScript SDK: typed client for every Finance + Fundflow operation |
 | [`@venlyfinance/settlement-mcp`](settlement-mcp/) | Venly Finance MCP: SDK-backed tools, product resources and prompts for building and operating international money experiences. Mock-first; live writes fail closed. |
+| [`@venlyfinance/react`](react/) | Headless React layer: provider, TanStack Query hooks, and flow state machines for staged transfers, four-eyes approval, and ramp lifecycles |
+| [`@venlyfinance/ui`](ui/) | Copy-owned UI kit: design tokens (the white-label contract) plus components encoding fintech density, money typography, and state-legibility rules. Not npm-published |
 
 ## Build an international account experience with an AI agent
 

@@ -4,7 +4,7 @@ import { Money } from "../lib/money.js";
 /**
  * Side panel – record detail beside the table, not instead of it.
  *
- * Contract points from the design library:
+ * Design contract encoded by this component:
  * - Clicking a row opens this panel; it never navigates.
  * - NO scrim: the table stays visible and clipped at the panel edge; the
  *   source row stays tinted (the table owns that via selectedKey).
@@ -38,7 +38,7 @@ function KeyChip({ label }: { label: string }): ReactElement {
       style={{
         border: "1px solid var(--border-hairline)",
         borderRadius: "var(--radius-pill)",
-        padding: "1px 5px",
+        padding: "var(--pill-pad)",
         fontSize: "var(--font-size-micro)",
         color: "var(--text-secondary)",
         fontFamily: "var(--font-family)",
@@ -70,20 +70,20 @@ export function SidePanel({
         top: 0,
         right: 0,
         bottom: 0,
-        width: "28%",
-        minWidth: 340,
+        width: "var(--panel-width)",
+        minWidth: "var(--panel-min-width)",
         display: "flex",
         flexDirection: "column",
         background: "var(--surface-raised)",
         borderLeft: "1px solid var(--border-hairline)",
-        boxShadow: "-8px 0 24px rgba(9, 9, 11, 0.06)",
+        boxShadow: "var(--shadow-overlay)",
         fontFamily: "var(--font-family)",
         fontSize: "var(--font-size-body)",
         color: "var(--text-primary)",
         ...style,
       }}
     >
-      <header style={{ padding: "14px 20px 0" }}>
+      <header style={{ padding: "var(--space-md) var(--space-xl) 0" }}>
         <div
           style={{
             display: "flex",
@@ -113,7 +113,7 @@ export function SidePanel({
             </button>
           ) : null}
         </div>
-        <div style={{ marginTop: "10px" }}>
+        <div style={{ marginTop: "var(--space-sm)" }}>
           <Money amount={amount} currency={currency} emphasis="hero" />
         </div>
         {qualifier !== undefined ? (
@@ -121,21 +121,21 @@ export function SidePanel({
             style={{
               fontSize: "var(--font-size-label)",
               color: "var(--text-secondary)",
-              marginTop: "4px",
+              marginTop: "var(--space-2xs)",
             }}
           >
             {qualifier}
           </div>
         ) : null}
       </header>
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>{children}</div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "var(--space-lg) var(--space-xl)" }}>{children}</div>
       {keyboardFooter ? (
         <footer
           style={{
             borderTop: "1px solid var(--border-hairline)",
-            padding: "8px 20px",
+            padding: "var(--space-sm) var(--space-xl)",
             display: "flex",
-            gap: "10px",
+            gap: "var(--space-sm)",
             alignItems: "center",
             fontSize: "var(--font-size-micro)",
             color: "var(--text-tertiary)",

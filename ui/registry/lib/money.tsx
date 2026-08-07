@@ -43,7 +43,7 @@ export interface MoneyProps {
 const EMPHASIS: Record<NonNullable<MoneyProps["emphasis"]>, CSSProperties> = {
   row: { fontSize: "var(--font-size-body)", fontWeight: 600 },
   value: { fontSize: "var(--font-size-value)", fontWeight: 600 },
-  hero: { fontSize: "28px", fontWeight: 600, letterSpacing: "-0.01em" },
+  hero: { fontSize: "var(--font-size-hero)", fontWeight: 600, letterSpacing: "-0.01em" },
 };
 
 export function Money({

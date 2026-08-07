@@ -62,12 +62,37 @@
   --cell-pad-x: 12px;
 
   /* Five sizes do all the work on one screen; the bottom three are nearly
-     identical on purpose – tone and weight separate them, not size. */
+     identical on purpose – tone and weight separate them, not size. The
+     hero size is the one exception, reserved for THE emphasised figure on
+     a card or panel (2–2.5x its caption, never more). */
   --font-size-title: 30px;
   --font-size-value: 20px;
   --font-size-body: 14px;
   --font-size-label: 12px;
   --font-size-micro: 11px;
+  --font-size-hero: 28px;
+
+  /* Spacing rhythm. Card padding sits at ~1.1–1.3x the body line-height –
+     consumer apps run 1.5–2x, and that difference alone shifts the read. */
+  --space-2xs: 4px;
+  --space-xs: 6px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+  --card-pad: 22px;
+  --pill-pad: 2px 6px;
+
+  /* Table header band: hairline-only, no fill. */
+  --header-pitch: 32px;
+
+  /* Overlay geometry. The side panel is the one base-layer boundary
+     allowed elevation; everything else is flat by contract. */
+  --panel-width: 28%;
+  --panel-min-width: 340px;
+  --shadow-overlay: -8px 0 24px rgba(9, 9, 11, 0.06);
+  --timeline-node: 16px;
 
   --font-family:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;

@@ -8,7 +8,7 @@ import { Timeline } from "../registry/components/timeline.js";
 import { BalanceCard } from "../registry/components/balance-card.js";
 import { SidePanel } from "../registry/components/side-panel.js";
 
-// These tests encode the design library's contract as executable
+// These tests encode the kit's design contract as executable
 // invariants: money typography, state-never-colour-alone, the
 // available/reserved composition, and the timeline's terminal rules.
 
@@ -72,7 +72,7 @@ test("data table: money right-aligned tabular, empty cells em-dash, hairline hea
   assert.match(html, /text-align:right/, "money column right-aligned");
   assert.match(html, /tabular-nums/);
   assert.match(html, /—/, "null cell rendered as em-dash");
-  assert.match(html, /height:32px/, "header row at 32px");
+  assert.match(html, /height:var\(--header-pitch\)/, "header band is token-driven");
   assert.match(html, /height:var\(--row-pitch\)/, "row pitch is token-driven");
   assert.doesNotMatch(html, /box-shadow/, "no shadows in the base layer");
 });
@@ -163,5 +163,21 @@ test("side panel: the hero is the amount, no scrim, keyboard footer chips presen
   assert.match(html, /↓/);
   assert.match(html, /Esc/);
   assert.doesNotMatch(html, /backdrop|scrim/, "no scrim: the table stays visible");
-  assert.match(html, /box-shadow/, "the panel edge is an overlay boundary and may cast the shadow");
+  assert.match(html, /box-shadow:var\(--shadow-overlay\)/, "the panel edge is the one allowed, token-driven shadow");
+});
+
+test("tokens carry the skin: no raw colours and no off-scale font sizes at call sites", async () => {
+  const { readFile, readdir } = await import("node:fs/promises");
+  const dirs = ["registry/components", "registry/lib"];
+  for (const dir of dirs) {
+    for (const file of await readdir(new URL(`../${dir}/`, import.meta.url))) {
+      const src = await readFile(new URL(`../${dir}/${file}`, import.meta.url), "utf8");
+      assert.doesNotMatch(src, /#[0-9a-fA-F]{3,8}\b/, `${file}: raw hex colour`);
+      assert.doesNotMatch(src, /rgba?\(/, `${file}: raw rgb colour`);
+      // em-relative sizes are proportional geometry (e.g. the trailing
+      // currency code at 0.6x its digits), not skin - tokens stay in charge.
+      const sizes = src.match(/fontSize: "(?!var\(|calc\()(?![\d.]+em")[^"]+"/g) ?? [];
+      assert.deepEqual(sizes, [], `${file}: off-token font size(s) ${sizes.join(", ")}`);
+    }
+  }
 });

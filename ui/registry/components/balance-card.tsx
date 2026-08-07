@@ -4,7 +4,7 @@ import { Money } from "../lib/money.js";
 /**
  * Balance card – the available/reserved composition.
  *
- * Contract points from the design library:
+ * Design contract encoded by this component:
  * - Available is the terminal, emphasised figure: ~2× everything else and
  *   the ONLY figure above the hairline rule. The Send button spends it.
  * - Total is demoted below the rule beside the reserved buckets. Reserved
@@ -52,7 +52,7 @@ export function BalanceCard({
         background: "var(--surface-raised)",
         border: "1px solid var(--border-hairline)",
         borderRadius: "var(--radius-card)",
-        padding: "22px",
+        padding: "var(--card-pad)",
         fontFamily: "var(--font-family)",
         maxWidth: 420,
         ...style,
@@ -63,7 +63,7 @@ export function BalanceCard({
           fontSize: "var(--font-size-micro)",
           fontWeight: 500,
           color: "var(--text-tertiary)",
-          marginBottom: "6px",
+          marginBottom: "var(--space-xs)",
         }}
       >
         {label}
@@ -76,7 +76,7 @@ export function BalanceCard({
           style={{
             fontSize: "var(--font-size-label)",
             color: "var(--text-secondary)",
-            marginTop: "4px",
+            marginTop: "var(--space-2xs)",
           }}
         >
           {qualifier}
@@ -86,24 +86,24 @@ export function BalanceCard({
         <div
           style={{
             borderTop: "1px solid var(--border-hairline)",
-            marginTop: "14px",
-            paddingTop: "10px",
+            marginTop: "var(--space-md)",
+            paddingTop: "var(--space-sm)",
             display: "flex",
-            gap: "24px",
+            gap: "var(--space-2xl)",
           }}
         >
           {buckets.map((bucket) => (
             <div key={bucket.label} data-locked={bucket.locked || undefined}>
               <div
                 style={{
-                  fontSize: "10px",
+                  fontSize: "var(--font-size-micro)",
                   color: "var(--text-tertiary)",
                   marginBottom: "2px",
                   whiteSpace: "nowrap",
                 }}
               >
                 {bucket.locked ? (
-                  <span aria-label="not spendable" style={{ marginRight: "3px" }}>
+                  <span aria-label="not spendable" style={{ marginRight: "var(--space-2xs)" }}>
                     🔒
                   </span>
                 ) : null}
@@ -112,7 +112,7 @@ export function BalanceCard({
               <Money
                 amount={bucket.amount}
                 fractionDigits={2}
-                style={{ fontSize: "13px", fontWeight: 400 }}
+                style={{ fontSize: "var(--font-size-label)", fontWeight: 400 }}
               />
             </div>
           ))}

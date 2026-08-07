@@ -1,10 +1,10 @@
 # @venlyfinance/ui
 
-Copy-owned UI kit for money products built on `@venlyfinance/react`. Not an npm package: these files are meant to land in your repo (shadcn-registry distribution is the delivery mechanism), where you own and restyle them.
+Copy-owned UI kit for money products built on [`@venlyfinance/react`](../react/README.md). Not an npm package: these files are meant to land in your repo, where you own and restyle them. Registry-based install (shadcn registry standard) is planned; **today, copy the files you want directly from [`registry/`](registry/)** – they are self-contained apart from `tokens.css` and the `react` peer.
 
 ## The white-label contract
 
-[`registry/styles/tokens.css`](registry/styles/tokens.css) is the reskin surface – **a reskin must be that file and nothing else**. Every component reads exclusively from its custom properties; no component carries a raw colour, radius, or size at the call site.
+[`registry/styles/tokens.css`](registry/styles/tokens.css) is the reskin surface – **a reskin must be that file and nothing else**. Every skin-relevant value – colour, radius, type scale, density, spacing rhythm, panel geometry, elevation – is a custom property read from that file; no component carries a raw colour or radius, and the only literals left at call sites are structural geometry a reskin should not change (positioning zeros, 50% circles, font weights, 1px hairline widths).
 
 Acceptance test for any palette: map every `--state-*` pair to greys and confirm status is still legible. The kit holds up its half by pairing every state with a glyph or word; your palette must keep `-fg`/`-bg` contrast.
 
@@ -33,4 +33,4 @@ The demo page composes all five components into a payments screen plus a greysca
 
 Components use inline styles bound to the token variables rather than a utility framework. That keeps the kit runnable in any React stack (Tailwind or not), keeps the measured ratios exact, and keeps `tokens.css` the single source of visual truth. Consumers who want utility-class styling own the files and can convert them – that is the point of copy-owned distribution.
 
-MIT. Part of the [venly-settlement-sdk](https://github.com/Venly/venly-settlement-sdk) monorepo.
+MIT. Part of the [venly-settlement-sdk](https://github.com/Venly/venly-settlement-sdk) monorepo, alongside [`@venlyfinance/sdk`](../README.md), [`@venlyfinance/react`](../react/README.md) and [`@venlyfinance/settlement-mcp`](../settlement-mcp/README.md).
