@@ -3,7 +3,7 @@ import { VenlyApiError, type ApiErrorBody } from "./errors.js";
 
 export interface RequestOptions {
   /** Query string parameters; undefined values are dropped. */
-  query?: Record<string, string | number | boolean | undefined>;
+  query?: Record<string, string | number | boolean | readonly (string | number)[] | undefined>;
   /** JSON request body. */
   body?: unknown;
   /**
@@ -140,7 +140,13 @@ export class HttpClient implements Transport {
   private buildUrl(path: string, query?: RequestOptions["query"]): string {
     const url = new URL(this.opts.baseUrl.replace(/\/$/, "") + path);
     for (const [k, v] of Object.entries(query ?? {})) {
-      if (v !== undefined) url.searchParams.set(k, String(v));
+      if (v === undefined) continue;
+      // Array params (e.g. supportedRampTypes) repeat the key per value.
+      if (Array.isArray(v)) {
+        for (const item of v) url.searchParams.append(k, String(item));
+      } else {
+        url.searchParams.set(k, String(v));
+      }
     }
     return url.toString();
   }

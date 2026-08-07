@@ -6,4 +6,7 @@ export { financeRoutes, createFinanceRoutes, financeSeeds, FinanceMockTransport 
 export type { VenlyFinanceMock } from "./finance.js";
 export { FinanceMockStore } from "./store.js";
 export type { FinanceSeeds, VerificationStatusInput } from "./store.js";
-export { fundflowRoutes } from "./fundflow.js";
+export { fundflowRoutes, createFundflowRoutes, fundflowSeeds, FundflowMockTransport } from "./fundflow.js";
+export type { VenlyFundflowMock } from "./fundflow.js";
+export { FundflowMockStore } from "./fundflow-store.js";
+export type { FundflowSeeds } from "./fundflow-store.js";

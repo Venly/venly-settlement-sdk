@@ -6,6 +6,26 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Certain terms are kept out of this repository by policy. The term list
+  # itself lives in a repository secret, so the policy never publishes the
+  # thing it protects. Absent secret (e.g. fork PRs) skips cleanly.
+  provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: repository term policy
+        env:
+          PATTERN: ${{ secrets.PROVENANCE_PATTERN }}
+        run: |
+          if [ -z "$PATTERN" ]; then
+            echo "term policy not configured for this context; skipping"
+            exit 0
+          fi
+          if git grep -I -i -n -w -E "$PATTERN" -- ':!package-lock.json' ':!*/package-lock.json'; then
+            echo "::error::Found terms that must not appear in this repository."
+            exit 1
+          fi
+
   sdk:
     runs-on: ubuntu-latest
     steps:

@@ -163,8 +163,8 @@ test("mock: every namespace method returns a plausible fixture", async () => {
     ["fundflow rampRequests.list", ff.rampRequests.list(), (r) => r.items.length === 5],
     [
       "fundflow rampRequests.get",
-      ff.rampRequests.get("rr-1"),
-      (r) => r.id === "rr-1" && r.version === 3,
+      ff.rampRequests.get("123e4567-e89b-12d3-a456-426614174000"),
+      (r) => r.id === "123e4567-e89b-12d3-a456-426614174000" && r.version === 0 && r.status === "AWAITING_APPROVAL",
     ],
     ["fundflow onRampPairs", ff.rampRequests.onRampPairs(), (r) => r.length > 0],
     ["fundflow fees.calculate", ff.fees.calculate({ amount: 1000 }), (r) => r.percentage === 1.0],
@@ -218,7 +218,7 @@ test("mock: failNext throws a real VenlyApiError, then the next call succeeds", 
   const ff = mockFundflow();
   ff.mock.failNext("OPTIMISTIC_LOCK_EXCEPTION");
   await assert.rejects(
-    () => ff.rampRequests.approve("rr-1", { version: 2 }),
+    () => ff.rampRequests.approve("123e4567-e89b-12d3-a456-426614174000", { version: 0 }),
     (err) => {
       assert.ok(err instanceof VenlyApiError);
       assert.equal(err.status, 409);
@@ -227,9 +227,9 @@ test("mock: failNext throws a real VenlyApiError, then the next call succeeds", 
       return true;
     },
   );
-  const after = await ff.rampRequests.approve("rr-1", { version: 3 });
+  const after = await ff.rampRequests.approve("123e4567-e89b-12d3-a456-426614174000", { version: 0 });
   assert.equal(after.status, "AWAITING_FUNDS");
-  assert.equal(after.version, 4, "approve bumps the optimistic-locking version");
+  assert.equal(after.version, 1, "approve bumps the optimistic-locking version");
 });
 
 test("mock: failNext supports custom specs and route matching", async () => {
@@ -290,15 +290,15 @@ test("mock: CSV export returns the raw string", async () => {
   const ff = mockFundflow();
   const csv = await ff.rampRequests.export();
   assert.match(csv, /^id,paymentReference,rampType/);
-  assert.match(csv, /PAY-2024-001234/);
+  assert.match(csv, /PAY-2026-001234/);
 });
 
 test("mock: approve/reject/cancel record the optimistic-locking body", async () => {
   const ff = mockFundflow();
-  await ff.rampRequests.reject("rr-9", { version: 5 });
+  await ff.rampRequests.reject("123e4567-e89b-12d3-a456-426614174000", { version: 0 });
   const call = ff.mock.calls.at(-1);
   assert.equal(call.route, "POST /v1/ramp-requests/{id}/reject");
-  assert.deepEqual(call.body, { version: 5 });
+  assert.deepEqual(call.body, { version: 0 });
 });
 
 test("mock: clean-room ESM and CJS entry both construct and answer", () => {
@@ -373,6 +373,6 @@ test("mock: literal route shadows {id} template, same as the live router (evalua
   assert.equal(shadowed, undefined, "shadowed call must not fabricate a DTO");
   assert.equal(ff.mock.calls.at(-1).route, "GET /v1/ramp-requests/export");
   const real = await ff.rampRequests.get("123e4567-e89b-12d3-a456-426614174000");
-  assert.equal(real.version, 3);
+  assert.equal(real.version, 0);
   assert.equal(ff.mock.calls.at(-1).route, "GET /v1/ramp-requests/{id}");
 });
