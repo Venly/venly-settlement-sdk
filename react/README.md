@@ -6,10 +6,6 @@ Headless React layer for the [Venly Finance and Fundflow APIs](https://github.co
 
 No components, no CSS. This package owns data and state; your UI (or the one your coding agent assembles) owns the pixels. The full behaviour is covered by a node:test suite that runs with zero network.
 
-> **Not yet on npm.** Until the first publish lands, run it from the monorepo:
-> `git clone https://github.com/Venly/venly-settlement-sdk && cd venly-settlement-sdk/react && npm install && npm test`
-> Everything below works identically from the checkout; the install line is what it will be once published.
-
 ## Try it in 0 minutes (mock mode)
 
 ```bash
