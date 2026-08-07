@@ -1,0 +1,26 @@
+{
+  "name": "mock-bank-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Runnable example: an international account experience assembled from @venlyfinance/react + the ui kit, in mock mode - zero credentials, zero network.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "@venlyfinance/react": "^0.1.1",
+    "@venlyfinance/sdk": "^0.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0"
+  }
+}

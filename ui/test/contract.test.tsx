@@ -168,7 +168,7 @@ test("side panel: the hero is the amount, no scrim, keyboard footer chips presen
 
 test("tokens carry the skin: no raw colours and no off-scale font sizes at call sites", async () => {
   const { readFile, readdir } = await import("node:fs/promises");
-  const dirs = ["registry/components", "registry/lib"];
+  const dirs = ["registry/components", "registry/lib", "registry/blocks"];
   for (const dir of dirs) {
     for (const file of await readdir(new URL(`../${dir}/`, import.meta.url))) {
       const src = await readFile(new URL(`../${dir}/${file}`, import.meta.url), "utf8");

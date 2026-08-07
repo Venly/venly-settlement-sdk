@@ -126,4 +126,6 @@ npm test          # node:test, zero network
 npm run build
 ```
 
+See it assembled end to end: [`examples/mock-bank`](../examples/mock-bank/) runs a full account experience on these hooks in mock mode – `npm install && npm run dev`, fake data, zero credentials.
+
 MIT. Part of the [venly-settlement-sdk](https://github.com/Venly/venly-settlement-sdk) monorepo alongside `@venlyfinance/sdk` and `@venlyfinance/settlement-mcp`.
