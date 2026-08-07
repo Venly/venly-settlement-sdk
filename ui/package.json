@@ -1,0 +1,33 @@
+{
+  "name": "@venlyfinance/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Copy-owned UI kit for Venly-powered money products: design tokens (the white-label contract) plus components implementing measured fintech density, money typography, and state-legibility rules. Distributed via the shadcn registry standard, not npm.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:test": "tsc -p tsconfig.test.json",
+    "test": "node --import tsx --test test/*.test.tsx"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Venly/venly-settlement-sdk.git",
+    "directory": "ui"
+  }
+}
