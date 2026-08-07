@@ -98,16 +98,21 @@ export function reviewScreenSource(source: string): Finding[] {
     );
   }
 
-  const cancelledIdx = source.search(/cancel/i);
-  if (cancelledIdx >= 0) {
-    const around = source.slice(Math.max(0, cancelledIdx - 200), cancelledIdx + 200);
-    if (/✓|state-success/.test(around)) {
+  // Only a RENDERED cancelled state counts (a quoted/JSX label or a state
+  // value), never the verb "cancel" in prose or a token file's comment; and
+  // only the ✓ glyph counts as the violation, never the mere NAME of a
+  // success token nearby.
+  for (const match of source.matchAll(/(?:["'>`]|\bstate\s*[:=]\s*["'])\s*cancell?ed\b/gi)) {
+    const idx = match.index ?? 0;
+    const around = source.slice(Math.max(0, idx - 150), idx + 150);
+    if (/✓/.test(around)) {
       push(
         "success-on-cancelled",
         "error",
         around.trim().slice(0, 80),
-        "A cancelled or failed terminal step must never carry a success check or green styling - grey ↺ or red ✕.",
+        "A cancelled or failed terminal step must never carry a success check - grey ↺ or red ✕.",
       );
+      break;
     }
   }
 

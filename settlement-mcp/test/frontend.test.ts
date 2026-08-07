@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { reviewScreenSource, REGISTRY_URL_TEMPLATE } from "../src/frontend.js";
 
 test("review_screen: raw colours are errors", () => {
@@ -24,6 +25,27 @@ test("review_screen: success styling near a cancelled step is an error", () => {
     `<li>Cancelled <span style="color: var(--state-success-fg)">✓</span></li>`,
   );
   assert.ok(findings.some((f) => f.rule === "success-on-cancelled"));
+});
+
+test("review_screen: the success-on-cancelled rule ignores prose, comments and token names", () => {
+  // The verb "cancel" in prose near a checkmark is not a rendered state.
+  const prose = reviewScreenSource(
+    `// user can cancel this at any time. Later: render a ✓ when the upload finishes`,
+  );
+  assert.equal(prose.filter((f) => f.rule === "success-on-cancelled").length, 0);
+
+  // A token file's comment mentioning Cancelled near --state-success-* is
+  // not a violation either - the kit's own tokens.css must pass.
+  const tokens = readFileSync(
+    new URL("../../ui/registry/styles/tokens.css", import.meta.url),
+    "utf8",
+  );
+  const findings = reviewScreenSource(tokens).filter((f) => f.rule === "success-on-cancelled");
+  assert.deepEqual(findings, [], "tokens.css must pass its own audit");
+
+  // A rendered Cancelled label with a checkmark nearby IS the violation.
+  const real = reviewScreenSource(`<li><span>Cancelled</span> <span aria-hidden="true">✓</span></li>`);
+  assert.ok(real.some((f) => f.rule === "success-on-cancelled"));
 });
 
 test("review_screen: masked values on a review screen are an error", () => {

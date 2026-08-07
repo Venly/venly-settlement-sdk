@@ -61,7 +61,9 @@ const MONEY = {
   title: "Money rendering",
   description:
     "Tabular figures, trailing currency code at 0.6x, true minus, debits never red, em-dash empty values.",
-  registryDependencies: [],
+  // money.tsx reads --font-size-* and --text-* custom properties, so a
+  // standalone `add @venlyfinance/money` must land the tokens file too.
+  registryDependencies: ["@venlyfinance/venly-tokens"],
   files: [file("lib/money.tsx", "registry:lib")],
 };
 

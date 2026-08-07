@@ -4,7 +4,9 @@
   "type": "registry:lib",
   "title": "Money rendering",
   "description": "Tabular figures, trailing currency code at 0.6x, true minus, debits never red, em-dash empty values.",
-  "registryDependencies": [],
+  "registryDependencies": [
+    "@venlyfinance/venly-tokens"
+  ],
   "files": [
     {
       "path": "registry/lib/money.tsx",
