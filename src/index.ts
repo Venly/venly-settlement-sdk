@@ -9,6 +9,10 @@ export type {
 } from "./finance/client.js";
 export { FundflowClient } from "./fundflow/client.js";
 export type {
+  CompanyBankAccountDetails,
+  CreateCompanyBankAccountInput,
+} from "./fundflow/client.js";
+export type {
   FundflowClientOptions,
   FundflowCredentialOptions,
   FundflowMockOptions,
@@ -21,10 +25,11 @@ export { TokenManager } from "./core/auth.js";
 export { HttpClient } from "./core/http.js";
 export type { RequestOptions, Transport } from "./core/http.js";
 
-export { MockTransport, FinanceMockTransport, errorPresets, fundflowErrorPresets } from "./mock/index.js";
+export { MockTransport, FinanceMockTransport, FundflowMockTransport, errorPresets, fundflowErrorPresets } from "./mock/index.js";
 export type {
   VenlyMock,
   VenlyFinanceMock,
+  VenlyFundflowMock,
   MockCall,
   ErrorPresetName,
   ErrorSpec,
@@ -72,3 +77,13 @@ export type RampRequest = _ffs["RampRequestDto"];
 export type FiatCurrency = _ffs["FiatCurrencyDto"];
 export type CryptoCurrency = _ffs["CryptoCurrencyDto"];
 export type Fee = _ffs["FeeDto"];
+export type RampRequestListItem = _ffs["RampRequestListItem"];
+export type RampRequestEvent = _ffs["RampRequestEventDto"];
+export type CreateRampRequestRequest = _ffs["CreateRampRequestRequest"];
+export type CalculatedFee = _ffs["CalculatedFeeDto"];
+export type CompanyWallet = _ffs["CompanyWalletDto"];
+export type CompanyWalletListItem = _ffs["CompanyWalletListItem"];
+export type CompanyBankAccountListItem = _ffs["CompanyBankAccountListItem"];
+export type CreateCompanyWalletRequest = _ffs["CreateCompanyWalletRequest"];
+export type DepositWallet = _ffs["DepositWalletDto"];
+export type BankAccountConfig = _ffs["BankAccountConfigDto"];

@@ -10,7 +10,7 @@ export interface MockCall {
   path: string;
   /** Matched route template, e.g. "GET /parties/{partyId}"; undefined when unmatched. */
   route?: string;
-  query?: Record<string, string | number | boolean | undefined>;
+  query?: Record<string, string | number | boolean | readonly (string | number)[] | undefined>;
   body?: unknown;
   headers?: Record<string, string>;
   idempotencyKey?: string;
@@ -41,7 +41,7 @@ export interface HandlerContext {
   path: string;
   /** Path parameters by template name, e.g. { partyId: "p-1" }. */
   params: Record<string, string>;
-  query: Record<string, string | number | boolean | undefined>;
+  query: Record<string, string | number | boolean | readonly (string | number)[] | undefined>;
   body: unknown;
 }
 
@@ -98,7 +98,7 @@ function echoId(template: string, path: string, result: unknown): unknown {
 /** Envelope for a paginated list, sliced by `page`/`size`. */
 export function listEnvelope(
   items: unknown[],
-  query: Record<string, string | number | boolean | undefined> = {},
+  query: Record<string, string | number | boolean | readonly (string | number)[] | undefined> = {},
 ): unknown {
   const page = Math.max(1, Number(query.page ?? 1));
   const size = Math.max(1, Number(query.size ?? 20));

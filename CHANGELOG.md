@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.3.0 – 2026-08-07
+
+Fundflow surface release: the whitelisting-and-ramp lifecycle becomes typed and
+honest in mock mode.
+
+- **New resources on `FundflowClient`:** `bankAccounts` (list/create/get/update
+  over the 7 bank-account variants; created `PENDING`, verified before use) and
+  `companyWallets` (same whitelisting lifecycle). `referenceData` gains
+  `depositWallets`, `bankAccountConfig`, and by-id currency lookups.
+- **Stateful fundflow mock.** The ramp lifecycle now behaves like the documented
+  state machine instead of echoing fixtures: approve/reject/cancel are legal only
+  from `AWAITING_APPROVAL`, every mutating call carries the optimistic-locking
+  `version` (stale → real 409 `OPTIMISTIC_LOCK_EXCEPTION`), amount edits recompute
+  the outgoing side and record `AMOUNT_CHANGED` events, and the off-ramp tx-hash
+  leg advances `AWAITING_FUNDS → PROCESSING`. Event history accretes on the
+  request, so timelines render real history.
+- **New mock drivers** on `client.mock`: `advanceRamp(id, to)` for the states only
+  the platform can produce (`PAYMENT_RECEIVED`, `SUCCEEDED`, `FAILED`, `BLOCKED`,
+  `DENIED`), `advanceBankAccountVerification(id)`, and
+  `advanceCompanyWalletVerification(id)`, plus `reset()`.
+- Query params now accept arrays (repeated keys), e.g. `supportedRampTypes`.
+- Known contract note: the spec's bank-account `oneOf` discriminator maps DTO type
+  names instead of the `bankAccountType` enum the wire sends; the SDK types
+  detail responses as the base DTO plus variant fields until the spec is fixed.
+
 ## 0.2.0 – 2026-08-04
 
 Mock-fidelity release. An outside integrator built a six-journey reference app on
