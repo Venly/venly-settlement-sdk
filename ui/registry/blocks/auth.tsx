@@ -69,7 +69,7 @@ export interface MockAuthAdapter extends AuthAdapter {
   expireSession(): void;
 }
 
-const DEFAULT_SEEDED_EMAILS = ["ada@acme.example", "casey@acme.example", "sam@acme.example"];
+const DEFAULT_SEEDED_EMAILS = ["ada@acme.example", "casey@acme.example", "riley@acme.example"];
 
 function nameFromEmail(email: string): string {
   const local = email.split("@")[0] ?? email;

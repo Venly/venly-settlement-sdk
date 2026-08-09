@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import type { Wallet } from "@venlyfinance/sdk";
 import { useWallets } from "@venlyfinance/react";
 import { Money, MASK } from "../lib/money.js";

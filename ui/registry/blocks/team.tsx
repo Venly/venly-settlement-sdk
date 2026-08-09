@@ -73,8 +73,8 @@ export function createMockTeamAdapter(): TeamAdapter {
     },
     {
       id: "tm-3",
-      name: "Sam Altmann",
-      email: "sam@acme.example",
+      name: "Riley Chen",
+      email: "riley@acme.example",
       role: "VIEWER",
       status: "DISABLED",
     },

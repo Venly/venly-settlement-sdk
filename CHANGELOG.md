@@ -4,8 +4,7 @@
 
 - **New finance mock seed:** `acct-escrow` – an account whose entire balance is
   reserved (`available: 0`). The dangerous composition a balance UI must render
-  honestly (zero spendable is not "no money"); previously undemonstrable
-  without hand-building state.
+  honestly: zero spendable is not "no money".
 
 ## 0.3.0 – 2026-08-07
 
