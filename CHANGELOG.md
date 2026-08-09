@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 – 2026-08-09
+
+- **New finance mock seed:** `acct-escrow` – an account whose entire balance is
+  reserved (`available: 0`). The dangerous composition a balance UI must render
+  honestly: zero spendable is not "no money".
+
 ## 0.3.0 – 2026-08-07
 
 Fundflow surface release: the whitelisting-and-ramp lifecycle becomes typed and

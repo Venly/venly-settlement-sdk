@@ -134,6 +134,15 @@ export const accounts = [
     createdAt: "2026-06-15T09:45:00Z",
     version: 0,
   },
+  {
+    id: "a10c2d31-2222-4b20-8c63-000000000006",
+    externalId: "acct-escrow",
+    name: "Acme – Escrow",
+    kycStatus: "VERIFIED",
+    status: "ACTIVE",
+    createdAt: "2026-07-01T10:00:00Z",
+    version: 0,
+  },
 ] satisfies schemas["Account"][];
 
 export const wallet = {
@@ -192,6 +201,24 @@ const walletSeeds: Record<string, schemas["Wallet"][]> = {
     },
   ],
   // accounts[3] (suspended) has no wallet yet.
+  // accounts[5] is the dangerous state: every unit reserved, nothing
+  // spendable. UIs must render available 0 honestly (not as "no money").
+  [accounts[5].id]: [
+    {
+      id: "w1f3a8c2-3333-4c30-9d74-000000000006",
+      chain: "BASE",
+      type: "VENLY_MANAGED",
+      address: "0xef4d1b6c1e8a29f8b2ca4df2f3cbb3a2f6dc38c1",
+      amlStatus: "APPROVED",
+      balances: [
+        {
+          asset: "USDC",
+          contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          amount: { total: "4200.000000", available: "0.000000", reserved: "4200.000000" },
+        },
+      ],
+    },
+  ],
   [accounts[4].id]: [
     {
       id: "w1f3a8c2-3333-4c30-9d74-000000000005",

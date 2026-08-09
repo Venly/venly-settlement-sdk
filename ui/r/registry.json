@@ -158,6 +158,74 @@
     },
     {
       "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "auth",
+      "type": "registry:block",
+      "title": "Auth block",
+      "description": "Sign-in, two-factor challenge and sign-up over a bring-your-own-auth adapter: the Venly APIs authenticate machines, not people, so these forms render YOUR identity layer. Ships a zero-credential mock adapter with a deterministic 2FA path.",
+      "dependencies": [
+        "@radix-ui/react-one-time-password-field@^0.1.16"
+      ],
+      "registryDependencies": [
+        "@venlyfinance/venly-tokens"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/auth.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/auth.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "team",
+      "type": "registry:block",
+      "title": "Team block",
+      "description": "Member list, invites and role control over the same bring-your-own-auth boundary: status as word plus glyph, row-level role controls, self-actions disabled with the reason, and a mock invite that mints a link instead of claiming an email went out.",
+      "dependencies": [
+        "@radix-ui/react-dialog@^1.1.23"
+      ],
+      "registryDependencies": [
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/data-table",
+        "@venlyfinance/status-pill",
+        "@venlyfinance/auth"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/team.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/team.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "onboarding",
+      "type": "registry:block",
+      "title": "Onboarding block",
+      "description": "Company details in, an application status out: creates the organisation and its account through the real operations, renders the verification status verbatim with a humane waiting state, decline-with-review, and a restricted-mode banner.",
+      "dependencies": [
+        "@venlyfinance/react@^0.2.0",
+        "@venlyfinance/sdk@^0.3.0",
+        "@tanstack/react-query@^5.0.0"
+      ],
+      "registryDependencies": [
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/status-pill",
+        "@venlyfinance/timeline",
+        "@venlyfinance/field-list"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/onboarding.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/onboarding.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
       "name": "receive",
       "type": "registry:block",
       "title": "Receive block",

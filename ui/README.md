@@ -30,6 +30,9 @@ Acceptance test for any palette: map every `--state-*` pair to greys and confirm
 | `registry/components/timeline.tsx` | `Timeline` | Three-axis state (node, rail, label) · solid past / dotted future, never inverted · donut current + bold label · terminal failure is never a green check |
 | `registry/components/balance-card.tsx` | `BalanceCard` | Available is the only figure above the rule, ~2× everything else · reserved demoted by position and scale, not colour · padlock for unspendable · mechanism-naming bucket labels |
 | `registry/components/side-panel.tsx` | `SidePanel` | Row click opens a panel, never navigates · no scrim · hero is the amount · `↑ ↓ Esc` row-stepping footer |
+| `registry/blocks/auth.tsx` | `SignInForm`, `TwoFactorForm`, `SignUpForm`, `AuthAdapter`, `createMockAuthAdapter` | Bring-your-own-auth boundary: the Venly APIs authenticate machines, never people · no user enumeration in credential errors · six-slot 2FA code with paste + keyboard support · session-expiry contract (`session()` → null) |
+| `registry/blocks/team.tsx` | `TeamTable`, `InviteDialog`, `TeamAdapter`, `createMockTeamAdapter` | Member status as word + glyph · row-level role controls with role descriptions · self-actions disabled with the reason · mock invites mint a link, never claim an email went out |
+| `registry/blocks/onboarding.tsx` | `CompanyForm`, `VerificationStatusHome`, `RestrictedBanner` | Verification status rendered verbatim from the records (no invented steps or SLAs) · waiting state answers must-I-act / who-has-it / how-long / what-still-works · humane decline with review as the primary action |
 
 ## Verify
 

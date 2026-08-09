@@ -92,6 +92,11 @@
   --card-max-width: 420px;
   --pill-pad: 2px 6px;
 
+  /* Form clamps: in-shell forms hold a readable measure instead of
+     stretching across the content column; auth forms are narrower still. */
+  --form-max-width: 600px;
+  --auth-form-max-width: 360px;
+
   /* Table header band: hairline-only, no fill. */
   --header-pitch: 32px;
 

@@ -129,6 +129,33 @@ const COMPONENTS = [
 
 const BLOCKS = [
   {
+    name: "auth",
+    title: "Auth block",
+    description:
+      "Sign-in, two-factor challenge and sign-up over a bring-your-own-auth adapter: the Venly APIs authenticate machines, not people, so these forms render YOUR identity layer. Ships a zero-credential mock adapter with a deterministic 2FA path.",
+    deps: [],
+    // Adapter-backed: no SDK/react-query runtime, just the behavior primitive.
+    npm: ["@radix-ui/react-one-time-password-field@^0.1.16"],
+    money: false,
+  },
+  {
+    name: "team",
+    title: "Team block",
+    description:
+      "Member list, invites and role control over the same bring-your-own-auth boundary: status as word plus glyph, row-level role controls, self-actions disabled with the reason, and a mock invite that mints a link instead of claiming an email went out.",
+    deps: ["data-table", "status-pill", "auth"],
+    npm: ["@radix-ui/react-dialog@^1.1.23"],
+    money: false,
+  },
+  {
+    name: "onboarding",
+    title: "Onboarding block",
+    description:
+      "Company details in, an application status out: creates the organisation and its account through the real operations, renders the verification status verbatim with a humane waiting state, decline-with-review, and a restricted-mode banner.",
+    deps: ["status-pill", "timeline", "field-list"],
+    money: false,
+  },
+  {
     name: "receive",
     title: "Receive block",
     description:
@@ -162,8 +189,12 @@ const BLOCKS = [
   type: "registry:block",
   title: b.title,
   description: b.description,
-  dependencies: RUNTIME_DEPENDENCIES,
-  registryDependencies: ["@venlyfinance/venly-tokens", "@venlyfinance/money", ...b.deps.map((d) => `@venlyfinance/${d}`)],
+  dependencies: b.npm ?? RUNTIME_DEPENDENCIES,
+  registryDependencies: [
+    "@venlyfinance/venly-tokens",
+    ...(b.money === false ? [] : ["@venlyfinance/money"]),
+    ...b.deps.map((d) => `@venlyfinance/${d}`),
+  ],
   files: [file(`blocks/${b.name}.tsx`, "registry:component")],
 }));
 
