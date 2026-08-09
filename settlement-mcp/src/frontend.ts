@@ -14,12 +14,35 @@ export const REGISTRY_URL_TEMPLATE =
   "https://raw.githubusercontent.com/Venly/venly-settlement-sdk/main/ui/r/{name}.json";
 
 const JOURNEYS = {
+  auth: `# Auth (sign-in, 2FA, sign-up)
+Shell: outside the app shell - a centred card column.
+Registry items: venly-tokens; block: auth (SignInForm, TwoFactorForm, SignUpForm).
+Binding: an AuthAdapter YOU implement - the Venly APIs authenticate machines
+(client credentials), never people, so end-user auth is your identity layer
+(OAuth/OIDC, Better Auth, Auth0, Clerk, Keycloak). createMockAuthAdapter ships
+for demos: deterministic 2FA code 000000, expireSession() driver.
+States that must exist: signed out, bad credentials (ONE combined message -
+no user enumeration), 2FA challenge with wrong-code path, session expired
+(session() returns null - redirect, no other signal), duplicate sign-up email.
+Rules that must hold: credential errors never confirm which half was wrong;
+the code field is six slots with paste distribution and full keyboard support;
+the mock never claims an email was sent.`,
+  team: `# Team
+Shell: in-shell content column.
+Registry items: venly-tokens, data-table, status-pill; block: team (TeamTable, InviteDialog).
+Binding: a TeamAdapter over your auth provider (createMockTeamAdapter for demos).
+States that must exist: ACTIVE/INVITED/DISABLED members on first paint, invite
+created (display-only link in mock - never a fake sent-email claim), role
+change persisting, self-actions blocked with the reason.
+Rules that must hold: member status is word + glyph; role controls live in the
+row; you cannot change your own role or disable yourself - the control is
+disabled AND explains why.`,
   "home-balances": `# Home / balances
 Shell: left nav rail + thin top bar; full-width content.
-Registry items: venly-tokens, balance-card, data-table, status-pill.
-Hooks: useAccounts, useVirtualBankAccounts; balances rendered per account/currency.
-States that must exist: loading, zero accounts (first-run guidance), balances with reserved buckets.
-Rules that must hold: available is the emphasised figure and the only one above the rule; reserved is demoted by position and scale, never colour; unspendable buckets carry the padlock; never assume stablecoin parity - render the quoted rate.`,
+Registry items: venly-tokens, balance-card, data-table, status-pill; block: balances (BalancesBlock, BalanceMiniature).
+Hooks: useAccounts, useWallets; balances rendered per asset across the account's wallets.
+States that must exist: loading, zero balances (first-run guidance), reserved buckets, entirely reserved (available 0 rendered honestly - the acct-escrow seed exercises it), balance load error degrading locally with a retry.
+Rules that must hold: available is the emphasised figure and the only one above the rule; reserved is demoted by position and scale, never colour, and carries the still-yours qualifier; unspendable buckets carry the padlock; masking covers every figure including the chrome miniature; arithmetic mismatches are surfaced, never corrected; never assume stablecoin parity - render the quoted rate.`,
   receive: `# Receive
 Shell: content column - a warning callout, the field card, an advisory below.
 Registry items: venly-tokens, field-list; block: receive.
@@ -40,10 +63,16 @@ States that must exist: loading, empty ledger, rows with pending/failed pills, o
 Rules that must hold: a row click opens the panel, never navigates; no scrim - the source row stays tinted; settled rows stay quiet (colour is a budget; pills only where action or failure lives); the panel's hero is the amount; the failure reason rides the terminal timeline node.`,
   "onboarding-status": `# Onboarding / verification status
 Shell: full page, form clamped ~600px; a status home once submitted.
-Registry items: venly-tokens, timeline, status-pill, field-list.
-Hooks: useParties, useCreateParty; verification status from the party/account records.
-States that must exist: collecting (per-section progress), submitted/waiting (say who acts next, on which channel, what still works meanwhile), approved, declined (humane copy + what to do next), re-verification on a live account.
-Rules that must hold: never render a fake progress percentage - use real per-item status; a waiting state answers how long / who acts / what still works; a decline explains and offers a next step, not a dead end; creating a party is NOT completed verification - show the honest state.`,
+Registry items: venly-tokens, timeline, status-pill, field-list; block: onboarding (CompanyForm, VerificationStatusHome, RestrictedBanner).
+Hooks: useCreateParty, useCreateAccount, useParty, useAccount; verification status from the party/account records verbatim.
+States that must exist: collecting (review before submit), submitted/waiting (say who acts next, on which channel, what still works meanwhile), approved, declined (humane copy, review-request as the primary action), re-verification on a live account (banner naming what pauses and what keeps working).
+Rules that must hold: never render a fake progress percentage - use real status; a waiting state answers how long / who acts / what still works, and where no review window is published the copy says so instead of inventing one; a decline explains and offers a next step, not a dead end; creating a party is NOT completed verification - show the honest state.`,
+  "withdraw-bank-accounts": `# Withdraw + bank accounts (off-ramp)
+Shell: settings page for the whitelist; full page for the flow, form clamped ~600px.
+Registry items: venly-tokens, data-table, status-pill, timeline, field-list, arithmetic-ladder; blocks: bank-accounts (BankAccountsBlock, AddBankAccountForm), withdraw (WithdrawFlow, WithdrawalsTable, ConnectedWithdrawDetail).
+Hooks: useCompanyBankAccounts, useBankAccountConfig, useCreateCompanyBankAccount, useRampRequests, useRampRequest, useCreateRampRequest, useFeeQuote, useRampPairs, useReferenceData, useFourEyesApproval, useInitiateRamp, describeRampStatus.
+States that must exist: empty whitelist (one CTA), account in review / verified / declined, no-verified-destination block, amount over balance (two-place signal), fee quote with its unit, awaiting approval (creator sees why they can't approve), stale decision (409 - refetch and re-decide, never auto-retry), awaiting funds (deposit instructions + mandatory reference + tx-hash report), processing, paid out, failed, rejected, cancelled, on hold.
+Rules that must hold: destinations are the company's OWN verified accounts - unverified rows are disabled with the reason, never hidden; the pre-create review renders only known figures (no invented rate, no bank-receives placeholder - the created record carries the fiat arithmetic and the detail opens on it); a refusal never reads as a wait; the event timeline renders actor, role and absolute timestamps.`,
   reconciliation: `# Reconciliation
 Shell: split pane (roughly one-third list, two-thirds evidence) - not a drawer.
 Registry items: venly-tokens, data-table, side-panel, status-pill, field-list.
@@ -178,7 +207,7 @@ registry install. On a fresh Vite/React app that means, in order:
    works - it never imports base-library components itself).
 3. Add the registry once to components.json -
   { "registries": { "@venlyfinance": "${REGISTRY_URL_TEMPLATE}" } }
-4. \`npx shadcn@latest add @venlyfinance/receive @venlyfinance/send @venlyfinance/activity -y -o\`.
+4. \`npx shadcn@latest add @venlyfinance/balances @venlyfinance/activity @venlyfinance/receive @venlyfinance/send @venlyfinance/auth @venlyfinance/team @venlyfinance/onboarding -y -o\`.
    Each block auto-installs its components, the venly-tokens file AND its
    npm dependencies (@venlyfinance/react, @venlyfinance/sdk, TanStack
    Query) - no separate npm install step is needed.

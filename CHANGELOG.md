@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.2 – 2026-08-09
+
+- **Fee quotes compute from the request.** The `fees/calculate` mock returned a
+  static figure regardless of the amount quoted; it now computes
+  `amount × percentage` from the request (with a 400 on invalid amounts), so a
+  quote-driven UI reconciles for any input. The fee amount's unit is the unit
+  of the amount you quote.
+- **New ramp seed:** an OFF_RAMP request awaiting its second approver,
+  carrying the bank destination and deposit wallet – the opening state of a
+  withdraw surface, previously undemonstrable without creating one first.
+
 ## 0.3.1 – 2026-08-09
 
 - **New finance mock seed:** `acct-escrow` – an account whose entire balance is

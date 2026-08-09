@@ -3,6 +3,7 @@ import {
   MockTransport,
   itemEnvelope,
   listEnvelope,
+  mockError,
   type RouteTable,
   type VenlyMock,
 } from "./transport.js";
@@ -127,7 +128,7 @@ export const companyWallets = [
 
 const iban = { iban: "DE89370400440532013000", bic: "COBADEFFXXX" };
 
-/** Five seeds covering the visible lifecycle states. */
+/** Six seeds covering the visible lifecycle states. */
 export const rampRequestSeeds = [
   {
     id: "123e4567-e89b-12d3-a456-426614174000",
@@ -260,12 +261,52 @@ export const rampRequestSeeds = [
     ],
     version: 2,
   },
+  // The withdraw journey's opening state: an OFF_RAMP awaiting its second
+  // pair of eyes, carrying the bank destination + deposit wallet so the
+  // detail screen renders every field it owns before anyone acts on it.
+  {
+    id: "123e4567-e89b-12d3-a456-426614174005",
+    companyId: "co000001-0000-4000-8000-000000000001",
+    companyName: "Acme Corporation B.V.",
+    rampType: "OFF_RAMP",
+    status: "AWAITING_APPROVAL",
+    fiatAmount: 800.0,
+    fiatNetAmount: 792.0,
+    cryptoAmount: 800.0,
+    fiatFeeAmount: 8.0,
+    exchangeRate: 1.0,
+    feePercentage: 1.0,
+    paymentReference: "PAY-2026-001239",
+    paymentReceived: false,
+    createdAt: "2026-07-26T10:15:00Z",
+    fiatCurrency: fiatCurrencies[0],
+    cryptoCurrency: cryptoCurrencies[0],
+    companyBankAccount: bankAccountVerified as unknown as schemas["RampRequestDto"]["companyBankAccount"],
+    depositWallet: depositWallets[0],
+    events: [
+      { id: "ev000001-0000-4000-8000-000000000013", eventType: "CREATED", username: "treasury", email: "treasury@acme.eu", role: "COMPANY_MANAGER", createdAt: "2026-07-26T10:15:00Z", version: 0 },
+    ],
+    version: 0,
+  },
 ] satisfies schemas["RampRequestDto"][];
 
-export const calculatedFee = {
-  amount: 10.0,
-  percentage: 1.0,
-} satisfies schemas["CalculatedFeeDto"];
+/**
+ * Fee quotes are COMPUTED, not echoed: the returned amount is the request's
+ * amount × the seeded tier percentage, so a UI ladder built on the quote
+ * reconciles (fee = amount × percentage) for any input. The fee's unit is
+ * therefore the unit of the amount you sent.
+ */
+export const FEE_PERCENTAGE = 1.0;
+
+export function calculateFee(amount: number): schemas["CalculatedFeeDto"] {
+  return {
+    amount: Math.round(amount * FEE_PERCENTAGE) / 100,
+    percentage: FEE_PERCENTAGE,
+  };
+}
+
+/** @deprecated Static snapshot kept for 0.3.x compatibility; the route computes. */
+export const calculatedFee = calculateFee(1000);
 
 export const companyFees = [
   {
@@ -287,6 +328,7 @@ export const fundflowSeeds: FundflowSeeds = {
     "123e4567-e89b-12d3-a456-426614174002": "treasury@acme.eu",
     "123e4567-e89b-12d3-a456-426614174003": "ops@acme.eu",
     "123e4567-e89b-12d3-a456-426614174004": "treasury@acme.eu",
+    "123e4567-e89b-12d3-a456-426614174005": "treasury@acme.eu",
   },
   bankAccounts: [bankAccountVerified, bankAccountPending],
   companyWallets,
@@ -375,7 +417,20 @@ export function createFundflowRoutes(store: FundflowMockStore): RouteTable {
       kind: "handler",
       handle: (ctx) => itemEnvelope(store.setTxHash(ctx, false)),
     },
-    "POST /v1/fees/calculate": { kind: "item", result: calculatedFee },
+    "POST /v1/fees/calculate": {
+      kind: "handler",
+      handle: (ctx) => {
+        const body = ctx.body as schemas["CalculateFeeRequest"];
+        if (typeof body.amount !== "number" || !Number.isFinite(body.amount) || body.amount < 0) {
+          mockError(
+            { status: 400, code: "validation-error", message: '"amount" must be a non-negative number.' },
+            ctx.method,
+            ctx.path,
+          );
+        }
+        return itemEnvelope(calculateFee(body.amount));
+      },
+    },
     "GET /v1/fees": { kind: "array", items: companyFees },
     "GET /v1/fiat-currencies": { kind: "array", items: fiatCurrencies },
     "GET /v1/fiat-currencies/{id}": {

@@ -364,6 +364,9 @@ export class FundflowMockStore {
       if (!b?.[field]) badRequest(ctx, `"${field}" is required.`);
     }
     if (b.bankAccountType === "EUR_SEPA" && !b.iban) badRequest(ctx, 'EUR_SEPA requires "iban".');
+    if (b.bankAccountType === "OTHER_SWIFT" && !b.accountNumber && !b.iban) {
+      badRequest(ctx, 'OTHER_SWIFT requires "accountNumber" or "iban" - one of the two.');
+    }
     const account: BankAccount = {
       ...b,
       id: crypto.randomUUID(),

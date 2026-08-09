@@ -42,7 +42,7 @@ npm run typecheck && npm test    # contract invariants as executable tests
 npx tsx demo/render.tsx          # writes demo/out/index.html – the composed proof page
 ```
 
-The demo page composes all five components into a payments screen plus a greyscale strip that demonstrates the legibility contract.
+The demo page composes the core components into a payments screen plus a greyscale strip that demonstrates the legibility contract.
 
 For the kit running against live hooks, see [`examples/mock-bank`](../examples/mock-bank/): a full account experience in mock mode – `npm install && npm run dev`, fake data, zero credentials.
 

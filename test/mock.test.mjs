@@ -160,7 +160,7 @@ test("mock: every namespace method returns a plausible fixture", async () => {
     ["transfers.get", f.transfers.get(acct, tr1), (r) => r.id === tr1],
     ["permits.getMessages", f.permits.getMessages(acct, wal), (r) => r.length > 0],
     ["allowances.list", f.allowances.list(acct, wal), (r) => r.length > 0],
-    ["fundflow rampRequests.list", ff.rampRequests.list(), (r) => r.items.length === 5],
+    ["fundflow rampRequests.list", ff.rampRequests.list(), (r) => r.items.length === 6],
     [
       "fundflow rampRequests.get",
       ff.rampRequests.get("123e4567-e89b-12d3-a456-426614174000"),
@@ -375,4 +375,41 @@ test("mock: literal route shadows {id} template, same as the live router (evalua
   const real = await ff.rampRequests.get("123e4567-e89b-12d3-a456-426614174000");
   assert.equal(real.version, 0);
   assert.equal(ff.mock.calls.at(-1).route, "GET /v1/ramp-requests/{id}");
+});
+
+test("fundflow fees.calculate computes from the request: fee = amount x percentage", async () => {
+  const ff = new FundflowClient({ environment: "mock" });
+  for (const amount of [1000, 123.45, 0, 42]) {
+    const quote = await ff.fees.calculate({ amount, type: "OFF_RAMP" });
+    assert.equal(
+      quote.amount,
+      Math.round(amount * quote.percentage) / 100,
+      `identity holds for ${amount}`,
+    );
+  }
+  await assert.rejects(
+    () => ff.fees.calculate({ amount: -5, type: "OFF_RAMP" }),
+    /must be a non-negative number/,
+  );
+});
+
+test("fundflow bank accounts: OTHER_SWIFT needs one of accountNumber/iban", async () => {
+  const ff = new FundflowClient({ environment: "mock" });
+  const base = {
+    bankAccountType: "OTHER_SWIFT",
+    name: "CHF account",
+    bankName: "Mock Bank CH",
+    companyName: "Acme Corporation B.V.",
+    bankCountry: "CH",
+    beneficiaryAddressLine1: "Bahnhofstrasse 1",
+    beneficiaryCity: "Zurich",
+    beneficiaryPostalCode: "8001",
+    beneficiaryCountry: "CH",
+    supportedRampType: "OFF_RAMP",
+    currency: "CHF",
+    bic: "UBSWCHZH80A",
+  };
+  await assert.rejects(() => ff.bankAccounts.create(base), /one of the two/);
+  const withIban = await ff.bankAccounts.create({ ...base, iban: "CH9300762011623852957" });
+  assert.equal(withIban.verificationStatus, "PENDING");
 });
