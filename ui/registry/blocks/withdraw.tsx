@@ -431,10 +431,13 @@ export function WithdrawReview({
           fields={[
             { label: "You send", value: `${formatAmount(staged.amount)} ${staged.cryptoCurrency}`, copyable: false, mono: true },
             {
-              label: `Fee (${staged.feePercentage ?? 0}%)`,
-              value: staged.feeAmount !== undefined ? `− ${formatAmount(staged.feeAmount)} ${staged.cryptoCurrency}` : null,
+              label: staged.feePercentage !== undefined ? `Fee (${staged.feePercentage}%)` : "Fee",
+              value:
+                staged.feeAmount !== undefined
+                  ? `− ${formatAmount(staged.feeAmount)} ${staged.cryptoCurrency}`
+                  : "Quote unavailable right now – the fee appears on the created request.",
               copyable: false,
-              mono: true,
+              mono: staged.feeAmount !== undefined,
             },
             { label: "To", value: `${staged.destination.name} · ${staged.destination.bankName}`, copyable: false },
             { label: "Payout currency", value: staged.fiatCurrency, copyable: false },
