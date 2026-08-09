@@ -160,7 +160,7 @@ test("mock: every namespace method returns a plausible fixture", async () => {
     ["transfers.get", f.transfers.get(acct, tr1), (r) => r.id === tr1],
     ["permits.getMessages", f.permits.getMessages(acct, wal), (r) => r.length > 0],
     ["allowances.list", f.allowances.list(acct, wal), (r) => r.length > 0],
-    ["fundflow rampRequests.list", ff.rampRequests.list(), (r) => r.items.length === 5],
+    ["fundflow rampRequests.list", ff.rampRequests.list(), (r) => r.items.length === 6],
     [
       "fundflow rampRequests.get",
       ff.rampRequests.get("123e4567-e89b-12d3-a456-426614174000"),

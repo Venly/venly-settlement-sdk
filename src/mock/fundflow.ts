@@ -128,7 +128,7 @@ export const companyWallets = [
 
 const iban = { iban: "DE89370400440532013000", bic: "COBADEFFXXX" };
 
-/** Five seeds covering the visible lifecycle states. */
+/** Six seeds covering the visible lifecycle states. */
 export const rampRequestSeeds = [
   {
     id: "123e4567-e89b-12d3-a456-426614174000",
@@ -260,6 +260,33 @@ export const rampRequestSeeds = [
       { id: "ev000001-0000-4000-8000-000000000012", eventType: "TX_HASH_ADDED", username: "treasury", email: "treasury@acme.eu", role: "COMPANY_MANAGER", createdAt: "2026-07-25T09:00:00Z", version: 2 },
     ],
     version: 2,
+  },
+  // The withdraw journey's opening state: an OFF_RAMP awaiting its second
+  // pair of eyes, carrying the bank destination + deposit wallet so the
+  // detail screen renders every field it owns before anyone acts on it.
+  {
+    id: "123e4567-e89b-12d3-a456-426614174005",
+    companyId: "co000001-0000-4000-8000-000000000001",
+    companyName: "Acme Corporation B.V.",
+    rampType: "OFF_RAMP",
+    status: "AWAITING_APPROVAL",
+    fiatAmount: 800.0,
+    fiatNetAmount: 792.0,
+    cryptoAmount: 800.0,
+    fiatFeeAmount: 8.0,
+    exchangeRate: 1.0,
+    feePercentage: 1.0,
+    paymentReference: "PAY-2026-001239",
+    paymentReceived: false,
+    createdAt: "2026-07-26T10:15:00Z",
+    fiatCurrency: fiatCurrencies[0],
+    cryptoCurrency: cryptoCurrencies[0],
+    companyBankAccount: bankAccountVerified as unknown as schemas["RampRequestDto"]["companyBankAccount"],
+    depositWallet: depositWallets[0],
+    events: [
+      { id: "ev000001-0000-4000-8000-000000000013", eventType: "CREATED", username: "treasury", email: "treasury@acme.eu", role: "COMPANY_MANAGER", createdAt: "2026-07-26T10:15:00Z", version: 0 },
+    ],
+    version: 0,
   },
 ] satisfies schemas["RampRequestDto"][];
 
