@@ -3,6 +3,7 @@ import {
   MockTransport,
   itemEnvelope,
   listEnvelope,
+  mockError,
   type RouteTable,
   type VenlyMock,
 } from "./transport.js";
@@ -262,10 +263,23 @@ export const rampRequestSeeds = [
   },
 ] satisfies schemas["RampRequestDto"][];
 
-export const calculatedFee = {
-  amount: 10.0,
-  percentage: 1.0,
-} satisfies schemas["CalculatedFeeDto"];
+/**
+ * Fee quotes are COMPUTED, not echoed: the returned amount is the request's
+ * amount × the seeded tier percentage, so a UI ladder built on the quote
+ * reconciles (fee = amount × percentage) for any input. The fee's unit is
+ * therefore the unit of the amount you sent.
+ */
+export const FEE_PERCENTAGE = 1.0;
+
+export function calculateFee(amount: number): schemas["CalculatedFeeDto"] {
+  return {
+    amount: Math.round(amount * FEE_PERCENTAGE) / 100,
+    percentage: FEE_PERCENTAGE,
+  };
+}
+
+/** @deprecated Static snapshot kept for 0.3.x compatibility; the route computes. */
+export const calculatedFee = calculateFee(1000);
 
 export const companyFees = [
   {
@@ -375,7 +389,20 @@ export function createFundflowRoutes(store: FundflowMockStore): RouteTable {
       kind: "handler",
       handle: (ctx) => itemEnvelope(store.setTxHash(ctx, false)),
     },
-    "POST /v1/fees/calculate": { kind: "item", result: calculatedFee },
+    "POST /v1/fees/calculate": {
+      kind: "handler",
+      handle: (ctx) => {
+        const body = ctx.body as schemas["CalculateFeeRequest"];
+        if (typeof body.amount !== "number" || !Number.isFinite(body.amount) || body.amount < 0) {
+          mockError(
+            { status: 400, code: "validation-error", message: '"amount" must be a non-negative number.' },
+            ctx.method,
+            ctx.path,
+          );
+        }
+        return itemEnvelope(calculateFee(body.amount));
+      },
+    },
     "GET /v1/fees": { kind: "array", items: companyFees },
     "GET /v1/fiat-currencies": { kind: "array", items: fiatCurrencies },
     "GET /v1/fiat-currencies/{id}": {

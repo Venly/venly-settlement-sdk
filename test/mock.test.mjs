@@ -376,3 +376,19 @@ test("mock: literal route shadows {id} template, same as the live router (evalua
   assert.equal(real.version, 0);
   assert.equal(ff.mock.calls.at(-1).route, "GET /v1/ramp-requests/{id}");
 });
+
+test("fundflow fees.calculate computes from the request: fee = amount x percentage", async () => {
+  const ff = new FundflowClient({ environment: "mock" });
+  for (const amount of [1000, 123.45, 0, 42]) {
+    const quote = await ff.fees.calculate({ amount, type: "OFF_RAMP" });
+    assert.equal(
+      quote.amount,
+      Math.round(amount * quote.percentage) / 100,
+      `identity holds for ${amount}`,
+    );
+  }
+  await assert.rejects(
+    () => ff.fees.calculate({ amount: -5, type: "OFF_RAMP" }),
+    /must be a non-negative number/,
+  );
+});
