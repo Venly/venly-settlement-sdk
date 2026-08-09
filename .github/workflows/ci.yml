@@ -86,6 +86,21 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      # The example must run against a published SDK whose mock actually
+      # computes: two different quote amounts must yield two different fees.
+      # Fails loudly if the pinned package ever drifts behind the feature.
+      - run: |
+          node -e "
+          const { FundflowClient } = require('@venlyfinance/sdk');
+          const ff = new FundflowClient({ environment: 'mock' });
+          Promise.all([
+            ff.fees.calculate({ amount: 800, type: 'OFF_RAMP' }),
+            ff.fees.calculate({ amount: 42, type: 'OFF_RAMP' }),
+          ]).then(([a, b]) => {
+            if (a.amount === b.amount) { console.error('fee quotes do not compute from the request'); process.exit(1); }
+            console.log('fee quotes compute:', a.amount, b.amount);
+          });
+          "
 
   settlement-mcp:
     runs-on: ubuntu-latest

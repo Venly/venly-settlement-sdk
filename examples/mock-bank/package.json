@@ -12,7 +12,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",
     "@venlyfinance/react": "^0.2.0",
-    "@venlyfinance/sdk": "^0.3.1",
+    "@venlyfinance/sdk": "^0.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
