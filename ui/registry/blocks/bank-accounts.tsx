@@ -152,7 +152,7 @@ const IDENTIFIER_FIELD: Record<string, { key: string; label: string }> = {
   USD_ACH: { key: "accountNumber", label: "Account number" },
   USD_WIRE: { key: "accountNumber", label: "Account number" },
   USD_SWIFT: { key: "accountNumber", label: "Account number" },
-  OTHER_SWIFT: { key: "accountNumber", label: "Account number" },
+  // OTHER_SWIFT resolves dynamically: whichever of accountNumber/iban is filled.
 };
 
 interface VariantField {
@@ -199,7 +199,18 @@ const VARIANT_FIELDS: Record<string, VariantField[]> = {
   OTHER_SWIFT: [
     { key: "currency", label: "Currency (three-letter code)", required: true },
     { key: "bic", label: "BIC", required: true },
-    { key: "accountNumber", label: "Account number", required: false },
+    {
+      key: "accountNumber",
+      label: "Account number",
+      required: false,
+      helper: "Provide the account number or the IBAN below – one of the two is required.",
+    },
+    {
+      key: "iban",
+      label: "IBAN",
+      required: false,
+      helper: "Provide the IBAN or the account number above – one of the two is required.",
+    },
   ],
 };
 
@@ -230,11 +241,22 @@ export function AddBankAccountForm({
     [config],
   );
   const effectiveType = accountType || enabledTypes[0]?.type || "";
-  const identifier = IDENTIFIER_FIELD[effectiveType];
+  const identifier =
+    effectiveType === "OTHER_SWIFT"
+      ? values.iban && !values.accountNumber
+        ? { key: "iban", label: "IBAN" }
+        : values.accountNumber
+          ? { key: "accountNumber", label: "Account number" }
+          : undefined
+      : IDENTIFIER_FIELD[effectiveType];
   const set = (key: string) => (v: string) => setValues((prev) => ({ ...prev, [key]: v }));
 
   const submit = (): void => {
     setError(null);
+    if (effectiveType === "OTHER_SWIFT" && !values.accountNumber && !values.iban) {
+      setError("Provide the account number or the IBAN – one of the two is required.");
+      return;
+    }
     if (identifier && (values[identifier.key] ?? "") !== confirmIdentifier) {
       setError("These account numbers don't match.");
       return;

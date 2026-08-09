@@ -15,5 +15,7 @@ Things to try:
 - **Send** – fill the form, review the staged request (the button restates the amount), confirm once; the transfer appears in Activity as Pending. Double-clicking confirm cannot double-spend – the idempotency key is pinned at the review step.
 - **Receive** – the payment reference row carries the Required pill; every copy names the field it copied.
 - **Team** – member statuses as word + glyph, role changes in the row, your own row's controls locked with the reason; invites mint a display-only link (the mock never claims an email went out).
+- **Bank accounts** – the whitelist withdrawals depend on: rows carry their verification status verbatim; the add form asks exactly the fields the chosen account type requires and makes you re-enter the identifier.
+- **Withdraw** – pick a verified destination (unverified ones are disabled with the reason), type an amount and watch the fee quote compute from it, review only the figures that exist, create, then approve as a second pair of eyes; the created record carries the full fiat arithmetic.
 
 The UI files are imported straight from [`ui/registry/`](../../ui/registry/) – the copy-owned kit, used in place. `npm run typecheck` and `npm run build` verify the app against the published packages.

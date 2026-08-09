@@ -206,6 +206,7 @@ export function DestinationPicker({ accounts, onSelect, onGoToBankAccounts, styl
   if (verified.length === 0) {
     return (
       <section className={className} style={{ ...cardStyle, fontFamily: "var(--font-family)", maxWidth: "var(--form-max-width)", ...style }}>
+        {/* Copy-owned: "Settings" names this app's bank-accounts page - rename it to match yours. */}
         <p style={{ margin: 0, fontSize: "var(--font-size-body)", color: "var(--text-primary)" }}>
           You need a verified bank account before you can withdraw. Add one in Settings.
         </p>
@@ -499,14 +500,23 @@ export function WithdrawDetail({ request, actorId, style, className }: WithdrawD
 
       {/* The created record carries the real arithmetic: show all of it. */}
       {request.fiatAmount !== undefined ? (
-        <ArithmeticLadder
-          input={{ label: "Converted amount", amount: request.fiatAmount ?? 0, currency: fiatCode }}
-          rows={[
-            { operator: "−", label: `Fee (${request.feePercentage ?? 0}%)`, amount: request.fiatFeeAmount ?? 0, currency: fiatCode },
-            { operator: "×", label: "Rate", value: request.exchangeRate !== undefined ? `1 ${cryptoCode} = ${request.exchangeRate} ${fiatCode}` : undefined },
-          ]}
-          total={{ label: "Your bank receives", amount: request.fiatNetAmount ?? 0, currency: fiatCode }}
-        />
+        <div>
+          {/* The ladder chains ONLY the figures that participate in the sum;
+              the rate was applied upstream of the converted amount, so it
+              renders beside the ladder, never behind an operator. */}
+          <ArithmeticLadder
+            input={{ label: "Converted amount", amount: request.fiatAmount ?? 0, currency: fiatCode }}
+            rows={[
+              { operator: "−", label: `Fee (${request.feePercentage ?? 0}%)`, amount: request.fiatFeeAmount ?? 0, currency: fiatCode },
+            ]}
+            total={{ label: "Your bank receives", amount: request.fiatNetAmount ?? 0, currency: fiatCode }}
+          />
+          {request.exchangeRate !== undefined ? (
+            <p style={{ margin: "var(--space-sm) 0 0", fontSize: "var(--font-size-label)", color: "var(--text-secondary)" }}>
+              Rate applied: 1 {cryptoCode} = {request.exchangeRate} {fiatCode}
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       <div style={cardStyle}>

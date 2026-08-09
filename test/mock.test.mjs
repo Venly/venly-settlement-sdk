@@ -392,3 +392,24 @@ test("fundflow fees.calculate computes from the request: fee = amount x percenta
     /must be a non-negative number/,
   );
 });
+
+test("fundflow bank accounts: OTHER_SWIFT needs one of accountNumber/iban", async () => {
+  const ff = new FundflowClient({ environment: "mock" });
+  const base = {
+    bankAccountType: "OTHER_SWIFT",
+    name: "CHF account",
+    bankName: "Mock Bank CH",
+    companyName: "Acme Corporation B.V.",
+    bankCountry: "CH",
+    beneficiaryAddressLine1: "Bahnhofstrasse 1",
+    beneficiaryCity: "Zurich",
+    beneficiaryPostalCode: "8001",
+    beneficiaryCountry: "CH",
+    supportedRampType: "OFF_RAMP",
+    currency: "CHF",
+    bic: "UBSWCHZH80A",
+  };
+  await assert.rejects(() => ff.bankAccounts.create(base), /one of the two/);
+  const withIban = await ff.bankAccounts.create({ ...base, iban: "CH9300762011623852957" });
+  assert.equal(withIban.verificationStatus, "PENDING");
+});
