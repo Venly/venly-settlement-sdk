@@ -59,6 +59,17 @@ export function assetBalanceRows(wallets: Wallet[]): AssetBalanceRow[] {
   return [...byAsset.values()].sort((a, b) => b.available - a.available);
 }
 
+/**
+ * Rows whose own figures don't reconcile (total ≠ available + reserved,
+ * beyond float noise on 6-decimal amounts). The surface SHOWS the API's
+ * numbers unchanged and says they don't add up – it never "corrects" money.
+ */
+export function arithmeticMismatches(rows: AssetBalanceRow[]): string[] {
+  return rows
+    .filter((r) => Math.abs(r.total - (r.available + r.reserved)) > 0.000001)
+    .map((r) => r.asset);
+}
+
 /** The bar renders only when a split actually exists. */
 export function segmentedBarBuckets(row: AssetBalanceRow): { label: string; amount: number }[] {
   const buckets = [
@@ -195,6 +206,33 @@ export function BalancesView({
         ]}
       />
       <SegmentedBar row={primary} masked={masked} />
+      {primary.reserved > 0 ? (
+        // Architecture honesty: a reservation is not money gone. Say so.
+        <p
+          style={{
+            margin: "var(--space-md) 0 0",
+            maxWidth: "var(--card-max-width)",
+            fontSize: "var(--font-size-micro)",
+            color: "var(--text-tertiary)",
+          }}
+        >
+          Reserved funds are still yours – they're held for transfers in flight and release
+          when those settle or fail.
+        </p>
+      ) : null}
+      {arithmeticMismatches(rows).length > 0 ? (
+        <p
+          role="status"
+          style={{
+            margin: "var(--space-md) 0 0",
+            fontSize: "var(--font-size-label)",
+            color: "var(--state-pending-fg)",
+          }}
+        >
+          The figures for {arithmeticMismatches(rows).join(", ")} don't add up (total ≠
+          available + reserved). Showing the numbers as reported, unchanged.
+        </p>
+      ) : null}
       {rows.length > 0 ? (
         <div
           style={{
@@ -223,12 +261,42 @@ export function BalancesBlock({
   style,
   className,
 }: Omit<BalancesViewProps, "rows"> & { accountId: string }): ReactElement {
-  const { data, isPending } = useWallets(accountId);
+  const { data, isPending, isError, refetch } = useWallets(accountId);
 
   if (isPending) {
     return (
       <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
         <p style={{ color: "var(--text-tertiary)", fontSize: "var(--font-size-body)" }}>Loading balances…</p>
+      </section>
+    );
+  }
+
+  if (isError) {
+    // Local degrade: this surface reports its own failure and offers a
+    // retry; it never takes the rest of the app down with it.
+    return (
+      <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
+        <p style={{ color: "var(--text-secondary)", fontSize: "var(--font-size-body)", margin: 0 }}>
+          Balances couldn't load. The rest of the app still works – your money is unaffected
+          by a display error.
+        </p>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          style={{
+            marginTop: "var(--space-md)",
+            border: "var(--border-w-hairline) solid var(--border-strong)",
+            background: "var(--surface-raised)",
+            color: "var(--text-primary)",
+            borderRadius: "var(--radius-control)",
+            padding: "var(--space-2xs) var(--space-sm)",
+            fontSize: "var(--font-size-label)",
+            fontFamily: "var(--font-family)",
+            cursor: "pointer",
+          }}
+        >
+          Try again
+        </button>
       </section>
     );
   }

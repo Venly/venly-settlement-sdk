@@ -1,4 +1,4 @@
-import { StrictMode, useState } from "react";
+import { StrictMode, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { VenlyProvider, useAccounts } from "@venlyfinance/react";
 import "../../../ui/registry/styles/tokens.css";
@@ -6,8 +6,9 @@ import { BalancesBlock, BalanceMiniature } from "../../../ui/registry/blocks/bal
 import { ConnectedReceiveBlock } from "../../../ui/registry/blocks/receive.js";
 import { SendBlock } from "../../../ui/registry/blocks/send.js";
 import { ActivityBlock, type ActivityScope } from "../../../ui/registry/blocks/activity.js";
+import { TeamTable, createMockTeamAdapter } from "../../../ui/registry/blocks/team.js";
 
-type Tab = "home" | "activity" | "send" | "receive";
+type Tab = "home" | "activity" | "send" | "receive" | "team";
 
 function Shell() {
   const { data } = useAccounts();
@@ -18,6 +19,9 @@ function Shell() {
   // the per-asset rows AND the rail miniature hide together.
   const [masked, setMasked] = useState(false);
   const [activityScope, setActivityScope] = useState<ActivityScope>("all");
+  // Team membership lives with YOUR auth provider, not the Venly APIs -
+  // the block renders an adapter; the demo uses the seeded mock.
+  const teamAdapter = useMemo(() => createMockTeamAdapter(), []);
 
   if (!account?.id) {
     return <p style={{ fontFamily: "var(--font-family)", color: "var(--text-tertiary)", padding: 32 }}>Loading…</p>;
@@ -53,7 +57,7 @@ function Shell() {
         >
           Mock Bank
         </div>
-        {(["home", "activity", "send", "receive"] as const).map((t) => (
+        {(["home", "activity", "send", "receive", "team"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -113,6 +117,9 @@ function Shell() {
           <ActivityBlock key={activityScope} accountId={account.id} initialScope={activityScope} />
         ) : null}
         {tab === "send" ? <SendBlock senderAccountId={account.id} /> : null}
+        {tab === "team" ? (
+          <TeamTable adapter={teamAdapter} currentUserEmail="ada@acme.example" />
+        ) : null}
         {tab === "receive" ? (
           <ConnectedReceiveBlock
             accountId={account.id}

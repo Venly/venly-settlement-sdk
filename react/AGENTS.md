@@ -17,6 +17,17 @@ You are building a financial product UI on `@venlyfinance/react`. These rules ex
 - Amounts: tabular figures, currency code after the amount, and never render a debit in red as the only signal. Empty numeric cells are an em dash, not 0.
 - Terminal failure states show the reason from the record; the status field is the explanation field.
 
+## Bring your own auth
+
+The Venly APIs authenticate machines (OAuth2 client credentials), not people: there is no end-user login, sign-up, session, password, or MFA endpoint in either API, by design. **The Venly APIs never see end-user credentials.** End-user auth is your identity layer's job; the sanctioned browser shape is a backend proxy that inherits YOUR app's session (`proxyClientOptions()`), never Venly's.
+
+The UI kit's auth and team blocks therefore render against two adapter interfaces, `AuthAdapter` and `TeamAdapter`, instead of an SDK client:
+
+- **Real implementations** wrap what you already run: OAuth/OIDC, Better Auth, Auth0, Clerk, Keycloak, or a plain session cookie. Implement `signIn`/`verifyTotp`/`signUp`/`session`/`signOut` (and the team CRUD) over your provider's SDK.
+- **Session-expiry contract:** `session()` returns `null` once the session has expired for any reason. The shell treats null as signed-out and redirects to sign-in; no other expiry signal exists in the interface.
+- **Mock adapters ship with the blocks** (`createMockAuthAdapter`, `createMockTeamAdapter`): zero credentials, deterministic 2FA code `000000`, an `expireSession()` driver, and invites that mint a display-only link – the mock never claims an email was sent.
+- Password reset, SSO buttons, and passkeys are provider features: point users at your provider's flow rather than rebuilding it behind the adapter.
+
 ## Demo choreography (mock mode)
 
 `useVenlyMock()` exposes the store controls. A credible end-to-end demo:

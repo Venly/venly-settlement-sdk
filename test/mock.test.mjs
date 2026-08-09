@@ -67,7 +67,7 @@ test("mock: every namespace method returns a plausible fixture", async () => {
       (r) => r.firstName === "G" && r.version === 1,
     ],
     ["parties.delete", f.parties.delete(party5), (r) => r === undefined],
-    ["accounts.list", f.accounts.list(), (r) => r.items.length === 5],
+    ["accounts.list", f.accounts.list(), (r) => r.items.length === 6],
     ["accounts.get", f.accounts.get(acct), (r) => r.id === acct],
     ["accounts.listPartyRoles", f.accounts.listPartyRoles(acct), (r) => r.items.length > 0],
     [

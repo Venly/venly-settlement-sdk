@@ -17,6 +17,8 @@
     "react": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
+    "@radix-ui/react-dialog": "^1.1.23",
+    "@radix-ui/react-one-time-password-field": "^0.1.16",
     "@tanstack/react-query": "^5.101.4",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
