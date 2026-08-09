@@ -14,5 +14,6 @@ Things to try:
 - **Activity** – click a row: the detail panel opens beside the table (never navigates); the failed transfer's panel carries the failure reason on its timeline.
 - **Send** – fill the form, review the staged request (the button restates the amount), confirm once; the transfer appears in Activity as Pending. Double-clicking confirm cannot double-spend – the idempotency key is pinned at the review step.
 - **Receive** – the payment reference row carries the Required pill; every copy names the field it copied.
+- **Team** – member statuses as word + glyph, role changes in the row, your own row's controls locked with the reason; invites mint a display-only link (the mock never claims an email went out).
 
 The UI files are imported straight from [`ui/registry/`](../../ui/registry/) – the copy-owned kit, used in place. `npm run typecheck` and `npm run build` verify the app against the published packages.
