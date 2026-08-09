@@ -7,8 +7,11 @@ import { ConnectedReceiveBlock } from "../../../ui/registry/blocks/receive.js";
 import { SendBlock } from "../../../ui/registry/blocks/send.js";
 import { ActivityBlock, type ActivityScope } from "../../../ui/registry/blocks/activity.js";
 import { TeamTable, createMockTeamAdapter } from "../../../ui/registry/blocks/team.js";
+import { BankAccountsBlock } from "../../../ui/registry/blocks/bank-accounts.js";
+import { WithdrawFlow, WithdrawalsTable } from "../../../ui/registry/blocks/withdraw.js";
+import { useRampRequests } from "@venlyfinance/react";
 
-type Tab = "home" | "activity" | "send" | "receive" | "team";
+type Tab = "home" | "activity" | "send" | "withdraw" | "receive" | "team" | "bank accounts";
 
 function Shell() {
   const { data } = useAccounts();
@@ -57,7 +60,7 @@ function Shell() {
         >
           Mock Bank
         </div>
-        {(["home", "activity", "send", "receive", "team"] as const).map((t) => (
+        {(["home", "activity", "send", "withdraw", "receive", "team", "bank accounts"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -120,6 +123,8 @@ function Shell() {
         {tab === "team" ? (
           <TeamTable adapter={teamAdapter} currentUserEmail="ada@acme.example" />
         ) : null}
+        {tab === "withdraw" ? <WithdrawTab accountId={account.id} /> : null}
+        {tab === "bank accounts" ? <BankAccountsBlock /> : null}
         {tab === "receive" ? (
           <ConnectedReceiveBlock
             accountId={account.id}
@@ -150,6 +155,16 @@ function Shell() {
           </div>
         ) : null}
       </main>
+    </div>
+  );
+}
+
+function WithdrawTab({ accountId }: { accountId: string }) {
+  const { data } = useRampRequests({ rampType: "OFF_RAMP" });
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2xl)" }}>
+      <WithdrawFlow accountId={accountId} actorId="demo@acme.example" />
+      <WithdrawalsTable items={data?.items ?? []} />
     </div>
   );
 }

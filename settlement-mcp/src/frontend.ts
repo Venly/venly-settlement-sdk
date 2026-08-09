@@ -67,6 +67,12 @@ Registry items: venly-tokens, timeline, status-pill, field-list; block: onboardi
 Hooks: useCreateParty, useCreateAccount, useParty, useAccount; verification status from the party/account records verbatim.
 States that must exist: collecting (review before submit), submitted/waiting (say who acts next, on which channel, what still works meanwhile), approved, declined (humane copy, review-request as the primary action), re-verification on a live account (banner naming what pauses and what keeps working).
 Rules that must hold: never render a fake progress percentage - use real status; a waiting state answers how long / who acts / what still works, and where no review window is published the copy says so instead of inventing one; a decline explains and offers a next step, not a dead end; creating a party is NOT completed verification - show the honest state.`,
+  "withdraw-bank-accounts": `# Withdraw + bank accounts (off-ramp)
+Shell: settings page for the whitelist; full page for the flow, form clamped ~600px.
+Registry items: venly-tokens, data-table, status-pill, timeline, field-list, arithmetic-ladder; blocks: bank-accounts (BankAccountsBlock, AddBankAccountForm), withdraw (WithdrawFlow, WithdrawalsTable, ConnectedWithdrawDetail).
+Hooks: useCompanyBankAccounts, useBankAccountConfig, useCreateCompanyBankAccount, useRampRequests, useRampRequest, useCreateRampRequest, useFeeQuote, useRampPairs, useReferenceData, useFourEyesApproval, useInitiateRamp, describeRampStatus.
+States that must exist: empty whitelist (one CTA), account in review / verified / declined, no-verified-destination block, amount over balance (two-place signal), fee quote with its unit, awaiting approval (creator sees why they can't approve), stale decision (409 - refetch and re-decide, never auto-retry), awaiting funds (deposit instructions + mandatory reference + tx-hash report), processing, paid out, failed, rejected, cancelled, on hold.
+Rules that must hold: destinations are the company's OWN verified accounts - unverified rows are disabled with the reason, never hidden; the pre-create review renders only known figures (no invented rate, no bank-receives placeholder - the created record carries the fiat arithmetic and the detail opens on it); a refusal never reads as a wait; the event timeline renders actor, role and absolute timestamps.`,
   reconciliation: `# Reconciliation
 Shell: split pane (roughly one-third list, two-thirds evidence) - not a drawer.
 Registry items: venly-tokens, data-table, side-panel, status-pill, field-list.

@@ -156,6 +156,21 @@ const BLOCKS = [
     money: false,
   },
   {
+    name: "bank-accounts",
+    title: "Bank accounts block",
+    description:
+      "The whitelisting surface withdrawals depend on: your company's own accounts (never third-party payees), seven account-type variants asking exactly the fields each requires, identifier re-entry against transcription slips, and verification status rendered verbatim.",
+    deps: ["data-table", "status-pill"],
+    money: false,
+  },
+  {
+    name: "withdraw",
+    title: "Withdraw block",
+    description:
+      "Fiat out to your own verified bank account, rendered truthfully: destination picker that disables unverified accounts with the reason, a fee quote in the unit you typed, four-eyes approval that renders the rule instead of the error, deposit instructions with the mandatory reference, and an event timeline with actors and absolute timestamps.",
+    deps: ["data-table", "status-pill", "timeline", "field-list", "arithmetic-ladder", "bank-accounts"],
+  },
+  {
     name: "receive",
     title: "Receive block",
     description:
