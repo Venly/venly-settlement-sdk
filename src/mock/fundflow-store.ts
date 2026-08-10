@@ -30,7 +30,18 @@ export interface FundflowSeeds {
   cryptoCurrencies: CryptoCurrency[];
   bankAccountConfig: schemas["BankAccountConfigDto"];
   feePercentage: number;
+  /**
+   * Fiat per 1 crypto unit, keyed `"CRYPTO/FIAT"` (e.g. `"USDC/EUR"`).
+   * Deliberately NEVER 1.0: a parity rate makes the crypto and fiat sides
+   * of a ramp numerically identical and hides the unit distinction the
+   * product exists to keep visible.
+   */
+  exchangeRates: Record<string, number>;
 }
+
+/** Fiat sides round to cents; crypto sides to 6 decimals (USDC-style). */
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
 
 function badRequest(ctx: HandlerContext, message: string): never {
   mockError({ status: 400, code: "invalid-request", message }, ctx.method, ctx.path);
@@ -81,6 +92,7 @@ export class FundflowMockStore {
   cryptoCurrencies: CryptoCurrency[] = [];
   bankAccountConfig: schemas["BankAccountConfigDto"] = {};
   private feePercentage = 1.0;
+  private exchangeRates: Record<string, number> = {};
   private readonly seeds: FundflowSeeds;
 
   constructor(seeds: FundflowSeeds) {
@@ -99,6 +111,17 @@ export class FundflowMockStore {
     this.cryptoCurrencies = s.cryptoCurrencies;
     this.bankAccountConfig = s.bankAccountConfig;
     this.feePercentage = s.feePercentage;
+    this.exchangeRates = s.exchangeRates;
+  }
+
+  /** Fiat per 1 crypto unit for the pair; unknown pairs are a 400, not 1.0. */
+  private rateFor(ctx: HandlerContext, crypto: CryptoCurrency, fiat: FiatCurrency): number {
+    const key = `${crypto.currency}/${fiat.currency}`;
+    const rate = this.exchangeRates[key];
+    if (rate === undefined) {
+      badRequest(ctx, `No exchange rate is configured for ${key} in the mock.`);
+    }
+    return rate;
   }
 
   // ── Ramp requests ────────────────────────────────────────────────────
@@ -189,19 +212,24 @@ export class FundflowMockStore {
     }
 
     // ON_RAMP: amount is fiat in → crypto out. OFF_RAMP: amount is crypto
-    // in → fiat out. Mock rate 1.0; the fee lands on the fiat side.
-    const fee = (b.amount * this.feePercentage) / 100;
+    // in → fiat out. The fee lands on the fiat side, and the two sides
+    // relate through the pair's rate - never at parity, so the unit
+    // distinction stays visible in every demo figure.
+    const rate = this.rateFor(ctx, cryp, fiat);
+    const fiatAmount = b.rampType === "OFF_RAMP" ? round2(b.amount * rate) : b.amount;
+    const fee = round2((fiatAmount * this.feePercentage) / 100);
+    const fiatNetAmount = round2(fiatAmount - fee);
     const ramp: RampRequest = {
       id: crypto.randomUUID(),
       companyId: "co000001-0000-4000-8000-000000000001",
       companyName: "Acme Corporation B.V.",
       rampType: b.rampType,
       status: "AWAITING_APPROVAL",
-      fiatAmount: b.amount,
-      fiatNetAmount: b.amount - fee,
-      cryptoAmount: b.rampType === "ON_RAMP" ? b.amount - fee : b.amount,
+      fiatAmount,
+      fiatNetAmount,
+      cryptoAmount: b.rampType === "ON_RAMP" ? round6(fiatNetAmount / rate) : b.amount,
       fiatFeeAmount: fee,
-      exchangeRate: 1.0,
+      exchangeRate: rate,
       feePercentage: this.feePercentage,
       paymentReference: `PAY-MOCK-${String(this.rampRequests.length + 1).padStart(6, "0")}`,
       paymentReceived: false,
@@ -273,11 +301,13 @@ export class FundflowMockStore {
     const b = ctx.body as schemas["EditRampAmountRequest"];
     if (typeof b.amount !== "number" || b.amount <= 0) badRequest(ctx, '"amount" must be positive.');
     const previous = ramp.rampType === "ON_RAMP" ? ramp.fiatAmount : ramp.cryptoAmount;
-    const fee = (b.amount * (ramp.feePercentage ?? this.feePercentage)) / 100;
-    ramp.fiatAmount = b.amount;
-    ramp.fiatNetAmount = b.amount - fee;
+    // "Recalculates the other side" (spec) at the rate captured on creation.
+    const rate = ramp.exchangeRate ?? 1;
+    ramp.fiatAmount = ramp.rampType === "OFF_RAMP" ? round2(b.amount * rate) : b.amount;
+    const fee = round2((ramp.fiatAmount * (ramp.feePercentage ?? this.feePercentage)) / 100);
+    ramp.fiatNetAmount = round2(ramp.fiatAmount - fee);
     ramp.fiatFeeAmount = fee;
-    ramp.cryptoAmount = ramp.rampType === "ON_RAMP" ? b.amount - fee : b.amount;
+    ramp.cryptoAmount = ramp.rampType === "ON_RAMP" ? round6(ramp.fiatNetAmount / rate) : b.amount;
     ramp.version = (ramp.version ?? 0) + 1;
     this.pushEvent(ramp, "AMOUNT_CHANGED", {
       previousAmount: previous,

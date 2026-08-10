@@ -128,6 +128,20 @@ export const companyWallets = [
 
 const iban = { iban: "DE89370400440532013000", bic: "COBADEFFXXX" };
 
+/**
+ * Fiat per 1 crypto unit, per pair. Deliberately non-parity: a 1.0 rate
+ * makes 1,000 USDC read as €1,000 and hides the very distinction (crypto
+ * units in, fiat units out) these surfaces exist to keep visible. Every
+ * seed and every created ramp reconciles against these rates:
+ * OFF_RAMP fiatAmount = cryptoAmount × rate; ON_RAMP cryptoAmount =
+ * fiatNetAmount ÷ rate; fees land on the fiat side.
+ */
+export const exchangeRates: Record<string, number> = {
+  "USDC/EUR": 0.92,
+  "USDC/USD": 0.9996,
+  "EURC/EUR": 0.999,
+};
+
 /** Six seeds covering the visible lifecycle states. */
 export const rampRequestSeeds = [
   {
@@ -136,11 +150,12 @@ export const rampRequestSeeds = [
     companyName: "Acme Corporation B.V.",
     rampType: "ON_RAMP",
     status: "AWAITING_APPROVAL",
-    fiatAmount: 1000.0,
-    fiatNetAmount: 990.0,
+    // EUR in → USDC out at 0.92 EUR per USDC: 920 − 9.20 fee = 910.80 net → 990 USDC.
+    fiatAmount: 920.0,
+    fiatNetAmount: 910.8,
     cryptoAmount: 990.0,
-    fiatFeeAmount: 10.0,
-    exchangeRate: 1.0,
+    fiatFeeAmount: 9.2,
+    exchangeRate: 0.92,
     feePercentage: 1.0,
     paymentReference: "PAY-2026-001234",
     paymentReceived: false,
@@ -159,11 +174,12 @@ export const rampRequestSeeds = [
     companyName: "Acme Corporation B.V.",
     rampType: "ON_RAMP",
     status: "AWAITING_FUNDS",
-    fiatAmount: 5000.0,
-    fiatNetAmount: 4950.0,
+    // EUR in → USDC out at 0.92: 4,600 − 46 fee = 4,554 net → 4,950 USDC.
+    fiatAmount: 4600.0,
+    fiatNetAmount: 4554.0,
     cryptoAmount: 4950.0,
-    fiatFeeAmount: 50.0,
-    exchangeRate: 1.0,
+    fiatFeeAmount: 46.0,
+    exchangeRate: 0.92,
     feePercentage: 1.0,
     paymentReference: "PAY-2026-001235",
     paymentReceived: false,
@@ -186,11 +202,12 @@ export const rampRequestSeeds = [
     companyName: "Acme Corporation B.V.",
     rampType: "OFF_RAMP",
     status: "SUCCEEDED",
-    fiatAmount: 2500.0,
-    fiatNetAmount: 2475.0,
+    // 2,500 USDC in at 0.9996 USD per USDC: 2,499 gross − 24.99 fee = 2,474.01 USD.
+    fiatAmount: 2499.0,
+    fiatNetAmount: 2474.01,
     cryptoAmount: 2500.0,
-    fiatFeeAmount: 25.0,
-    exchangeRate: 1.0,
+    fiatFeeAmount: 24.99,
+    exchangeRate: 0.9996,
     feePercentage: 1.0,
     paymentReference: "PAY-2026-001236",
     paymentReceived: true,
@@ -215,11 +232,12 @@ export const rampRequestSeeds = [
     companyName: "Acme Corporation B.V.",
     rampType: "ON_RAMP",
     status: "REJECTED",
-    fiatAmount: 750.0,
-    fiatNetAmount: 742.5,
-    cryptoAmount: 742.5,
-    fiatFeeAmount: 7.5,
-    exchangeRate: 1.0,
+    // EUR in → EURC out at 0.999 EUR per EURC: 999 − 9.99 fee = 989.01 net → 990 EURC.
+    fiatAmount: 999.0,
+    fiatNetAmount: 989.01,
+    cryptoAmount: 990.0,
+    fiatFeeAmount: 9.99,
+    exchangeRate: 0.999,
     feePercentage: 1.0,
     paymentReference: "PAY-2026-001237",
     paymentReceived: false,
@@ -239,11 +257,12 @@ export const rampRequestSeeds = [
     companyName: "Acme Corporation B.V.",
     rampType: "OFF_RAMP",
     status: "PROCESSING",
-    fiatAmount: 12000.0,
-    fiatNetAmount: 11880.0,
+    // 12,000 USDC in at 0.92 EUR per USDC: 11,040 gross − 110.40 fee = 10,929.60 EUR.
+    fiatAmount: 11040.0,
+    fiatNetAmount: 10929.6,
     cryptoAmount: 12000.0,
-    fiatFeeAmount: 120.0,
-    exchangeRate: 1.0,
+    fiatFeeAmount: 110.4,
+    exchangeRate: 0.92,
     feePercentage: 1.0,
     paymentReference: "PAY-2026-001238",
     paymentReceived: true,
@@ -270,11 +289,12 @@ export const rampRequestSeeds = [
     companyName: "Acme Corporation B.V.",
     rampType: "OFF_RAMP",
     status: "AWAITING_APPROVAL",
-    fiatAmount: 800.0,
-    fiatNetAmount: 792.0,
+    // 800 USDC in at 0.92 EUR per USDC: 736 gross − 7.36 fee = 728.64 EUR.
+    fiatAmount: 736.0,
+    fiatNetAmount: 728.64,
     cryptoAmount: 800.0,
-    fiatFeeAmount: 8.0,
-    exchangeRate: 1.0,
+    fiatFeeAmount: 7.36,
+    exchangeRate: 0.92,
     feePercentage: 1.0,
     paymentReference: "PAY-2026-001239",
     paymentReceived: false,
@@ -337,6 +357,7 @@ export const fundflowSeeds: FundflowSeeds = {
   cryptoCurrencies,
   bankAccountConfig,
   feePercentage: 1.0,
+  exchangeRates,
 };
 
 function csv(store: FundflowMockStore): string {

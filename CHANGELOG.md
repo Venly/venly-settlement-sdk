@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.3 – 2026-08-10
+
+- **Non-parity exchange rates in the fundflow mock.** Every seed and every
+  created ramp now converts at a per-pair rate (`USDC/EUR 0.92`,
+  `USDC/USD 0.9996`, `EURC/EUR 0.999`) instead of 1.0. A parity rate made the
+  crypto and fiat sides numerically identical and hid the unit distinction a
+  money UI exists to keep visible: 1,000 USDC is not €1,000. `OFF_RAMP`
+  requests convert `fiatAmount = cryptoAmount × rate`; `ON_RAMP` requests buy
+  `cryptoAmount = fiatNetAmount ÷ rate`; fees stay on the fiat side; amount
+  edits recompute at the rate captured on creation. Invariant tests assert the
+  identities and that no seed ships a parity rate. Seed figures changed
+  accordingly (e.g. the awaiting-approval withdraw seed is now 800 USDC →
+  €736.00 gross − €7.36 fee = €728.64 net at 0.92).
+- **Withdraw amount step names its units.** The amount field now states, at
+  the field, that the entered amount is the crypto asset you send and that
+  your bank receives the payout currency, with the exact amount confirmed on
+  creation.
+
 ## 0.3.2 – 2026-08-09
 
 - **Fee quotes compute from the request.** The `fees/calculate` mock returned a
