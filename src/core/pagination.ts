@@ -11,6 +11,8 @@ export interface PagingInfo {
 /** A single page of results. */
 export interface Page<T> {
   items: T[];
+  /** False when the API omitted the list result instead of returning an empty list. */
+  resultPresent?: boolean;
   pagination?: PagingInfo;
 }
 
@@ -31,6 +33,7 @@ export async function* iteratePages<T>(
   const size = params.size ?? 20;
   for (;;) {
     const result = await fetchPage({ page, size });
+    if (result.resultPresent === false) return;
     for (const item of result.items) yield item;
     const hasNext =
       result.pagination?.hasNextPage ?? result.items.length === size;

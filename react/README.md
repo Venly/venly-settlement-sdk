@@ -42,7 +42,7 @@ Mock mode needs zero credentials and makes zero network calls: every hook answer
 | `useFourEyesApproval` | Approve/reject/cancel with the optimistic-locking `version` carried through; 409 surfaces as `"stale-version"` (refetch and re-decide, never auto-retry) |
 | `useRampLifecycle` | One ramp request, polled until terminal, with a status descriptor answering: must I act, who is it waiting on, what still works |
 | `venlyKeys` / `venlyQueries` | Query-key factory and pure `{queryKey, queryFn}` factories for prefetching, route loaders, and tests |
-| `useVenlyMock` | The mock controls (call log, `failNext`, `advanceVerification`, `advanceTransfer`) – defined only in mock mode |
+| `useVenlyMock` | The mock controls (call log, `failNext`, `respondNext`, `delayNext`, `advanceVerification`, `advanceTransfer`) – defined only in mock mode |
 | `proxyClientOptions` | Browser-safe production wiring (below) |
 
 ## The flow machines

@@ -103,6 +103,7 @@ export class FinanceMockStore {
   rolesByAccount = new Map<string, PartyRole[]>();
   virtualBankAccounts: VirtualBankAccount[] = [];
   transfers: Transfer[] = [];
+  private virtualBankAccountIntents = new Map<string, VirtualBankAccount>();
 
   private counter = 0;
   private readonly seeds: FinanceSeeds;
@@ -121,6 +122,7 @@ export class FinanceMockStore {
     this.rolesByAccount = new Map(s.accounts.map((a) => [a.id as string, [{ ...s.partyRole }]]));
     this.virtualBankAccounts = s.virtualBankAccounts;
     this.transfers = s.transfers;
+    this.virtualBankAccountIntents.clear();
     this.counter = 0;
   }
 
@@ -306,6 +308,17 @@ export class FinanceMockStore {
   createVirtualBankAccount(ctx: HandlerContext): VirtualBankAccount {
     const account = this.getAccount(ctx);
     const b = ctx.body as schemas["CreateVirtualBankAccountRequest"];
+    if (account.status !== "ACTIVE" || account.kycStatus !== "VERIFIED") {
+      badRequest(ctx, "Virtual bank accounts require an active, verified account.");
+    }
+    const intentKey = `${account.id}:${ctx.idempotencyKey ?? b.idempotencyKey}`;
+    const existing = this.virtualBankAccountIntents.get(intentKey);
+    if (existing) {
+      return toResponseShape(
+        "POST /accounts/{accountId}/virtual-bank-accounts",
+        existing as Record<string, unknown>,
+      ) as VirtualBankAccount;
+    }
     this.counter += 1;
     const vba: VirtualBankAccount = {
       id: this.mintId(),
@@ -323,6 +336,7 @@ export class FinanceMockStore {
       createdAt: now(),
     };
     this.virtualBankAccounts.push(vba);
+    this.virtualBankAccountIntents.set(intentKey, vba);
     return toResponseShape(
       "POST /accounts/{accountId}/virtual-bank-accounts",
       vba as Record<string, unknown>,
