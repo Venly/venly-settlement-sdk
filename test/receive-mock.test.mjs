@@ -53,3 +53,38 @@ test("receive mock: repeated create intent returns one provisioned account", asy
   const listed = await finance.virtualBankAccounts.list(ids.payouts);
   assert.equal(listed.items.filter((item) => item.id === first.id).length, 1);
 });
+
+test("receive mock: changed input cannot reuse a successful create key", async () => {
+  const finance = client();
+  const body = {
+    name: "First intent",
+    inCurrency: "EUR",
+    targetCryptocurrency: "USDC",
+    idempotencyKey: "changed-create-intent",
+  };
+  await finance.virtualBankAccounts.create(ids.payouts, body);
+  await assert.rejects(
+    () => finance.virtualBankAccounts.create(ids.payouts, { ...body, name: "Changed intent" }),
+    (error) => error.status === 422 && error.errors[0].code === "idempotency-conflict",
+  );
+});
+
+test("receive mock: a failed create key cannot be replayed after eligibility changes", async () => {
+  const finance = client();
+  const accountId = "a10c2d31-2222-4b20-8c63-000000000007";
+  const body = {
+    name: "Initially blocked",
+    inCurrency: "EUR",
+    targetCryptocurrency: "USDC",
+    idempotencyKey: "failed-create-intent",
+  };
+  await assert.rejects(
+    () => finance.virtualBankAccounts.create(accountId, body),
+    (error) => error.status === 400 && error.errors[0].code === "invalid-request",
+  );
+  finance.mock.advanceVerification(accountId, "VERIFIED");
+  await assert.rejects(
+    () => finance.virtualBankAccounts.create(accountId, body),
+    (error) => error.status === 422 && error.errors[0].code === "idempotency-conflict",
+  );
+});
