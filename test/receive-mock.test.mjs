@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { VenlyFinanceClient } from "../dist/esm/index.js";
+import { financeSeeds } from "../dist/esm/mock/finance.js";
+import { FinanceMockStore } from "../dist/esm/mock/store.js";
 
 const client = () => new VenlyFinanceClient({ environment: "mock" });
 const ids = {
@@ -87,4 +89,28 @@ test("receive mock: a failed create key cannot be replayed after eligibility cha
     () => finance.virtualBankAccounts.create(accountId, body),
     (error) => error.status === 422 && error.errors[0].code === "idempotency-conflict",
   );
+});
+
+test("receive mock: an exact successful retry survives a later account restriction", () => {
+  const store = new FinanceMockStore(financeSeeds);
+  const body = {
+    name: "Original intent",
+    inCurrency: "EUR",
+    targetCryptocurrency: "USDC",
+    idempotencyKey: "completed-create-intent",
+  };
+  const context = {
+    method: "POST",
+    template: "/accounts/{accountId}/virtual-bank-accounts",
+    path: `/accounts/${ids.payouts}/virtual-bank-accounts`,
+    params: { accountId: ids.payouts },
+    query: {},
+    body,
+    idempotencyKey: body.idempotencyKey,
+  };
+  const first = store.createVirtualBankAccount(context);
+  const account = store.accounts.find((item) => item.id === ids.payouts);
+  account.status = "SUSPENDED";
+  const retried = store.createVirtualBankAccount(context);
+  assert.equal(retried.id, first.id);
 });

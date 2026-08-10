@@ -33,7 +33,9 @@ export async function* iteratePages<T>(
   const size = params.size ?? 20;
   for (;;) {
     const result = await fetchPage({ page, size });
-    if (result.resultPresent === false) return;
+    if (result.resultPresent === false) {
+      throw new Error("Paginated response omitted its result collection");
+    }
     for (const item of result.items) yield item;
     const hasNext =
       result.pagination?.hasNextPage ?? result.items.length === size;

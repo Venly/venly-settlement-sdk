@@ -185,6 +185,20 @@ test("pagination: iterate walks pages until hasNextPage is false", async () => {
   assert.equal(fetch.apiCalls().length, 2);
 });
 
+test("pagination: iterate rejects an omitted result instead of treating it as empty", async () => {
+  const fetch = mockFetch(() => jsonResponse({ success: true }));
+  const client = new VenlyFinanceClient(clientOptions(fetch));
+
+  await assert.rejects(
+    async () => {
+      for await (const _party of client.parties.iterate()) {
+        // The malformed first page must fail before yielding.
+      }
+    },
+    /omitted its result collection/,
+  );
+});
+
 test("query params: undefined values are dropped, defined ones serialised", async () => {
   const fetch = mockFetch(() => jsonResponse({ success: true, result: [] }));
   const client = new VenlyFinanceClient(clientOptions(fetch));

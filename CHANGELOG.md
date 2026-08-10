@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.5 – 2026-08-10
+
+- **Conservative paginated responses.** List results now report whether the
+  API supplied its `result` collection. Direct consumers can distinguish a
+  malformed envelope from a genuine empty list, and async iterators reject an
+  omitted collection instead of silently ending.
+- **Exact one-shot mock controls.** `respondNext` and `delayNext` can target a
+  specific route, enabling deterministic sparse-response and loading-state
+  tests without network calls.
+- **Safer virtual bank account fixtures.** Mock provisioning requires an active,
+  verified account. Repeated create intents return the original success, while
+  changed inputs and retries of failed intents return the documented
+  idempotency conflict. Seed data now covers incomplete, multiple, sparse, and
+  closed bank-detail states.
+
 ## 0.3.4 – 2026-08-10
 
 - **Unified activity.** New `UnifiedActivityBlock` in the `activity` registry
