@@ -73,10 +73,12 @@ test("ramp lifecycle: amount edits only while awaiting approval, and the other s
   });
   assert.equal(edited.fiatAmount, 2000);
   assert.equal(edited.fiatFeeAmount, 20, "fee recomputes from the tier percentage");
-  assert.equal(edited.cryptoAmount, 1980, "outgoing side recomputes");
+  // ON_RAMP recomputes the crypto side from the NET fiat at the captured
+  // rate (0.92 EUR per USDC): 1,980 / 0.92 - never a parity echo.
+  assert.equal(edited.cryptoAmount, 2152.173913, "outgoing side recomputes at the pair rate");
   const amountEvent = edited.events.find((e) => e.eventType === "AMOUNT_CHANGED");
   assert.ok(amountEvent, "AMOUNT_CHANGED event recorded");
-  assert.equal(amountEvent.metadata.previousAmount, 1000);
+  assert.equal(amountEvent.metadata.previousAmount, 920);
   assert.equal(amountEvent.metadata.newAmount, 2000);
   // Not editable once approved.
   const approved = await ff.rampRequests.approve(AWAITING_APPROVAL, { version: edited.version });
@@ -213,6 +215,63 @@ test("reference data: deposit wallets, config, and by-id currency lookups answer
   assert.equal(eur.currency, "EUR");
   const usdc = await ff.referenceData.cryptoCurrency(USDC);
   assert.equal(usdc.currency, "USDC");
+});
+
+test("exchange rates: never parity, and every seed reconciles against its pair rate", async () => {
+  const ff = mockFundflow();
+  const page = await ff.rampRequests.list();
+  for (const item of page.items) {
+    const detail = await ff.rampRequests.get(item.id);
+    assert.notEqual(detail.exchangeRate, 1, `${item.paymentReference}: a parity rate hides the crypto-vs-fiat unit distinction`);
+    // Gross fiat relates to crypto through the rate, per ramp direction.
+    const gross =
+      detail.rampType === "OFF_RAMP"
+        ? detail.cryptoAmount * detail.exchangeRate
+        : detail.fiatAmount;
+    assert.ok(Math.abs(detail.fiatAmount - gross) < 0.005, `${item.paymentReference}: fiat = crypto x rate`);
+    if (detail.rampType === "ON_RAMP") {
+      assert.ok(
+        Math.abs(detail.cryptoAmount - detail.fiatNetAmount / detail.exchangeRate) < 0.000005,
+        `${item.paymentReference}: crypto = net fiat / rate`,
+      );
+    }
+    // The fiat ladder itemises: gross - fee = net.
+    assert.ok(
+      Math.abs(detail.fiatAmount - detail.fiatFeeAmount - detail.fiatNetAmount) < 0.005,
+      `${item.paymentReference}: fiat - fee = net`,
+    );
+  }
+});
+
+test("exchange rates: created ramps convert at the pair rate, both directions", async () => {
+  const ff = mockFundflow();
+  const EUR_ID = "fc000001-0000-4000-8000-000000000001";
+  const USDC_ID = "cc000001-0000-4000-8000-000000000001";
+  // OFF_RAMP: amount is the crypto side; the fiat side converts at 0.92.
+  const off = await ff.rampRequests.create({
+    rampType: "OFF_RAMP",
+    amount: 1000,
+    fiatCurrencyId: EUR_ID,
+    cryptoCurrencyId: USDC_ID,
+    companyBankAccountId: "ba000001-0000-4000-8000-000000000001",
+  });
+  assert.equal(off.cryptoAmount, 1000);
+  assert.equal(off.exchangeRate, 0.92);
+  assert.equal(off.fiatAmount, 920, "1,000 USDC is NOT €1,000");
+  assert.equal(off.fiatFeeAmount, 9.2);
+  assert.equal(off.fiatNetAmount, 910.8);
+  // ON_RAMP: amount is the fiat side; net fiat buys crypto at the rate.
+  const on = await ff.rampRequests.create({
+    rampType: "ON_RAMP",
+    amount: 920,
+    fiatCurrencyId: EUR_ID,
+    cryptoCurrencyId: USDC_ID,
+    companyWalletId: "cw000001-0000-4000-8000-000000000001",
+  });
+  assert.equal(on.fiatAmount, 920);
+  assert.equal(on.fiatFeeAmount, 9.2);
+  assert.equal(on.fiatNetAmount, 910.8);
+  assert.equal(on.cryptoAmount, 990, "910.80 EUR net buys 990 USDC at 0.92");
 });
 
 test("reset restores the seeds after mutations", async () => {

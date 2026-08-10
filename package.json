@@ -1,6 +1,6 @@
 {
   "name": "@venlyfinance/sdk",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "TypeScript SDK for the Venly Finance and Fundflow APIs. Generated from the OpenAPI specs, zero runtime dependencies.",
   "license": "MIT",
   "type": "module",

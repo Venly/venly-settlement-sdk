@@ -377,6 +377,13 @@ function AmountStep({
             ))}
           </select>
         </div>
+        {/* The unit trap this flow must never spring: the amount is CRYPTO
+            units, and 1,000 USDC is not €1,000. Said here, at the field. */}
+        {cryptoCode && fiatCode ? (
+          <p style={{ margin: "var(--space-2xs) 0 0", fontSize: "var(--font-size-label)", color: "var(--text-secondary)" }}>
+            This amount is in {cryptoCode}, the asset you send. Your bank receives {fiatCode} – the exact amount is confirmed on creation.
+          </p>
+        ) : null}
         {accountId !== undefined ? (
           <p style={{ margin: "var(--space-2xs) 0 0", fontSize: "var(--font-size-label)", color: overBalance ? "var(--state-danger-fg)" : "var(--text-secondary)" }}>
             Available: {formatAmount(available)} {cryptoCode}
