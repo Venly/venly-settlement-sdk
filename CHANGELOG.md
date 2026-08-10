@@ -11,8 +11,8 @@
   tests without network calls.
 - **Safer virtual bank account fixtures.** Mock provisioning requires an active,
   verified account. Repeated create intents return the original success, while
-  changed inputs and retries of failed intents return the documented
-  idempotency conflict. Seed data now covers incomplete, multiple, sparse, and
+  changed inputs and retries of failed intents return the operation's documented
+  409 conflict. Seed data now covers incomplete, multiple, sparse, and
   closed bank-detail states.
 
 ## 0.3.4 – 2026-08-10

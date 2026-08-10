@@ -61,9 +61,9 @@ function badRequest(ctx: HandlerContext, message: string): never {
 function idempotencyConflict(ctx: HandlerContext): never {
   mockError(
     {
-      status: 422,
-      code: "idempotency-conflict",
-      message: "This idempotency key cannot be reused for this operation.",
+      status: 409,
+      code: "concurrent-modification",
+      message: "This request conflicts with an earlier use of the same idempotency key.",
     },
     ctx.method,
     ctx.path,

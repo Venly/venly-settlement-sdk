@@ -67,7 +67,7 @@ test("receive mock: changed input cannot reuse a successful create key", async (
   await finance.virtualBankAccounts.create(ids.payouts, body);
   await assert.rejects(
     () => finance.virtualBankAccounts.create(ids.payouts, { ...body, name: "Changed intent" }),
-    (error) => error.status === 422 && error.errors[0].code === "idempotency-conflict",
+    (error) => error.status === 409 && error.errors[0].code === "concurrent-modification",
   );
 });
 
@@ -87,7 +87,7 @@ test("receive mock: a failed create key cannot be replayed after eligibility cha
   finance.mock.advanceVerification(accountId, "VERIFIED");
   await assert.rejects(
     () => finance.virtualBankAccounts.create(accountId, body),
-    (error) => error.status === 422 && error.errors[0].code === "idempotency-conflict",
+    (error) => error.status === 409 && error.errors[0].code === "concurrent-modification",
   );
 });
 
