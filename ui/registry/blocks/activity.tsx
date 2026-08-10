@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactElement } from "react";
-import type { Transfer } from "@venlyfinance/sdk";
-import { useTransfers } from "@venlyfinance/react";
-import { Money } from "../lib/money.js";
+import type { FundflowComponents, Transfer } from "@venlyfinance/sdk";
+import { describeRampStatus, useRampRequests, useTransfers } from "@venlyfinance/react";
+import { Money, formatAmount } from "../lib/money.js";
 import { DataTable, RowText, type DataTableColumn, type DataTableGroup } from "../components/data-table.js";
 import { StatusPill, type StatusIntent } from "../components/status-pill.js";
 import { SidePanel } from "../components/side-panel.js";
 import { Timeline, type TimelineStep } from "../components/timeline.js";
+import { FieldList } from "../components/field-list.js";
+import { WITHDRAW_STATUS_PILL } from "./withdraw.js";
 
 /**
  * Activity block – the ledger plus its detail panel.
@@ -376,6 +378,535 @@ function triggerDownload(filename: string, mime: string, content: string): void 
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ── Unified activity (transfers + company ramps, one feed) ─────────────
+//
+// The neobank has two ledgers with different scopes: finance transfers
+// belong to the selected account; ramp requests (withdrawals, add money)
+// belong to the company - the API carries no account linkage for them.
+// One feed renders both, and a labelled Scope column says which is which
+// instead of guessing a linkage that doesn't exist.
+
+type fundflow = FundflowComponents["schemas"];
+export type RampActivityItem = fundflow["RampRequestListItem"];
+
+export type UnifiedActivityRow =
+  | { kind: "transfer"; key: string; createdAt?: string; transfer: Transfer }
+  | { kind: "ramp"; key: string; createdAt?: string; ramp: RampActivityItem };
+
+/** Merge is presentation-only: keys namespace the source ledger. */
+export function unifyActivity(
+  transfers: Transfer[],
+  ramps: RampActivityItem[],
+): UnifiedActivityRow[] {
+  const rows: UnifiedActivityRow[] = [
+    ...transfers.map((transfer) => ({
+      kind: "transfer" as const,
+      key: `transfer:${transfer.id ?? ""}`,
+      createdAt: transfer.createdAt,
+      transfer,
+    })),
+    ...ramps.map((ramp) => ({
+      kind: "ramp" as const,
+      key: `ramp:${ramp.id ?? ""}`,
+      createdAt: ramp.createdAt,
+      ramp,
+    })),
+  ];
+  return rows.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+}
+
+/**
+ * Three bands - a failed movement never sits under a success header.
+ * BLOCKED is a live hold, not a terminal, so it waits with In progress.
+ */
+export type UnifiedBand = "pending" | "completed" | "incomplete";
+
+export const UNIFIED_BAND_LABELS: Record<UnifiedBand, string> = {
+  pending: "In progress",
+  completed: "Completed",
+  incomplete: "Didn't complete",
+};
+
+const RAMP_PENDING = new Set(["AWAITING_APPROVAL", "AWAITING_FUNDS", "PROCESSING", "BLOCKED"]);
+
+export function unifiedBand(row: UnifiedActivityRow): UnifiedBand {
+  if (row.kind === "transfer") {
+    if (row.transfer.status === "PENDING") return "pending";
+    return row.transfer.status === "COMPLETED" ? "completed" : "incomplete";
+  }
+  const status = row.ramp.status ?? "";
+  if (RAMP_PENDING.has(status)) return "pending";
+  return status === "SUCCEEDED" ? "completed" : "incomplete";
+}
+
+/** Type label: which rail, said in the Move-money surface's own words. */
+export function unifiedTypeLabel(row: UnifiedActivityRow, accountId?: string): string {
+  if (row.kind === "ramp") return row.ramp.rampType === "OFF_RAMP" ? "Withdrawal" : "Add money";
+  if (accountId && transferDirection(row.transfer, accountId) === "out") return "Transfer sent";
+  return "Transfer received";
+}
+
+/**
+ * Failed counts rejection as refusal (NAV vocabulary maps it negative,
+ * the intent-twin of declined); a cancellation stays neutral and out.
+ */
+export function unifiedSummary(rows: UnifiedActivityRow[]): {
+  all: number;
+  pending: number;
+  failed: number;
+} {
+  const failed = rows.filter((row) =>
+    row.kind === "transfer"
+      ? row.transfer.status === "FAILED"
+      : ["FAILED", "DENIED", "REJECTED"].includes(row.ramp.status ?? ""),
+  ).length;
+  return {
+    all: rows.length,
+    pending: rows.filter((row) => unifiedBand(row) === "pending").length,
+    failed,
+  };
+}
+
+export type UnifiedTypeFilter = "all" | "transfers" | "withdrawals" | "add-money";
+
+export function filterUnified(
+  rows: UnifiedActivityRow[],
+  type: UnifiedTypeFilter,
+  scope: ActivityScope,
+): UnifiedActivityRow[] {
+  let out = rows;
+  if (type === "transfers") out = out.filter((r) => r.kind === "transfer");
+  if (type === "withdrawals") out = out.filter((r) => r.kind === "ramp" && r.ramp.rampType === "OFF_RAMP");
+  if (type === "add-money") out = out.filter((r) => r.kind === "ramp" && r.ramp.rampType === "ON_RAMP");
+  if (scope === "pending") out = out.filter((r) => unifiedBand(r) === "pending");
+  if (scope === "failed") {
+    out = out.filter((r) =>
+      r.kind === "transfer"
+        ? r.transfer.status === "FAILED"
+        : ["FAILED", "DENIED", "REJECTED"].includes(r.ramp.status ?? ""),
+    );
+  }
+  return out;
+}
+
+/**
+ * Signed amount for the row's primary (crypto) figure. Direction is
+ * carried by this sign + the Type label; the fiat side stays unsigned
+ * because the list carries GROSS fiat, not the net the bank receives.
+ * A pre-settlement Add money row stays unsigned - nothing has been
+ * credited yet, and the band carries that meaning.
+ */
+export function rampSigned(ramp: RampActivityItem): { amount: number; signed: boolean } | undefined {
+  if (ramp.cryptoAmount === undefined) return undefined;
+  if (ramp.rampType === "OFF_RAMP") return { amount: -ramp.cryptoAmount, signed: true };
+  if (ramp.status === "SUCCEEDED") return { amount: ramp.cryptoAmount, signed: true };
+  return { amount: ramp.cryptoAmount, signed: false };
+}
+
+export function unifiedToCsv(rows: UnifiedActivityRow[], accountId?: string, accountName?: string): string {
+  const header = "source,id,reference,type,date,scope,amount,currency,status";
+  const lines = rows.map((row) => {
+    if (row.kind === "transfer") {
+      const t = row.transfer;
+      return [
+        "transfer",
+        t.id,
+        t.merchantReference,
+        accountId ? `Transfer ${transferDirection(t, accountId) === "out" ? "sent" : "received"}` : "Transfer",
+        t.createdAt,
+        accountName ?? accountId,
+        signedTransferAmount(t, accountId),
+        t.asset,
+        t.status,
+      ]
+        .map(csvField)
+        .join(",");
+    }
+    const r = row.ramp;
+    return [
+      "ramp",
+      r.id,
+      r.paymentReference,
+      r.rampType === "OFF_RAMP" ? "Withdrawal" : "Add money",
+      r.createdAt,
+      "Company-wide",
+      rampSigned(r)?.amount,
+      r.cryptoCurrency,
+      r.status,
+    ]
+      .map(csvField)
+      .join(",");
+  });
+  return [header, ...lines].join("\n");
+}
+
+function unifiedColumns(accountId?: string, accountName?: string): DataTableColumn<UnifiedActivityRow>[] {
+  return [
+    {
+      key: "what",
+      header: "Activity",
+      cell: (row) => {
+        const label = unifiedTypeLabel(row, accountId);
+        if (row.kind === "transfer") {
+          const status = transferStatusIntent(row.transfer.status);
+          return (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-sm)" }}>
+              <RowText
+                primary={label}
+                secondary={row.transfer.description ?? row.transfer.merchantReference ?? row.transfer.asset}
+              />
+              {status ? <StatusPill label={status.label} intent={status.intent} /> : null}
+            </span>
+          );
+        }
+        const pill = WITHDRAW_STATUS_PILL[row.ramp.status ?? ""];
+        // Success stays quiet in the table (colour is a budget); every
+        // other state carries its word.
+        const quiet = row.ramp.status === "SUCCEEDED";
+        return (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-sm)" }}>
+            <RowText primary={label} secondary={row.ramp.paymentReference} />
+            {pill && !quiet ? <StatusPill label={pill.label} intent={pill.intent} /> : null}
+          </span>
+        );
+      },
+    },
+    {
+      key: "scope",
+      header: "Scope",
+      cell: (row) =>
+        row.kind === "transfer" ? (accountName ?? "This account") : "Company-wide",
+    },
+    { key: "date", header: "Date", cell: (row) => row.createdAt?.slice(0, 10) },
+    {
+      key: "amount",
+      header: "Amount",
+      money: true,
+      cell: (row) => {
+        if (row.kind === "transfer") {
+          const amount = signedTransferAmount(row.transfer, accountId);
+          return amount === undefined ? null : <Money amount={amount} currency={row.transfer.asset} />;
+        }
+        const signed = rampSigned(row.ramp);
+        return (
+          <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: "var(--space-3xs)" }}>
+            {signed ? <Money amount={signed.amount} currency={row.ramp.cryptoCurrency} /> : null}
+            {row.ramp.fiatAmount !== undefined ? (
+              <span style={{ fontSize: "var(--font-size-label)", color: "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
+                {formatAmount(row.ramp.fiatAmount)} {row.ramp.fiatCurrency}
+              </span>
+            ) : null}
+          </span>
+        );
+      },
+    },
+  ];
+}
+
+/** Ramp side panel: list-item fields only; the entity page owns the rest. */
+export function RampActivityPanel({
+  ramp,
+  onClose,
+  onOpenWithdrawal,
+}: {
+  ramp: RampActivityItem;
+  onClose: () => void;
+  /** OFF_RAMP only - Add money has no entity page yet. */
+  onOpenWithdrawal?: (id: string) => void;
+}): ReactElement {
+  const descriptor = describeRampStatus(ramp.status);
+  const signed = rampSigned(ramp);
+  return (
+    <SidePanel
+      context={`${ramp.rampType === "OFF_RAMP" ? "Withdrawal" : "Add money"} · ${ramp.createdAt?.slice(0, 10) ?? ""}`}
+      amount={signed?.amount}
+      currency={ramp.cryptoCurrency}
+      qualifier={ramp.paymentReference}
+      onClose={onClose}
+    >
+      {descriptor ? (
+        <p style={{ margin: "0 0 var(--space-md)", fontSize: "var(--font-size-label)", color: "var(--text-secondary)" }}>
+          {descriptor.explanation}
+        </p>
+      ) : null}
+      <FieldList
+        fields={[
+          {
+            label: "Converted amount",
+            value:
+              ramp.fiatAmount !== undefined
+                ? `${formatAmount(ramp.fiatAmount)} ${ramp.fiatCurrency ?? ""}`
+                : null,
+            copyable: false,
+            mono: true,
+          },
+          { label: "Reference", value: ramp.paymentReference ?? null, copyable: true, mono: true },
+          { label: "Created by", value: ramp.createdBy ?? null, copyable: false },
+          { label: "Created", value: ramp.createdAt ?? null, copyable: false, mono: true },
+        ]}
+      />
+      {ramp.rampType === "OFF_RAMP" && onOpenWithdrawal && ramp.id ? (
+        <button
+          type="button"
+          onClick={() => onOpenWithdrawal(ramp.id as string)}
+          style={{
+            marginTop: "var(--space-md)",
+            border: "var(--border-w-hairline) solid var(--border-strong)",
+            background: "var(--surface-raised)",
+            color: "var(--text-primary)",
+            borderRadius: "var(--radius-control)",
+            padding: "var(--space-2xs) var(--space-md)",
+            fontSize: "var(--font-size-label)",
+            fontFamily: "var(--font-family)",
+            cursor: "pointer",
+          }}
+        >
+          View withdrawal
+        </button>
+      ) : null}
+    </SidePanel>
+  );
+}
+
+/** One feed over both ledgers - a withdrawal you just created is activity too. */
+export function UnifiedActivityBlock({
+  accountId,
+  accountName,
+  initialScope = "all",
+  onOpenWithdrawal,
+  style,
+  className,
+}: {
+  accountId: string;
+  /** Renders in the Scope column for transfer rows. */
+  accountName?: string;
+  initialScope?: ActivityScope;
+  /** Entity drill for OFF_RAMP panel rows, e.g. navigate to the withdrawal. */
+  onOpenWithdrawal?: (id: string) => void;
+  style?: CSSProperties;
+  className?: string;
+}): ReactElement {
+  const { data: transferData, isPending: transfersPending } = useTransfers(accountId);
+  const { data: rampData, isPending: rampsPending } = useRampRequests();
+  const [scope, setScope] = useState<ActivityScope>(initialScope);
+  const [typeFilter, setTypeFilter] = useState<UnifiedTypeFilter>("all");
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const all = useMemo(
+    () => unifyActivity(transferData?.items ?? [], rampData?.items ?? []),
+    [transferData, rampData],
+  );
+  const summary = useMemo(() => unifiedSummary(all), [all]);
+  const visible = useMemo(() => filterUnified(all, typeFilter, scope), [all, typeFilter, scope]);
+  const visibleOrdered = useMemo(() => {
+    const order: UnifiedBand[] = ["pending", "completed", "incomplete"];
+    return order.flatMap((band) => visible.filter((row) => unifiedBand(row) === band));
+  }, [visible]);
+  const steppableKeys = useMemo(
+    () => visibleOrdered.filter((row) => !collapsedGroups[unifiedBand(row)]).map((row) => row.key),
+    [visibleOrdered, collapsedGroups],
+  );
+  const selected =
+    selectedKey && steppableKeys.includes(selectedKey)
+      ? (visibleOrdered.find((row) => row.key === selectedKey) ?? null)
+      : null;
+  const filtered = typeFilter !== "all" || scope !== "all";
+
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+      if (event.key === "Escape") {
+        setSelectedKey(null);
+      } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        setSelectedKey((current) =>
+          stepSelection(steppableKeys, current, event.key === "ArrowDown" ? 1 : -1),
+        );
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [selected, steppableKeys]);
+
+  const groups: DataTableGroup<UnifiedActivityRow>[] = (
+    ["pending", "completed", "incomplete"] as UnifiedBand[]
+  ).map((band) => ({
+    key: band,
+    label: UNIFIED_BAND_LABELS[band],
+    rows: visible.filter((row) => unifiedBand(row) === band),
+    attention: band === "pending" && visible.some((row) => unifiedBand(row) === band),
+  }));
+
+  const toggleScope = (next: ActivityScope) => {
+    setScope((current) => (current === next ? "all" : next));
+  };
+
+  if (transfersPending || rampsPending) {
+    return (
+      <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
+        <p style={{ color: "var(--text-tertiary)" }}>Loading activity…</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-2xl)", marginBottom: "var(--space-lg)" }}>
+        <StatFigure label="Activity" value={summary.all} selected={scope === "all"} onClick={() => setScope("all")} />
+        <StatFigure label="In progress" value={summary.pending} selected={scope === "pending"} onClick={() => toggleScope("pending")} />
+        <StatFigure label="Failed" value={summary.failed} selected={scope === "failed"} onClick={() => toggleScope("failed")} />
+
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
+          <select
+            aria-label="Filter by type"
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as UnifiedTypeFilter)}
+            style={{
+              fontFamily: "var(--font-family)",
+              fontSize: "var(--font-size-label)",
+              color: typeFilter !== "all" ? "var(--text-primary)" : "var(--text-secondary)",
+              background: typeFilter !== "all" ? "var(--selected-tint)" : "var(--surface-raised)",
+              border: "var(--border-w-hairline) solid var(--border-hairline)",
+              borderRadius: "var(--radius-control)",
+              padding: "var(--space-2xs) var(--space-sm)",
+            }}
+          >
+            <option value="all">All types</option>
+            <option value="transfers">Transfers</option>
+            <option value="withdrawals">Withdrawals</option>
+            <option value="add-money">Add money</option>
+          </select>
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setExportOpen((open) => !open)}
+              style={{
+                fontFamily: "var(--font-family)",
+                fontSize: "var(--font-size-label)",
+                color: "var(--text-primary)",
+                background: "var(--surface-raised)",
+                border: "var(--border-w-hairline) solid var(--border-hairline)",
+                borderRadius: "var(--radius-control)",
+                padding: "var(--space-2xs) var(--space-sm)",
+                cursor: "pointer",
+              }}
+            >
+              {filtered ? "Export filtered" : "Export"}
+            </button>
+            {exportOpen ? (
+              <div
+                role="dialog"
+                aria-label="Export activity"
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "100%",
+                  marginTop: "var(--space-2xs)",
+                  width: "var(--card-max-width)",
+                  maxWidth: "var(--panel-min-width)",
+                  background: "var(--surface-raised)",
+                  border: "var(--border-w-hairline) solid var(--border-hairline)",
+                  borderRadius: "var(--radius-card)",
+                  boxShadow: "var(--shadow-overlay)",
+                  padding: "var(--space-lg)",
+                  zIndex: 1,
+                }}
+              >
+                <p style={{ margin: "0 0 var(--space-md)", fontSize: "var(--font-size-label)", color: "var(--text-secondary)" }}>
+                  Exports the {visible.length} rows matching your current filters – this
+                  account&rsquo;s transfers plus the company&rsquo;s withdrawals and Add money
+                  rows – out of {all.length}.
+                </p>
+                <div style={{ display: "flex", gap: "var(--space-sm)" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerDownload("activity.csv", "text/csv", unifiedToCsv(visible, accountId, accountName));
+                      setExportOpen(false);
+                    }}
+                    style={{
+                      fontFamily: "var(--font-family)",
+                      fontSize: "var(--font-size-label)",
+                      fontWeight: 500,
+                      color: "var(--accent-fg)",
+                      background: "var(--accent)",
+                      border: "none",
+                      borderRadius: "var(--radius-control)",
+                      padding: "var(--space-xs) var(--space-md)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    CSV
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {all.length === 0 ? (
+        <p style={{ margin: 0, fontSize: "var(--font-size-body)", color: "var(--text-secondary)" }}>
+          No activity yet. Transfers and withdrawals appear here as soon as they&rsquo;re created.
+        </p>
+      ) : visible.length === 0 ? (
+        <p style={{ margin: 0, fontSize: "var(--font-size-body)", color: "var(--text-secondary)" }}>
+          Nothing matches these filters.{" "}
+          <button
+            type="button"
+            onClick={() => {
+              setTypeFilter("all");
+              setScope("all");
+            }}
+            style={{
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              color: "var(--text-primary)",
+              fontSize: "var(--font-size-body)",
+              fontFamily: "var(--font-family)",
+              textDecoration: "underline",
+              padding: 0,
+            }}
+          >
+            Clear filters
+          </button>
+        </p>
+      ) : (
+        <DataTable
+          columns={unifiedColumns(accountId, accountName)}
+          rows={[]}
+          groups={groups}
+          collapsedGroups={collapsedGroups}
+          onGroupToggle={(key, isCollapsed) => setCollapsedGroups((c) => ({ ...c, [key]: isCollapsed }))}
+          rowKey={(row) => row.key}
+          selectedKey={selected?.key}
+          onRowClick={(row) => setSelectedKey(row.key)}
+        />
+      )}
+
+      {selected?.kind === "transfer" ? (
+        <TransferDetailPanel
+          transfer={selected.transfer}
+          accountId={accountId}
+          onClose={() => setSelectedKey(null)}
+        />
+      ) : null}
+      {selected?.kind === "ramp" ? (
+        <RampActivityPanel
+          ramp={selected.ramp}
+          onClose={() => setSelectedKey(null)}
+          onOpenWithdrawal={onOpenWithdrawal}
+        />
+      ) : null}
+    </section>
+  );
 }
 
 /** Ledger + panel, bound to the account's transfers. */

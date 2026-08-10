@@ -5,7 +5,7 @@ import "../../../ui/registry/styles/tokens.css";
 import { BalancesBlock, BalanceMiniature } from "../../../ui/registry/blocks/balances.js";
 import { ConnectedReceiveBlock } from "../../../ui/registry/blocks/receive.js";
 import { SendBlock } from "../../../ui/registry/blocks/send.js";
-import { ActivityBlock, type ActivityScope } from "../../../ui/registry/blocks/activity.js";
+import { UnifiedActivityBlock, type ActivityScope } from "../../../ui/registry/blocks/activity.js";
 import { TeamTable, createMockTeamAdapter } from "../../../ui/registry/blocks/team.js";
 import { BankAccountsBlock } from "../../../ui/registry/blocks/bank-accounts.js";
 import { WithdrawFlow, WithdrawalsTable } from "../../../ui/registry/blocks/withdraw.js";
@@ -117,7 +117,12 @@ function Shell() {
           />
         ) : null}
         {tab === "activity" ? (
-          <ActivityBlock key={activityScope} accountId={account.id} initialScope={activityScope} />
+          <UnifiedActivityBlock
+            key={activityScope}
+            accountId={account.id}
+            accountName={account.name ?? account.id}
+            initialScope={activityScope}
+          />
         ) : null}
         {tab === "send" ? <SendBlock senderAccountId={account.id} /> : null}
         {tab === "team" ? (

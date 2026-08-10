@@ -356,7 +356,30 @@ export const paymentRequestReversing = {
   updatedAt: "2026-07-20T11:30:00Z",
 } satisfies schemas["PaymentRequest"];
 
+/**
+ * Long-list batch: a feed must exceed one screen to prove count +
+ * pagination behaviour, and five rows never will. Generated
+ * deterministically at module init (fixed base dates, no runtime clocks)
+ * so reset() and tests stay reproducible.
+ */
+const transferBatch = Array.from({ length: 24 }, (_, i) => {
+  const day = String((i % 28) + 1).padStart(2, "0");
+  const hour = String((i * 7) % 24).padStart(2, "0");
+  return {
+    id: `tr5e8c66-7777-4a70-9bb8-0000000001${String(i).padStart(2, "0")}`,
+    senderAccountId: i % 3 === 0 ? accounts[1].id : accounts[0].id,
+    receiverAccountId: i % 3 === 0 ? accounts[0].id : accounts[1].id,
+    chain: "BASE" as const,
+    asset: i % 4 === 0 ? "EURC" : "USDC",
+    amount: 25 + i * 13.5,
+    description: `Invoice ${2600 + i}`,
+    status: "COMPLETED" as const,
+    createdAt: `2026-06-${day}T${hour}:15:00Z`,
+  };
+});
+
 export const transfers = [
+  ...transferBatch,
   {
     id: "tr5e8c66-7777-4a70-9bb8-000000000001",
     senderAccountId: accounts[0].id,

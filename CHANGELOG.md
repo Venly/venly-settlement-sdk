@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.4 – 2026-08-10
+
+- **Long-list transfer seed batch.** The finance mock now seeds 24 additional
+  completed transfers (deterministic ids and dates, generated at module init),
+  so a feed built on the mock exceeds one screen and count/pagination
+  behaviour is demonstrable. Existing seeds and drivers are unchanged.
+- **Mock pagination default now matches the spec.** Both APIs document
+  `size` defaulting to 100; the mock's list envelope defaulted to 20, which
+  silently truncated any list past 20 rows (surfaced by the new seed batch).
+
 ## 0.3.3 – 2026-08-10
 
 - **Non-parity exchange rates in the fundflow mock.** Every seed and every

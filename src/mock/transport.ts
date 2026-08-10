@@ -101,7 +101,9 @@ export function listEnvelope(
   query: Record<string, string | number | boolean | readonly (string | number)[] | undefined> = {},
 ): unknown {
   const page = Math.max(1, Number(query.page ?? 1));
-  const size = Math.max(1, Number(query.size ?? 20));
+  // Spec default: `size` is 100 on both APIs. The mock mirrored 20 for a
+  // while, which silently truncated any list past one screen.
+  const size = Math.max(1, Number(query.size ?? 100));
   const start = (page - 1) * size;
   const slice = items.slice(start, start + size);
   const numberOfPages = Math.max(1, Math.ceil(items.length / size));
