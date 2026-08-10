@@ -21,6 +21,8 @@ export interface SidePanelProps {
   /** Thin grey context line, e.g. "Transfer · 7 Aug 2026". */
   context: string;
   amount?: number | null;
+  /** Rendered before the hero amount, e.g. an explicit "+" on settled credits. */
+  amountPrefix?: string;
   currency?: string;
   /** Grey line under the hero amount, e.g. the counterparty. */
   qualifier?: ReactNode;
@@ -53,6 +55,7 @@ function KeyChip({ label }: { label: string }): ReactElement {
 export function SidePanel({
   context,
   amount,
+  amountPrefix,
   currency,
   qualifier,
   onClose,
@@ -114,6 +117,11 @@ export function SidePanel({
           ) : null}
         </div>
         <div style={{ marginTop: "var(--space-sm)" }}>
+          {amountPrefix ? (
+            <span style={{ fontSize: "var(--font-size-hero)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+              {amountPrefix}
+            </span>
+          ) : null}
           <Money amount={amount} currency={currency} emphasis="hero" />
         </div>
         {qualifier !== undefined ? (

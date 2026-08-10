@@ -100,12 +100,26 @@ test("withdrawals: pending family sections above terminal, zero-counts still ren
   const groups = withdrawalGroups(items);
   assert.equal(groups[0].key, "pending");
   assert.deepEqual(groups[0].rows.map((r) => r.id), ["r2", "r3"]);
-  assert.deepEqual(groups[1].rows.map((r) => r.id), ["r1"]);
+  assert.deepEqual(groups[1].rows.map((r) => r.id), ["r1"], "completed band holds SUCCEEDED only");
 
-  const html = renderToStaticMarkup(<WithdrawalsTable items={items} />);
+  // Three bands: a refused or failed movement never sits under "Completed".
+  const withRefusals = [
+    ...items,
+    { id: "r4", status: "FAILED", fiatAmount: 20, fiatCurrency: "EUR" },
+    { id: "r5", status: "REJECTED", fiatAmount: 30, fiatCurrency: "EUR" },
+    { id: "r6", status: "CANCELLED", fiatAmount: 40, fiatCurrency: "EUR" },
+  ] as fundflow["RampRequestListItem"][];
+  const threeBands = withdrawalGroups(withRefusals);
+  assert.deepEqual(threeBands.map((g) => g.key), ["pending", "completed", "incomplete"]);
+  assert.deepEqual(threeBands[1].rows.map((r) => r.id), ["r1"]);
+  assert.deepEqual(threeBands[2].rows.map((r) => r.id), ["r4", "r5", "r6"]);
+
+  const html = renderToStaticMarkup(<WithdrawalsTable items={withRefusals} />);
   const pendingIdx = html.indexOf("In progress");
   const completedIdx = html.indexOf("Completed");
+  const incompleteIdx = html.indexOf("Didn&#x27;t complete");
   assert.ok(pendingIdx > -1 && completedIdx > pendingIdx, "pending band above completed band");
+  assert.ok(incompleteIdx > completedIdx, "didn't-complete band renders below completed");
 
   const emptyPending = renderToStaticMarkup(
     <WithdrawalsTable items={[{ id: "r1", status: "SUCCEEDED", fiatAmount: 1, fiatCurrency: "EUR" }] as fundflow["RampRequestListItem"][]} />,

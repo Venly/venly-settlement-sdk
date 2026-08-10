@@ -67,11 +67,17 @@ const PENDING_FAMILY = new Set(["AWAITING_APPROVAL", "AWAITING_FUNDS", "PROCESSI
 
 /** Pending family above terminal – a pending debit never sits beside a settled one. */
 export function withdrawalGroups(items: RampListItem[]): { key: string; label: string; rows: RampListItem[]; attention?: boolean }[] {
+  // Three bands: a failed or refused movement must never sit under a
+  // header that asserts success.
   const pending = items.filter((i) => PENDING_FAMILY.has(i.status ?? ""));
-  const terminal = items.filter((i) => !PENDING_FAMILY.has(i.status ?? ""));
+  const completed = items.filter((i) => i.status === "SUCCEEDED");
+  const incomplete = items.filter(
+    (i) => !PENDING_FAMILY.has(i.status ?? "") && i.status !== "SUCCEEDED",
+  );
   return [
     { key: "pending", label: "In progress", rows: pending, attention: pending.length > 0 },
-    { key: "terminal", label: "Completed", rows: terminal },
+    { key: "completed", label: "Completed", rows: completed },
+    { key: "incomplete", label: "Didn't complete", rows: incomplete },
   ];
 }
 

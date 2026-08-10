@@ -331,7 +331,7 @@
       "name": "activity",
       "type": "registry:block",
       "title": "Activity block",
-      "description": "Ledger plus a live-synced scrimless detail panel: pending sectioned above settled, a recomputing summary strip that doubles as the scope switch, export that declares scope before format, and arrow-key row stepping.",
+      "description": "One feed over both money rails: the account's transfers interleaved with the company's withdrawals and add-money requests, a labelled Scope column, three bands (In progress / Completed / Didn't complete), live-synced detail panels, unified CSV export, and arrow-key row stepping. Mount UnifiedActivityBlock for the full feed, or ActivityBlock for a transfers-only ledger.",
       "dependencies": [
         "@venlyfinance/react@^0.2.0",
         "@venlyfinance/sdk@^0.3.0",
@@ -343,7 +343,9 @@
         "@venlyfinance/data-table",
         "@venlyfinance/status-pill",
         "@venlyfinance/side-panel",
-        "@venlyfinance/timeline"
+        "@venlyfinance/timeline",
+        "@venlyfinance/field-list",
+        "@venlyfinance/withdraw"
       ],
       "files": [
         {
