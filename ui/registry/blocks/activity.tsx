@@ -637,6 +637,7 @@ export function RampActivityPanel({
     <SidePanel
       context={`${ramp.rampType === "OFF_RAMP" ? "Withdrawal" : "Add money"} · ${ramp.createdAt?.slice(0, 10) ?? ""}`}
       amount={signed?.amount}
+      amountPrefix={signed && signed.signed && signed.amount > 0 ? "+" : undefined}
       currency={ramp.cryptoCurrency}
       qualifier={ramp.paymentReference}
       onClose={onClose}

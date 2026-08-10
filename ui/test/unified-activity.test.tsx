@@ -123,6 +123,16 @@ test("rendered amounts: a settled credit carries an explicit +, a waiting one do
   assert.doesNotMatch(waiting, />\+</, "nothing has been credited yet - no +");
   const withdrawal = render({ kind: "ramp", key: "k", ramp: ramp({ rampType: "OFF_RAMP", cryptoAmount: 100 }) });
   assert.match(withdrawal, /−100\.00/, "withdrawals keep the true minus");
+
+  // The panel hero carries the same sign treatment as the table cell.
+  const settledPanel = renderToStaticMarkup(
+    <RampActivityPanel ramp={ramp({ rampType: "ON_RAMP", status: "SUCCEEDED", cryptoAmount: 100 })} onClose={() => undefined} />,
+  );
+  assert.match(settledPanel, />\+</, "settled add-money panel hero renders the +");
+  const waitingPanel = renderToStaticMarkup(
+    <RampActivityPanel ramp={ramp({ rampType: "ON_RAMP", status: "AWAITING_FUNDS", cryptoAmount: 100 })} onClose={() => undefined} />,
+  );
+  assert.doesNotMatch(waitingPanel, />\+</, "waiting add-money panel hero stays unprefixed");
 });
 
 test("ramp panel: gross fiat is 'Converted amount', never 'bank receives'; drill is OFF_RAMP-only", () => {
