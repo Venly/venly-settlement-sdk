@@ -67,6 +67,8 @@ venly.mock!.advanceTransfer(transfer.id!);             // → COMPLETED, with a 
 venly.mock!.advanceTransfer(other.id!, "FAILED");      // exercise the failure path
 
 venly.mock!.failNext("NOT_FOUND");                     // simulate an API error
+venly.mock!.respondNext({ success: true }, "GET /accounts/{accountId}/virtual-bank-accounts");
+venly.mock!.delayNext(1500, "GET /accounts/{accountId}/virtual-bank-accounts");
 venly.mock!.calls;                                     // inspect everything your code sent
 venly.mock!.reset();                                   // back to the seed fixtures
 ```
@@ -74,6 +76,11 @@ venly.mock!.reset();                                   // back to the seed fixtu
 Error simulation throws the same `VenlyApiError` the live API produces
 (`failNext("OPTIMISTIC_LOCK_EXCEPTION")`, or a custom `{status, code, message}`;
 add a route filter like `failNext("VALIDATION_ERROR", "POST /parties")`).
+`respondNext` and `delayNext` accept the same exact route filter, so sparse
+response envelopes and loading states can be exercised without network calls.
+Paginated SDK results include `resultPresent`; it is `false` when a response
+omits `result`, which lets applications distinguish malformed data from a
+genuine empty list.
 Ready for real calls? Change `environment` to `"staging"` and add
 `clientId`/`clientSecret` - nothing else changes, and the same options object
 type-checks in all three environments.

@@ -170,7 +170,9 @@ test("fidelity: virtual bank accounts never leak across accounts", async () => {
   const own = await f.virtualBankAccounts.list(ACCT_1);
   assert.ok(own.items.every((v) => v.accountId === ACCT_1));
   const other = await f.virtualBankAccounts.list(ACCT_2);
-  assert.equal(other.items.length, 0, "account 2 has no seeded vIBAN");
+  assert.ok(other.items.length > 0, "account 2 carries its own receive-state fixture");
+  assert.ok(other.items.every((v) => v.accountId === ACCT_2));
+  assert.ok(other.items.every((v) => !own.items.some((candidate) => candidate.id === v.id)));
 });
 
 test("fidelity: each account has its own wallet", async () => {

@@ -67,7 +67,7 @@ test("mock: every namespace method returns a plausible fixture", async () => {
       (r) => r.firstName === "G" && r.version === 1,
     ],
     ["parties.delete", f.parties.delete(party5), (r) => r === undefined],
-    ["accounts.list", f.accounts.list(), (r) => r.items.length === 6],
+    ["accounts.list", f.accounts.list(), (r) => r.items.length === 7],
     ["accounts.get", f.accounts.get(acct), (r) => r.id === acct],
     ["accounts.listPartyRoles", f.accounts.listPartyRoles(acct), (r) => r.items.length > 0],
     [
@@ -246,6 +246,24 @@ test("mock: failNext supports custom specs and route matching", async () => {
   );
 });
 
+test("mock: respondNext can serve a schema-legal sparse envelope for one exact route", async () => {
+  const f = mockFinance();
+  f.mock.respondNext({ success: true }, "GET /accounts/{accountId}/virtual-bank-accounts");
+  const page = await f.virtualBankAccounts.list("a10c2d31-2222-4b20-8c63-000000000001");
+  assert.equal(page.resultPresent, false);
+  assert.equal(page.pagination, undefined);
+  const normal = await f.virtualBankAccounts.list("a10c2d31-2222-4b20-8c63-000000000001");
+  assert.equal(normal.resultPresent, true);
+});
+
+test("mock: delayNext delays only the matching route", async () => {
+  const f = mockFinance();
+  f.mock.delayNext(20, "GET /accounts/{accountId}/virtual-bank-accounts");
+  const started = Date.now();
+  await f.virtualBankAccounts.list("a10c2d31-2222-4b20-8c63-000000000001");
+  assert.ok(Date.now() - started >= 15);
+});
+
 test("mock: unmocked path fails with a helpful 404 listing known routes", async () => {
   const f = mockFinance();
   await assert.rejects(
@@ -330,9 +348,9 @@ test("mock: clean-room ESM and CJS entry both construct and answer", () => {
   assert.equal(cjs.status, 0, `CJS spawn failed: ${cjs.stderr}`);
 });
 
-// ─── Evaluator-round regressions (2026-07-25 NEEDS_WORK findings) ───
+// ─── Mock fidelity regressions ───
 
-test("mock: error presets teach each API's real codes (evaluator findings 1+2)", async () => {
+test("mock: error presets teach each API's real codes", async () => {
   const f = mockFinance();
   f.mock.failNext("INTERNAL_SERVER_ERROR");
   await assert.rejects(
@@ -363,7 +381,7 @@ test("mock: error presets teach each API's real codes (evaluator findings 1+2)",
   );
 });
 
-test("mock: literal route shadows {id} template, same as the live router (evaluator finding 3)", async () => {
+test("mock: literal route shadows {id} template, same as the live router", async () => {
   const ff = mockFundflow();
   // get("export") routes to the CSV endpoint exactly as the real API would;
   // the SDK method then unwraps a string to undefined (no valid DTO). Pin the

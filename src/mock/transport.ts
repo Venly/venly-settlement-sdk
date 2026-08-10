@@ -30,6 +30,10 @@ export interface VenlyMock {
    * Queued failures are FIFO and each is consumed by one call.
    */
   failNext(error: ErrorPresetName | ErrorSpec, match?: string): void;
+  /** Return one exact envelope for the next matching request. */
+  respondNext(response: unknown, match?: string): void;
+  /** Delay the next matching request; useful for exercising loading states. */
+  delayNext(milliseconds: number, match?: string): void;
 }
 
 /** Context handed to handler-kind routes. */
@@ -43,6 +47,8 @@ export interface HandlerContext {
   params: Record<string, string>;
   query: Record<string, string | number | boolean | readonly (string | number)[] | undefined>;
   body: unknown;
+  /** Effective key recorded for a mutating request. */
+  idempotencyKey?: string;
 }
 
 /** How a mocked route answers. */
@@ -61,6 +67,16 @@ export type RouteTable = Record<string, RouteEntry>;
 
 interface QueuedFailure {
   spec: ErrorSpec;
+  match?: string;
+}
+
+interface QueuedResponse {
+  response: unknown;
+  match?: string;
+}
+
+interface QueuedDelay {
+  milliseconds: number;
   match?: string;
 }
 
@@ -216,6 +232,8 @@ export class MockTransport implements Transport, VenlyMock {
   private readonly requestShapes: Record<string, RequestShape>;
   private readonly log: MockCall[] = [];
   private readonly failures: QueuedFailure[] = [];
+  private readonly responses: QueuedResponse[] = [];
+  private readonly delays: QueuedDelay[] = [];
 
   constructor(
     routes: RouteTable,
@@ -234,6 +252,8 @@ export class MockTransport implements Transport, VenlyMock {
   clear(): void {
     this.log.length = 0;
     this.failures.length = 0;
+    this.responses.length = 0;
+    this.delays.length = 0;
   }
 
   failNext(error: ErrorPresetName | ErrorSpec, match?: string): void {
@@ -244,6 +264,17 @@ export class MockTransport implements Transport, VenlyMock {
       );
     }
     this.failures.push({ spec, match });
+  }
+
+  respondNext(response: unknown, match?: string): void {
+    this.responses.push({ response: structuredClone(response), match });
+  }
+
+  delayNext(milliseconds: number, match?: string): void {
+    if (!Number.isFinite(milliseconds) || milliseconds < 0) {
+      throw new Error("delayNext milliseconds must be a non-negative finite number");
+    }
+    this.delays.push({ milliseconds, match });
   }
 
   async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
@@ -266,6 +297,12 @@ export class MockTransport implements Transport, VenlyMock {
     }
     this.log.push(call);
 
+    const delayIndex = this.delays.findIndex((item) => !item.match || item.match === routeKey);
+    if (delayIndex !== -1) {
+      const { milliseconds } = this.delays.splice(delayIndex, 1)[0];
+      await new Promise((resolve) => setTimeout(resolve, milliseconds));
+    }
+
     // Drain the first matching queued failure (FIFO).
     const idx = this.failures.findIndex((f) => !f.match || f.match === routeKey);
     if (idx !== -1) {
@@ -287,6 +324,11 @@ export class MockTransport implements Transport, VenlyMock {
     const shape = this.requestShapes[routeKey];
     if (shape && (method === "POST" || method === "PUT" || method === "PATCH")) {
       validateRequestBody(shape, options.body ?? {}, routeKey, method, path);
+    }
+
+    const responseIndex = this.responses.findIndex((item) => !item.match || item.match === routeKey);
+    if (responseIndex !== -1) {
+      return structuredClone(this.responses.splice(responseIndex, 1)[0].response) as T;
     }
 
     return structuredClone(this.dispatch(this.routes[routeKey], routeKey, path, options)) as T;
@@ -333,7 +375,10 @@ export class MockTransport implements Transport, VenlyMock {
         return undefined;
       case "text":
         return entry.body;
-      case "handler":
+      case "handler": {
+        const body = options.body && typeof options.body === "object" && !Array.isArray(options.body)
+          ? options.body as Record<string, unknown>
+          : undefined;
         return entry.handle({
           method: routeKey.split(" ")[0],
           template,
@@ -341,7 +386,10 @@ export class MockTransport implements Transport, VenlyMock {
           params: pathParams(template, path),
           query: options.query ?? {},
           body: options.body,
+          idempotencyKey: options.idempotencyKey
+            ?? (typeof body?.idempotencyKey === "string" ? body.idempotencyKey : undefined),
         });
+      }
     }
   }
 }

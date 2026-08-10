@@ -25,7 +25,11 @@ function unwrap<T>(res: Envelope<T>): T {
 }
 
 function unwrapPage<T>(res: Envelope<T[]>): Page<T> {
-  return { items: res.result ?? [], pagination: res.pagination };
+  return {
+    items: Array.isArray(res.result) ? res.result : [],
+    resultPresent: Array.isArray(res.result),
+    pagination: res.pagination,
+  };
 }
 
 /**

@@ -58,6 +58,29 @@ function badRequest(ctx: HandlerContext, message: string): never {
   mockError({ status: 400, code: "invalid-request", message }, ctx.method, ctx.path);
 }
 
+function idempotencyConflict(ctx: HandlerContext): never {
+  mockError(
+    {
+      status: 409,
+      code: "concurrent-modification",
+      message: "This request conflicts with an earlier use of the same idempotency key.",
+    },
+    ctx.method,
+    ctx.path,
+  );
+}
+
+function requestFingerprint(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(requestFingerprint).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${JSON.stringify(key)}:${requestFingerprint(item)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "undefined";
+}
+
 function notFound(ctx: HandlerContext, code: string, message: string): never {
   mockError({ status: 404, code, message }, ctx.method, ctx.path);
 }
@@ -103,6 +126,11 @@ export class FinanceMockStore {
   rolesByAccount = new Map<string, PartyRole[]>();
   virtualBankAccounts: VirtualBankAccount[] = [];
   transfers: Transfer[] = [];
+  private virtualBankAccountIntents = new Map<string, {
+    fingerprint: string;
+    outcome: "failed" | "succeeded";
+    result?: VirtualBankAccount;
+  }>();
 
   private counter = 0;
   private readonly seeds: FinanceSeeds;
@@ -121,6 +149,7 @@ export class FinanceMockStore {
     this.rolesByAccount = new Map(s.accounts.map((a) => [a.id as string, [{ ...s.partyRole }]]));
     this.virtualBankAccounts = s.virtualBankAccounts;
     this.transfers = s.transfers;
+    this.virtualBankAccountIntents.clear();
     this.counter = 0;
   }
 
@@ -306,6 +335,22 @@ export class FinanceMockStore {
   createVirtualBankAccount(ctx: HandlerContext): VirtualBankAccount {
     const account = this.getAccount(ctx);
     const b = ctx.body as schemas["CreateVirtualBankAccountRequest"];
+    const intentKey = `${account.id}:${ctx.idempotencyKey ?? b.idempotencyKey}`;
+    const fingerprint = requestFingerprint(b);
+    const existing = this.virtualBankAccountIntents.get(intentKey);
+    if (existing) {
+      if (existing.outcome === "failed" || existing.fingerprint !== fingerprint || !existing.result) {
+        idempotencyConflict(ctx);
+      }
+      return toResponseShape(
+        "POST /accounts/{accountId}/virtual-bank-accounts",
+        existing.result as Record<string, unknown>,
+      ) as VirtualBankAccount;
+    }
+    if (account.status !== "ACTIVE" || account.kycStatus !== "VERIFIED") {
+      this.virtualBankAccountIntents.set(intentKey, { fingerprint, outcome: "failed" });
+      badRequest(ctx, "Virtual bank accounts require an active, verified account.");
+    }
     this.counter += 1;
     const vba: VirtualBankAccount = {
       id: this.mintId(),
@@ -323,6 +368,7 @@ export class FinanceMockStore {
       createdAt: now(),
     };
     this.virtualBankAccounts.push(vba);
+    this.virtualBankAccountIntents.set(intentKey, { fingerprint, outcome: "succeeded", result: vba });
     return toResponseShape(
       "POST /accounts/{accountId}/virtual-bank-accounts",
       vba as Record<string, unknown>,
