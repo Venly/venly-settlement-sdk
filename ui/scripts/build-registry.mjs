@@ -188,8 +188,8 @@ const BLOCKS = [
     name: "activity",
     title: "Activity block",
     description:
-      "Ledger plus a live-synced scrimless detail panel: pending sectioned above settled, a recomputing summary strip that doubles as the scope switch, export that declares scope before format, and arrow-key row stepping.",
-    deps: ["data-table", "status-pill", "side-panel", "timeline"],
+      "One feed over both money rails: the account's transfers interleaved with the company's withdrawals and add-money requests, a labelled Scope column, three bands (In progress / Completed / Didn't complete), live-synced detail panels, unified CSV export, and arrow-key row stepping. Mount UnifiedActivityBlock for the full feed, or ActivityBlock for a transfers-only ledger.",
+    deps: ["data-table", "status-pill", "side-panel", "timeline", "field-list", "withdraw"],
   },
   {
     name: "balances",

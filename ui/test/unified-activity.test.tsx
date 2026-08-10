@@ -7,6 +7,7 @@ import {
   filterUnified,
   rampSigned,
   unifiedBand,
+  unifiedColumns,
   unifiedSummary,
   unifiedToCsv,
   unifiedTypeLabel,
@@ -100,13 +101,28 @@ test("amount signing: withdrawals negative; Add money signs positive only once S
   assert.deepEqual(rampSigned(ramp({ rampType: "ON_RAMP", status: "AWAITING_FUNDS", cryptoAmount: 100 })), { amount: 100, signed: false });
 });
 
-test("csv: both ledgers, scope column says which is which", () => {
+test("csv: both ledgers, scope column says which is which, ramp rows carry the fiat leg", () => {
   const rows = unifyActivity([transfer({ id: "t1" })], [ramp({ id: "r1" })]);
   const csv = unifiedToCsv(rows, ACCT, "Main EUR");
   const lines = csv.split("\n");
-  assert.equal(lines[0], "source,id,reference,type,date,scope,amount,currency,status");
-  assert.ok(lines.some((l) => l.startsWith("ramp,") && l.includes("Company-wide")));
+  assert.equal(lines[0], "source,id,reference,type,date,scope,amount,currency,convertedAmount,convertedCurrency,status");
+  const rampLine = lines.find((l) => l.startsWith("ramp,"));
+  assert.ok(rampLine?.includes("Company-wide"));
+  assert.ok(rampLine?.includes("92") && rampLine.includes("EUR"), "the gross fiat leg exports too");
   assert.ok(lines.some((l) => l.startsWith("transfer,") && l.includes("Main EUR")));
+});
+
+test("rendered amounts: a settled credit carries an explicit +, a waiting one does not", () => {
+  const amountCell = unifiedColumns(ACCT, "Main EUR").find((c) => c.key === "amount");
+  assert.ok(amountCell);
+  const render = (r: Parameters<typeof unifiedBand>[0]) =>
+    renderToStaticMarkup(<>{amountCell.cell(r)}</>);
+  const settled = render({ kind: "ramp", key: "k", ramp: ramp({ rampType: "ON_RAMP", status: "SUCCEEDED", cryptoAmount: 100 }) });
+  assert.match(settled, />\+</, "settled add-money renders an explicit +");
+  const waiting = render({ kind: "ramp", key: "k", ramp: ramp({ rampType: "ON_RAMP", status: "AWAITING_FUNDS", cryptoAmount: 100 }) });
+  assert.doesNotMatch(waiting, />\+</, "nothing has been credited yet - no +");
+  const withdrawal = render({ kind: "ramp", key: "k", ramp: ramp({ rampType: "OFF_RAMP", cryptoAmount: 100 }) });
+  assert.match(withdrawal, /−100\.00/, "withdrawals keep the true minus");
 });
 
 test("ramp panel: gross fiat is 'Converted amount', never 'bank receives'; drill is OFF_RAMP-only", () => {

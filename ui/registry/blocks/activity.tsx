@@ -506,7 +506,7 @@ export function rampSigned(ramp: RampActivityItem): { amount: number; signed: bo
 }
 
 export function unifiedToCsv(rows: UnifiedActivityRow[], accountId?: string, accountName?: string): string {
-  const header = "source,id,reference,type,date,scope,amount,currency,status";
+  const header = "source,id,reference,type,date,scope,amount,currency,convertedAmount,convertedCurrency,status";
   const lines = rows.map((row) => {
     if (row.kind === "transfer") {
       const t = row.transfer;
@@ -519,6 +519,9 @@ export function unifiedToCsv(rows: UnifiedActivityRow[], accountId?: string, acc
         accountName ?? accountId,
         signedTransferAmount(t, accountId),
         t.asset,
+        // Transfers carry no fiat leg - the columns stay honestly empty.
+        "",
+        "",
         t.status,
       ]
         .map(csvField)
@@ -534,6 +537,10 @@ export function unifiedToCsv(rows: UnifiedActivityRow[], accountId?: string, acc
       "Company-wide",
       rampSigned(r)?.amount,
       r.cryptoCurrency,
+      // Gross converted amount, as carried by the record; the net the bank
+      // receives lives on the withdrawal detail.
+      r.fiatAmount,
+      r.fiatCurrency,
       r.status,
     ]
       .map(csvField)
@@ -542,7 +549,7 @@ export function unifiedToCsv(rows: UnifiedActivityRow[], accountId?: string, acc
   return [header, ...lines].join("\n");
 }
 
-function unifiedColumns(accountId?: string, accountName?: string): DataTableColumn<UnifiedActivityRow>[] {
+export function unifiedColumns(accountId?: string, accountName?: string): DataTableColumn<UnifiedActivityRow>[] {
   return [
     {
       key: "what",
@@ -592,7 +599,15 @@ function unifiedColumns(accountId?: string, accountName?: string): DataTableColu
         const signed = rampSigned(row.ramp);
         return (
           <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: "var(--space-3xs)" }}>
-            {signed ? <Money amount={signed.amount} currency={row.ramp.cryptoCurrency} /> : null}
+            {signed ? (
+              <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+                {/* Settled credits carry an explicit +, symmetric with the − debits render. */}
+                {signed.signed && signed.amount > 0 ? (
+                  <span style={{ fontVariantNumeric: "tabular-nums" }}>+</span>
+                ) : null}
+                <Money amount={signed.amount} currency={row.ramp.cryptoCurrency} />
+              </span>
+            ) : null}
             {row.ramp.fiatAmount !== undefined ? (
               <span style={{ fontSize: "var(--font-size-label)", color: "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
                 {formatAmount(row.ramp.fiatAmount)} {row.ramp.fiatCurrency}

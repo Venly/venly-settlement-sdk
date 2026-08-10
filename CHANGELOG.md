@@ -2,7 +2,23 @@
 
 ## 0.3.4 – 2026-08-10
 
-- **Long-list transfer seed batch.** The finance mock now seeds 24 additional
+- **Unified activity.** New `UnifiedActivityBlock` in the `activity` registry
+  item: one date-sorted feed over BOTH money rails – the account's transfers
+  and the company's ramp requests (withdrawals, add money). A labelled Scope
+  column names the account on transfer rows and says "Company-wide" on ramp
+  rows (the API models ramps at company level; the feed says so instead of
+  inventing linkage). Three bands – In progress (incl. on-hold) / Completed /
+  Didn't complete – so a failed or refused movement never sits under a
+  success header; the withdrawals table adopts the same three bands. Rejected
+  renders negative and counts toward Failed; cancelled stays a neutral
+  terminal. Crypto amounts are signed (settled credits carry an explicit +);
+  the fiat side renders unsigned as "Converted amount" (gross – the net the
+  bank receives lives on the withdrawal detail). Ramp side panel from list
+  fields with a "View withdrawal" drill, type filter, unified CSV export
+  (crypto and converted-amount columns), empty/filtered-empty states, and
+  keyboard row stepping across the merged feed. `ActivityBlock`
+  (transfers-only) remains for consumers that want a single-ledger view.
+- **Long-list transfer seed batch.** The finance mock now seeds 30 additional
   completed transfers (deterministic ids and dates, generated at module init),
   so a feed built on the mock exceeds one screen and count/pagination
   behaviour is demonstrable. Existing seeds and drivers are unchanged.

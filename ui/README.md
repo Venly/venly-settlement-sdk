@@ -33,6 +33,7 @@ Acceptance test for any palette: map every `--state-*` pair to greys and confirm
 | `registry/blocks/auth.tsx` | `SignInForm`, `TwoFactorForm`, `SignUpForm`, `AuthAdapter`, `createMockAuthAdapter` | Bring-your-own-auth boundary: the Venly APIs authenticate machines, never people · no user enumeration in credential errors · six-slot 2FA code with paste + keyboard support · session-expiry contract (`session()` → null) |
 | `registry/blocks/team.tsx` | `TeamTable`, `InviteDialog`, `TeamAdapter`, `createMockTeamAdapter` | Member status as word + glyph · row-level role controls with role descriptions · self-actions disabled with the reason · mock invites mint a link, never claim an email went out |
 | `registry/blocks/onboarding.tsx` | `CompanyForm`, `VerificationStatusHome`, `RestrictedBanner` | Verification status rendered verbatim from the records (no invented steps or SLAs) · waiting state answers must-I-act / who-has-it / how-long / what-still-works · humane decline with review as the primary action |
+| `registry/blocks/activity.tsx` | `UnifiedActivityBlock`, `ActivityBlock` | One feed over both money rails (account transfers + company withdrawals/add-money) with a labelled Scope column · three bands: In progress / Completed / Didn't complete – a failed movement never sits under a success header · rejected counts as failed, cancelled stays neutral · crypto signed, fiat shown unsigned as the gross converted amount · mount `UnifiedActivityBlock` for the full feed, `ActivityBlock` for transfers only |
 
 ## Verify
 

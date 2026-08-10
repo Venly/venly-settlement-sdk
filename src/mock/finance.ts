@@ -357,12 +357,12 @@ export const paymentRequestReversing = {
 } satisfies schemas["PaymentRequest"];
 
 /**
- * Long-list batch: a feed must exceed one screen to prove count +
- * pagination behaviour, and five rows never will. Generated
+ * Long-list batch (30 rows): a feed must exceed one screen to prove
+ * count + pagination behaviour, and five rows never will. Generated
  * deterministically at module init (fixed base dates, no runtime clocks)
  * so reset() and tests stay reproducible.
  */
-const transferBatch = Array.from({ length: 24 }, (_, i) => {
+const transferBatch = Array.from({ length: 30 }, (_, i) => {
   const day = String((i % 28) + 1).padStart(2, "0");
   const hour = String((i * 7) % 24).padStart(2, "0");
   return {
