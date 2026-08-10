@@ -301,7 +301,7 @@ export class FundflowMockStore {
     const b = ctx.body as schemas["EditRampAmountRequest"];
     if (typeof b.amount !== "number" || b.amount <= 0) badRequest(ctx, '"amount" must be positive.');
     const previous = ramp.rampType === "ON_RAMP" ? ramp.fiatAmount : ramp.cryptoAmount;
-    // "Recalculates the other side" (spec) at the rate captured on creation.
+    // An amount edit recalculates the other side, at the rate captured on creation.
     const rate = ramp.exchangeRate ?? 1;
     ramp.fiatAmount = ramp.rampType === "OFF_RAMP" ? round2(b.amount * rate) : b.amount;
     const fee = round2((ramp.fiatAmount * (ramp.feePercentage ?? this.feePercentage)) / 100);
