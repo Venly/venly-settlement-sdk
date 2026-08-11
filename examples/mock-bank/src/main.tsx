@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { VenlyProvider, useAccounts } from "@venlyfinance/react";
 import "../../../ui/registry/styles/tokens.css";
 import { BalancesBlock, BalanceMiniature } from "../../../ui/registry/blocks/balances.js";
-import { ConnectedReceiveBlock } from "../../../ui/registry/blocks/receive.js";
+import { ReceiveBlock } from "../../../ui/registry/blocks/receive.js";
 import { SendBlock } from "../../../ui/registry/blocks/send.js";
 import { UnifiedActivityBlock, type ActivityScope } from "../../../ui/registry/blocks/activity.js";
 import { TeamTable, createMockTeamAdapter } from "../../../ui/registry/blocks/team.js";
@@ -131,13 +131,7 @@ function Shell() {
         {tab === "withdraw" ? <WithdrawTab accountId={account.id} /> : null}
         {tab === "bank accounts" ? <BankAccountsBlock /> : null}
         {tab === "receive" ? (
-          <ConnectedReceiveBlock
-            accountId={account.id}
-            onCopied={(field) => {
-              setToast(`You copied ${field.toLowerCase() === "all payment details" ? field : `your ${field.toLowerCase()}`}`);
-              setTimeout(() => setToast(null), 2500);
-            }}
-          />
+          <ReceiveBlock accountId={account.id} />
         ) : null}
 
         {toast ? (

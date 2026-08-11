@@ -114,16 +114,16 @@ export function downloadPDF(
   const html = `<!doctype html>
 <html><head><title>Bank transfer instructions</title>
 <style>body{font-family:sans-serif;padding:48px;max-width:600px}
-h1{font-size:18px;margin-bottom:8px}h2{font-size:14px;margin-top:24px;margin-bottom:4px;color:#555}
+h1{font-size:18px;margin-bottom:8px}h2{font-size:14px;margin-top:24px;margin-bottom:4px}
 p{margin:4px 0;font-size:13px;line-height:1.4}table{width:100%;border-collapse:collapse;margin:8px 0}
-td,th{text-align:left;padding:4px 0;font-size:13px;border-bottom:1px solid #eee}
-th{width:140px;color:#555}</style></head><body>
+td,th{text-align:left;padding:4px 0;font-size:13px;border-bottom:1px solid lightgray}
+th{width:140px}</style></head><body>
 <h1>Bank transfer instructions</h1>
 <p>Generated: ${now}</p>
 <h2>Important</h2>
 <p>${REFERENCE_WARNING}</p>
 <table>
-<tr><th>Payment reference</th><td><strong>${details.referenceCode}</strong><br/><span style="color:#b8860b;font-size:11px">(required)</span></td></tr>
+<tr><th>Payment reference</th><td><strong>${details.referenceCode}</strong><br/><span style="font-size:11px">(required)</span></td></tr>
 <tr><td>Beneficiary name</td><td>${details.beneficiaryName}</td></tr>
 <tr><td>IBAN</td><td><strong>${details.iban}</strong></td></tr>
 <tr><td>BIC / SWIFT code</td><td><strong>${details.bic}</strong></td></tr>
@@ -1143,7 +1143,7 @@ function ShareSection({
             borderRadius: "var(--radius-control)",
             padding: "var(--space-sm) var(--space-md)",
             fontSize: "var(--font-size-label)",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            boxShadow: "var(--shadow-overlay)",
             zIndex: 100,
            }}
           role="status"
@@ -1214,7 +1214,7 @@ function BlockedSection({
          }}
        >
          <strong>Bank transfer instructions are incomplete.</strong>
-         <p style={{ margin: "8px 0 0" }}>
+         <p style={{ margin: "var(--space-sm) 0 0" }}>
           One or more required fields are unavailable. Copying and download
           are disabled so incomplete instructions cannot be sent.
          </p>
