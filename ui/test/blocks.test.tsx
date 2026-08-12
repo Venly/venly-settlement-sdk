@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { VenlyProvider } from "@venlyfinance/react";
-import { ReceiveBlock, ConnectedReceiveBlock } from "../registry/blocks/receive.js";
+import { ReceiveBlock, isComplete, serializeReceiveDetails } from "../registry/blocks/receive.js";
 import { SendReview, parseAmountInput, transferProgressSteps } from "../registry/blocks/send.js";
 import {
   ActivityTable,
@@ -18,38 +18,52 @@ const viba = {
   beneficiaryName: "Acme GmbH",
   referenceCode: "VF-REF-12345",
   currency: "EUR" as const,
+  bankAccountType: "EUR_SEPA" as const,
+  targetCryptocurrency: "USDC" as const,
 };
 
-test("receive: the reference row is enforced, the warning sits above the fields", () => {
-  const html = renderToStaticMarkup(<ReceiveBlock virtualBankAccount={viba} />);
-  const warning = html.indexOf("must be included word for word");
-  const reference = html.indexOf("VF-REF-12345");
-  assert.ok(warning > 0, "mandatory-reference warning rendered");
-  assert.ok(reference > warning, "warning callout sits above the field list");
-  assert.match(html, /Required/, "reference row carries the Required pill");
-  assert.match(html, /Copy all/, "set-level action above the card");
-  assert.match(html, /aria-label="Copy Payment reference"/, "per-field copy names the field");
+test("receive: the completeness gate needs every serializer input", () => {
+  assert.equal(isComplete(viba), true, "a full set is shareable");
+  for (const k of [
+    "referenceCode",
+    "beneficiaryName",
+    "iban",
+    "bic",
+    "bankName",
+    "currency",
+    "bankAccountType",
+    "targetCryptocurrency",
+  ]) {
+    assert.equal(
+      isComplete({ ...viba, [k]: undefined }),
+      false,
+      `a set missing ${k} must not be shareable`,
+    );
+    assert.equal(
+      isComplete({ ...viba, [k]: "" }),
+      false,
+      `an empty ${k} must not be shareable either`,
+    );
+  }
 });
 
-test("receive: a missing field renders the (not required) variant, never disappears", () => {
-  const html = renderToStaticMarkup(
-    <ReceiveBlock virtualBankAccount={{ ...viba, bic: undefined }} />,
-  );
-  assert.match(html, /BIC/, "the row is still present");
-  assert.match(html, /\(not required\)/);
+test("receive: the artifact carries the reference warning above the values", () => {
+  const text = serializeReceiveDetails(viba);
+  const warning = text.indexOf("Enter the payment reference exactly as shown");
+  const reference = text.indexOf("VF-REF-12345");
+  assert.ok(warning > 0, "the reference warning is present");
+  assert.ok(reference > warning, "the warning precedes the values");
+  assert.match(text, /Payment reference \(required\)/);
+  assert.match(text, /Fraud check/, "the artifact carries the fraud-check advisory");
 });
 
-test("receive: a MISSING required reference never reads '(not required)'", () => {
-  const html = renderToStaticMarkup(
-    <ReceiveBlock virtualBankAccount={{ ...viba, referenceCode: undefined }} />,
-  );
-  const refRow = html.slice(html.indexOf("Payment reference"));
-  assert.match(refRow, /Not assigned yet/);
-  assert.match(refRow, /Required/, "the Required pill stays");
+test("receive: the artifact never claims a required field is optional", () => {
+  const text = serializeReceiveDetails(viba);
+  assert.doesNotMatch(text, /\(not required\)/);
   assert.doesNotMatch(
-    refRow.slice(0, refRow.indexOf("</dd>")),
-    /\(not required\)/,
-    "a required row must never claim to be optional",
+    text,
+    /business day|typically arrive|held until claimed/i,
+    "no timing or custody claim the API cannot support",
   );
 });
 
@@ -148,10 +162,10 @@ test("activity detail: the panel timeline's terminal node carries the failure re
 test("connected receive block renders its loading state under the mock provider (SSR-safe)", () => {
   const html = renderToStaticMarkup(
     <VenlyProvider environment="mock">
-      <ConnectedReceiveBlock accountId="acc-1" />
+      <ReceiveBlock accountId="acc-1" />
     </VenlyProvider>,
   );
-  assert.match(html, /Loading account details/);
+  assert.match(html, /Loading bank details/);
 });
 
 // ── Session A: balances on the real wallet source ─────────────────────
