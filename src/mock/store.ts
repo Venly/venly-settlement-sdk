@@ -11,6 +11,20 @@ type VirtualBankAccount = schemas["VirtualBankAccount"];
 type Transfer = schemas["Transfer"];
 type PaymentSession = schemas["PaymentSession"];
 
+/**
+ * A simulated inbound bank credit. The Finance API models no such resource:
+ * this exists only so the mock can make money arrive, the way advanceTransfer
+ * exists only so a transfer can settle. Never surface it as an API response.
+ */
+export interface MockInboundCredit {
+  id: string;
+  virtualBankAccountId: string;
+  referenceCode: string | null;
+  amount: number;
+  currency: string;
+  receivedAt: string;
+}
+
 /** Seed data the store starts from (and returns to on `reset()`). */
 export interface FinanceSeeds {
   parties: Party[];
@@ -128,6 +142,7 @@ export class FinanceMockStore {
   virtualBankAccounts: VirtualBankAccount[] = [];
   transfers: Transfer[] = [];
   paymentSessions: PaymentSession[] = [];
+  inboundCredits: MockInboundCredit[] = [];
   private virtualBankAccountIntents = new Map<string, {
     fingerprint: string;
     outcome: "failed" | "succeeded";
@@ -152,6 +167,7 @@ export class FinanceMockStore {
     this.virtualBankAccounts = s.virtualBankAccounts;
     this.transfers = s.transfers;
     this.paymentSessions = [];
+    this.inboundCredits = [];
     this.virtualBankAccountIntents.clear();
     this.counter = 0;
   }
