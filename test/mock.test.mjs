@@ -522,20 +522,42 @@ test("inbound-credit: explicit null reference produces an unmatched credit (J6 c
   assert.ok(credit.id, "credit still has a minted id");
 });
 
-test("inbound-credit: currency comes from the VBA, caller cannot override it", () => {
+test("inbound-credit: an omitted reference on a VBA that has none yields null", () => {
   const f = new VenlyFinanceClient({ environment: "mock" });
-  // VBA 2 is also EUR, but let's verify no matter what we pass.
+  // vba ...0003 (acct-ops-usd) is an ACTIVE EUR account with no referenceCode -
+  // the MG-13 "incomplete" recipe. Omitting the argument must fall through to
+  // null, not to the previous VBA's code and not to a fabricated one.
   const credit = f.mock.simulateInboundCredit(
-    "vb7e5f19-4444-4d40-ae85-000000000001",
-    42.10,
+    "vb7e5f19-4444-4d40-ae85-000000000003",
+    64.08,
   );
+  assert.equal(credit.referenceCode, null, "no code on the VBA means no code on the credit");
   assert.equal(credit.currency, "EUR");
 });
 
-test("inbound-credits: listInboundCredits(vbaId) returns only that VBA's credits, newest first", async () => {
+test("inbound-credit: the driver takes no currency argument; currency is the VBA's own", () => {
   const f = new VenlyFinanceClient({ environment: "mock" });
+  assert.equal(
+    f.mock.simulateInboundCredit.length,
+    3,
+    "signature is (vbaId, amount, referenceCode?) - there is no currency parameter to override",
+  );
+  // A different VBA than the other cases, so this asserts the lookup rather
+  // than re-asserting one seed twice.
+  const credit = f.mock.simulateInboundCredit(
+    "vb7e5f19-4444-4d40-ae85-000000000002",
+    58.94,
+  );
+  assert.equal(credit.currency, "EUR", "from the treasury VBA");
+  assert.equal(credit.referenceCode, "REF-DEF-456", "and its own reference code");
+});
+
+test("inbound-credits: listInboundCredits(vbaId) returns only that VBA's credits, newest first", () => {
+  const f = new VenlyFinanceClient({ environment: "mock" });
+  // No sleep between these two. Ordering is insertion order, so a same-
+  // millisecond pair must still come back newest-first; a timestamp sort
+  // would make this test flaky and the sleep was hiding that.
   f.mock.simulateInboundCredit("vb7e5f19-4444-4d40-ae85-000000000001", 11.11);
-  await new Promise((r) => setTimeout(r, 2));
   f.mock.simulateInboundCredit("vb7e5f19-4444-4d40-ae85-000000000001", 22.22);
   f.mock.simulateInboundCredit("vb7e5f19-4444-4d40-ae85-000000000002", 33.33);
   const v1Credits = f.mock.listInboundCredits("vb7e5f19-4444-4d40-ae85-000000000001");

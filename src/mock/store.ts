@@ -613,13 +613,22 @@ export class FinanceMockStore {
         `simulateInboundCredit: no virtual bank account with id ${virtualBankAccountId} in the mock store.`,
       );
     }
+    // Every field on the generated VirtualBankAccount is optional, so a currency
+    // is not guaranteed. Refuse rather than default: a credit denominated in a
+    // currency the account never declared is a fixture teaching a falsehood,
+    // which is the MG-11 rule.
+    if (!vba.currency) {
+      throw new Error(
+        `simulateInboundCredit: virtual bank account ${virtualBankAccountId} has no currency, so nothing can land on it.`,
+      );
+    }
     const credit: MockInboundCredit = {
       id: this.mintId(),
       virtualBankAccountId,
       referenceCode:
         referenceCode === undefined ? (vba.referenceCode ?? null) : referenceCode,
       amount,
-      currency: vba.currency ?? "EUR",
+      currency: vba.currency,
       receivedAt: now(),
     };
     this.inboundCredits.push(credit);
@@ -628,12 +637,14 @@ export class FinanceMockStore {
 
   /** Return inbound credits, optionally filtered by VBA, newest first. */
   listInboundCredits(virtualBankAccountId?: string): MockInboundCredit[] {
-    let credits = this.inboundCredits;
-    if (virtualBankAccountId !== undefined) {
-      credits = credits.filter((c) => c.virtualBankAccountId === virtualBankAccountId);
-    }
-    return [...credits].sort(
-      (a, b) => (b.receivedAt as string).localeCompare(a.receivedAt as string),
-    );
+    const credits =
+      virtualBankAccountId === undefined
+        ? [...this.inboundCredits]
+        : this.inboundCredits.filter((c) => c.virtualBankAccountId === virtualBankAccountId);
+    // Insertion order IS arrival order, so reversing it is exact. Sorting on
+    // `receivedAt` is not: two credits landed in the same millisecond share a
+    // timestamp and their relative order becomes implementation-defined, which
+    // is a flaky ordering guarantee rather than a stable one.
+    return credits.reverse();
   }
 }
