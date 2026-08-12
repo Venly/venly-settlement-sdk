@@ -8,7 +8,7 @@ import {
   type VenlyMock,
 } from "./transport.js";
 import { errorPresets } from "./errors.js";
-import { FinanceMockStore, type FinanceSeeds, type VerificationStatusInput } from "./store.js";
+import { FinanceMockStore, type FinanceSeeds, type VerificationStatusInput, type MockInboundCredit } from "./store.js";
 
 type schemas = components["schemas"];
 
@@ -660,6 +660,10 @@ export interface VenlyFinanceMock extends VenlyMock {
     id: string,
     to: schemas["PaymentSessionStatus"],
   ): schemas["PaymentSession"];
+  /** Mock-only: simulate an inbound bank credit arriving on a VBA (not real API surface). */
+  simulateInboundCredit(vbaId: string, amount: number, referenceCode?: string | null): MockInboundCredit;
+  /** Mock-only: list inbound credits, optionally filtered by VBA and newest first. */
+  listInboundCredits(vbaId?: string): MockInboundCredit[];
   /** Restore the seed fixtures and clear the call log. */
   reset(): void;
 }
@@ -686,6 +690,14 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
     to: schemas["PaymentSessionStatus"],
   ): schemas["PaymentSession"] {
     return this.store.advancePaymentSession(id, to);
+  }
+
+  simulateInboundCredit(vbaId: string, amount: number, referenceCode?: string | null): MockInboundCredit {
+    return this.store.simulateInboundCredit(vbaId, amount, referenceCode);
+  }
+
+  listInboundCredits(vbaId?: string): MockInboundCredit[] {
+    return this.store.listInboundCredits(vbaId);
   }
 
   reset(): void {
