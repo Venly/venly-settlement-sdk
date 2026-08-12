@@ -655,6 +655,8 @@ export interface VenlyFinanceMock extends VenlyMock {
    * "FAILED" (sets an errorMessage), so status polling can be exercised.
    */
   advanceTransfer(id: string, status?: "COMPLETED" | "FAILED"): void;
+  /** Walk a payment session to any documented status, so pay-in can complete. */
+  advancePaymentSession(id: string, to: schemas["PaymentSessionStatus"]): void;
   /** Restore the seed fixtures and clear the call log. */
   reset(): void;
 }
@@ -676,6 +678,9 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
   advanceTransfer(id: string, status?: "COMPLETED" | "FAILED"): void {
     this.store.advanceTransfer(id, status);
   }
+  advancePaymentSession(id: string, to: schemas["PaymentSessionStatus"]): void {
+    this.store.advancePaymentSession(id, to);
+   }
 
   reset(): void {
     this.store.reset();
