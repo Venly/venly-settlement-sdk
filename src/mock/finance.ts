@@ -602,8 +602,8 @@ export function createFinanceRoutes(store: FinanceMockStore): RouteTable {
     // the responses type `amount` as {fiat, crypto} – a body echo would corrupt
     // the response shape. Their request bodies are still spec-validated.
     "POST /accounts/{accountId}/fiat-to-crypto/payment-sessions": {
-      kind: "item",
-      result: paymentSession,
+     kind: "handler",
+     handle: (ctx) => itemEnvelope(store.createPaymentSession(ctx)),
     },
     "POST /accounts/{accountId}/payment-requests": { kind: "item", result: paymentRequest },
     "POST /payment-requests": { kind: "item", result: paymentRequest },
@@ -655,6 +655,11 @@ export interface VenlyFinanceMock extends VenlyMock {
    * "FAILED" (sets an errorMessage), so status polling can be exercised.
    */
   advanceTransfer(id: string, status?: "COMPLETED" | "FAILED"): void;
+  /** Walk a payment session to any documented status, so pay-in can complete. */
+  advancePaymentSession(
+    id: string,
+    to: schemas["PaymentSessionStatus"],
+  ): schemas["PaymentSession"];
   /** Restore the seed fixtures and clear the call log. */
   reset(): void;
 }
@@ -675,6 +680,12 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
 
   advanceTransfer(id: string, status?: "COMPLETED" | "FAILED"): void {
     this.store.advanceTransfer(id, status);
+  }
+  advancePaymentSession(
+    id: string,
+    to: schemas["PaymentSessionStatus"],
+  ): schemas["PaymentSession"] {
+    return this.store.advancePaymentSession(id, to);
   }
 
   reset(): void {

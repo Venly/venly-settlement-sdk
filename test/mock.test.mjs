@@ -431,3 +431,65 @@ test("fundflow bank accounts: OTHER_SWIFT needs one of accountNumber/iban", asyn
   const withIban = await ff.bankAccounts.create({ ...base, iban: "CH9300762011623852957" });
   assert.equal(withIban.verificationStatus, "PENDING");
 });
+
+// ── MG-4a: payment sessions are stateful and can be driven to completion ─────
+//
+// The Finance API exposes only POST on the payment-session path - the outcome
+// is delivered to `callbackUrl`, never polled - so `advancePaymentSession`
+// returns the updated session. That return value is the only way any caller,
+// test or application, can observe the walk.
+
+const payInBody = {
+  inAmount: "100.00",
+  inCurrency: "EUR",
+  outCryptocurrency: "USDC",
+  callbackUrl: "https://example.com/webhooks/pay-in",
+  idempotencyKey: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+};
+
+test("payment sessions: create is stateful, not a static echo", async () => {
+  const f = new VenlyFinanceClient({ environment: "mock" });
+  const acct = "a10c2d31-2222-4b20-8c63-000000000001";
+  const first = await f.paymentSessions.create(acct, payInBody);
+  const second = await f.paymentSessions.create(acct, {
+    ...payInBody,
+    idempotencyKey: "3fa85f64-5717-4562-b3fc-2c963f66afa7",
+  });
+  assert.notEqual(first.id, second.id, "each create mints its own session");
+  assert.equal(first.status, "CREATED");
+  assert.equal(first.inAmount, 100, "the string request amount lands as a number");
+});
+
+test("payment sessions: the driver walks a session to COMPLETED", async () => {
+  const f = new VenlyFinanceClient({ environment: "mock" });
+  const created = await f.paymentSessions.create(
+    "a10c2d31-2222-4b20-8c63-000000000001",
+    payInBody,
+  );
+  assert.equal(created.status, "CREATED");
+  const paid = f.mock.advancePaymentSession(created.id, "PAYMENT_RECEIVED");
+  assert.equal(paid.status, "PAYMENT_RECEIVED");
+  const done = f.mock.advancePaymentSession(created.id, "COMPLETED");
+  assert.equal(done.status, "COMPLETED");
+  assert.equal(done.id, created.id, "the walk mutates the same session");
+});
+
+test("payment sessions: MINTING is reachable, not dropped from the enum", async () => {
+  const f = new VenlyFinanceClient({ environment: "mock" });
+  const created = await f.paymentSessions.create(
+    "a10c2d31-2222-4b20-8c63-000000000001",
+    payInBody,
+  );
+  // MINTING sits between CONVERTING and COMPLETED in the documented enum and is
+  // the state most often missed when the union is written from memory.
+  assert.equal(f.mock.advancePaymentSession(created.id, "MINTING").status, "MINTING");
+  assert.equal(f.mock.advancePaymentSession(created.id, "REFUNDED").status, "REFUNDED");
+});
+
+test("payment sessions: advancing an unknown id throws", () => {
+  const f = new VenlyFinanceClient({ environment: "mock" });
+  assert.throws(
+    () => f.mock.advancePaymentSession("no-such-session", "COMPLETED"),
+    /no payment session with id/,
+  );
+});
