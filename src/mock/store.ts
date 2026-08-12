@@ -625,4 +625,15 @@ export class FinanceMockStore {
     this.inboundCredits.push(credit);
     return credit;
   }
+
+  /** Return inbound credits, optionally filtered by VBA, newest first. */
+  listInboundCredits(virtualBankAccountId?: string): MockInboundCredit[] {
+    let credits = this.inboundCredits;
+    if (virtualBankAccountId !== undefined) {
+      credits = credits.filter((c) => c.virtualBankAccountId === virtualBankAccountId);
+    }
+    return [...credits].sort(
+      (a, b) => (b.receivedAt as string).localeCompare(a.receivedAt as string),
+    );
+  }
 }
