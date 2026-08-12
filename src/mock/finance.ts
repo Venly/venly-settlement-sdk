@@ -602,8 +602,8 @@ export function createFinanceRoutes(store: FinanceMockStore): RouteTable {
     // the responses type `amount` as {fiat, crypto} – a body echo would corrupt
     // the response shape. Their request bodies are still spec-validated.
     "POST /accounts/{accountId}/fiat-to-crypto/payment-sessions": {
-      kind: "item",
-      result: paymentSession,
+     kind: "handler",
+     handle: (ctx) => itemEnvelope(store.createPaymentSession(ctx)),
     },
     "POST /accounts/{accountId}/payment-requests": { kind: "item", result: paymentRequest },
     "POST /payment-requests": { kind: "item", result: paymentRequest },
