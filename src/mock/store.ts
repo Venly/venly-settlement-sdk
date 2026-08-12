@@ -543,8 +543,9 @@ export class FinanceMockStore {
 
   createPaymentSession(ctx: HandlerContext): PaymentSession {
     const b = ctx.body as schemas["CreatePayInSessionRequest"];
+    const id = this.mintId();
     const session: PaymentSession = {
-      id: this.mintId(),
+      id,
       createdAt: now(),
       updatedAt: now(),
       status: "CREATED",
@@ -552,17 +553,28 @@ export class FinanceMockStore {
       inCurrency: b.inCurrency,
       outCryptocurrency: b.outCryptocurrency,
       idempotencyKey: b.idempotencyKey,
+      // The hosted checkout the payer is sent to. Without it the session is
+      // unusable - it is the only thing an integrator can actually do with one.
+      paymentUrl: `https://pay.venlyfinance.com/s/${id.slice(0, 8)}`,
+      accountId: ctx.params.accountId,
+      cancellable: true,
     };
     this.paymentSessions.push(session);
     return session;
   }
 
-  advancePaymentSession(id: string, to: schemas["PaymentSessionStatus"]): void {
+  /**
+   * Returns the updated session. The Finance API exposes no GET for a payment
+   * session - only POST, with the outcome delivered to `callbackUrl` - so a
+   * caller has no other way to observe what this driver did.
+   */
+  advancePaymentSession(id: string, to: schemas["PaymentSessionStatus"]): PaymentSession {
     const session = this.paymentSessions.find((s) => s.id === id);
     if (!session) {
       throw new Error(`advancePaymentSession: no payment session with id ${id} in the mock store.`);
     }
     session.status = to;
     session.updatedAt = now();
+    return session;
   }
 }

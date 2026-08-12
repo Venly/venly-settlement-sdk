@@ -656,7 +656,10 @@ export interface VenlyFinanceMock extends VenlyMock {
    */
   advanceTransfer(id: string, status?: "COMPLETED" | "FAILED"): void;
   /** Walk a payment session to any documented status, so pay-in can complete. */
-  advancePaymentSession(id: string, to: schemas["PaymentSessionStatus"]): void;
+  advancePaymentSession(
+    id: string,
+    to: schemas["PaymentSessionStatus"],
+  ): schemas["PaymentSession"];
   /** Restore the seed fixtures and clear the call log. */
   reset(): void;
 }
@@ -678,9 +681,12 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
   advanceTransfer(id: string, status?: "COMPLETED" | "FAILED"): void {
     this.store.advanceTransfer(id, status);
   }
-  advancePaymentSession(id: string, to: schemas["PaymentSessionStatus"]): void {
-    this.store.advancePaymentSession(id, to);
-   }
+  advancePaymentSession(
+    id: string,
+    to: schemas["PaymentSessionStatus"],
+  ): schemas["PaymentSession"] {
+    return this.store.advancePaymentSession(id, to);
+  }
 
   reset(): void {
     this.store.reset();
