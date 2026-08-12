@@ -540,4 +540,29 @@ export class FinanceMockStore {
     }
     transfer.updatedAt = now();
   }
+
+  createPaymentSession(ctx: HandlerContext): PaymentSession {
+    const b = ctx.body as schemas["CreatePayInSessionRequest"];
+    const session: PaymentSession = {
+      id: this.mintId(),
+      createdAt: now(),
+      updatedAt: now(),
+      status: "CREATED",
+      inAmount: Number(b.inAmount),
+      inCurrency: b.inCurrency,
+      outCryptocurrency: b.outCryptocurrency,
+      idempotencyKey: b.idempotencyKey,
+    };
+    this.paymentSessions.push(session);
+    return session;
+  }
+
+  advancePaymentSession(id: string, to: schemas["PaymentSessionStatus"]): void {
+    const session = this.paymentSessions.find((s) => s.id === id);
+    if (!session) {
+      throw new Error(`advancePaymentSession: no payment session with id ${id} in the mock store.`);
+    }
+    session.status = to;
+    session.updatedAt = now();
+  }
 }
