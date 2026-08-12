@@ -9,6 +9,7 @@ type Wallet = schemas["Wallet"];
 type PartyRole = schemas["PartyRole"];
 type VirtualBankAccount = schemas["VirtualBankAccount"];
 type Transfer = schemas["Transfer"];
+type PaymentSession = schemas["PaymentSession"];
 
 /** Seed data the store starts from (and returns to on `reset()`). */
 export interface FinanceSeeds {
@@ -126,6 +127,7 @@ export class FinanceMockStore {
   rolesByAccount = new Map<string, PartyRole[]>();
   virtualBankAccounts: VirtualBankAccount[] = [];
   transfers: Transfer[] = [];
+  paymentSessions: PaymentSession[] = [];
   private virtualBankAccountIntents = new Map<string, {
     fingerprint: string;
     outcome: "failed" | "succeeded";
@@ -149,6 +151,7 @@ export class FinanceMockStore {
     this.rolesByAccount = new Map(s.accounts.map((a) => [a.id as string, [{ ...s.partyRole }]]));
     this.virtualBankAccounts = s.virtualBankAccounts;
     this.transfers = s.transfers;
+    this.paymentSessions = [];
     this.virtualBankAccountIntents.clear();
     this.counter = 0;
   }
