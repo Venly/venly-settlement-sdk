@@ -593,4 +593,36 @@ export class FinanceMockStore {
     session.updatedAt = now();
     return session;
   }
+
+  /**
+   * Mock-only driver: simulate an inbound bank credit landing on a VBA.
+   * The Finance API models no such resource — this exists only so tests can
+   * assert that money arrived, the way advanceTransfer exists for transfers.
+   *
+   * referenceCode defaults to the VBA own referenceCode (or null). Pass null
+   * explicitly to simulate an unmatched credit — see MG-5 / J6 reconciliation.
+   */
+  simulateInboundCredit(
+    virtualBankAccountId: string,
+    amount: number,
+    referenceCode?: string | null | undefined,
+  ): MockInboundCredit {
+    const vba = this.virtualBankAccounts.find((v) => v.id === virtualBankAccountId);
+    if (!vba) {
+      throw new Error(
+        `simulateInboundCredit: no virtual bank account with id ${virtualBankAccountId} in the mock store.`,
+      );
+    }
+    const credit: MockInboundCredit = {
+      id: this.mintId(),
+      virtualBankAccountId,
+      referenceCode:
+        referenceCode === undefined ? (vba.referenceCode ?? null) : referenceCode,
+      amount,
+      currency: vba.currency ?? "EUR",
+      receivedAt: now(),
+    };
+    this.inboundCredits.push(credit);
+    return credit;
+  }
 }
