@@ -532,9 +532,10 @@ test("inbound-credit: currency comes from the VBA, caller cannot override it", (
   assert.equal(credit.currency, "EUR");
 });
 
-test("inbound-credits: listInboundCredits(vbaId) returns only that VBA's credits, newest first", () => {
+test("inbound-credits: listInboundCredits(vbaId) returns only that VBA's credits, newest first", async () => {
   const f = new VenlyFinanceClient({ environment: "mock" });
   f.mock.simulateInboundCredit("vb7e5f19-4444-4d40-ae85-000000000001", 11.11);
+  await new Promise((r) => setTimeout(r, 2));
   f.mock.simulateInboundCredit("vb7e5f19-4444-4d40-ae85-000000000001", 22.22);
   f.mock.simulateInboundCredit("vb7e5f19-4444-4d40-ae85-000000000002", 33.33);
   const v1Credits = f.mock.listInboundCredits("vb7e5f19-4444-4d40-ae85-000000000001");
