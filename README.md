@@ -4,6 +4,8 @@ TypeScript SDK for the [Venly Finance](https://docs.venlyfinance.com) and Fundfl
 
 > MIT licensed. See the [CHANGELOG](CHANGELOG.md) for the current version and what each release added.
 
+Building with a coding agent? Start from [AGENTS.md](AGENTS.md).
+
 ## Packages in this repository
 
 | Package | What it is |

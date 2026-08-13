@@ -15,6 +15,8 @@ the normalized write requests. Staging and production writes fail closed.
 
 The Venly Finance builder surface documented here is the v0.2.0 release line.
 
+Building with a coding agent? Start from [AGENTS.md](AGENTS.md) - the MCP also serves it as the \venly://frontend/agents resource.
+
 ## What it is
 
 - Built on the official MCP TypeScript SDK (`@modelcontextprotocol/sdk`), Node
