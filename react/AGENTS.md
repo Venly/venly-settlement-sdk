@@ -32,3 +32,5 @@ The UI kit's auth and team blocks therefore render against two adapter interface
 
 `useVenlyMock()` exposes the store controls. A credible end-to-end demo:
 create party → `advanceVerification(id)` → create account → virtual bank account (note its `referenceCode`) → stage + confirm a transfer → `advanceTransfer(id)` → show the ledger. Inject failures with `failNext("CONFLICT")` to show the stale-version approval path – error states are part of the product.
+
+drift
