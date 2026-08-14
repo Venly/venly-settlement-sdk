@@ -28,7 +28,7 @@ const address = {
   city: "Amsterdam",
   postalCode: "1016 GV",
   country: "NL",
-} satisfies schemas["Address"];
+} satisfies schemas["AddressDto"];
 
 export const parties = [
   {
@@ -80,13 +80,13 @@ export const parties = [
     kycStatus: "REJECTED",
     address,
   },
-] satisfies schemas["Party"][];
+] satisfies schemas["PartyDto"][];
 
 export const partyRole = {
   partyId: parties[0].id,
   roleType: "ACCOUNT_HOLDER",
   status: "ACTIVE",
-} satisfies schemas["PartyRole"];
+} satisfies schemas["PartyRoleDto"];
 
 export const accounts = [
   {
@@ -151,61 +151,40 @@ export const accounts = [
     createdAt: "2026-07-02T10:00:00Z",
     version: 0,
   },
-] satisfies schemas["Account"][];
+] satisfies schemas["AccountListItemDto"][];
 
-export const wallet = {
-  id: "w1f3a8c2-3333-4c30-9d74-000000000001",
-  chain: "BASE",
-  type: "VENLY_MANAGED",
-  address: "0x9f8b2ca4df2f3cbb3a2f6dc38c1ef4d1b6c1e8a2",
-  amlStatus: "APPROVED",
-  balances: [
+// Contract 1.3.0: `listWallets` returns per-asset balance rows only. The
+// wallet wrapper (id/chain/address/amlStatus) is no longer part of the public
+// read surface — see the gap register (wallet identity is unobtainable while
+// the permit endpoints still key on {walletId}).
+export const wallet = [
+  {
+    asset: "USDC",
+    contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    amount: { total: 15230.5, available: 15100.5, reserved: 130 },
+  },
+  {
+    asset: "EURC",
+    contractAddress: "0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42",
+    amount: { total: 8020, available: 8020, reserved: 0 },
+  },
+] satisfies schemas["WalletBalanceDto"][];
+
+/** Each seeded account has its own balances – no cross-account leakage. */
+const walletSeeds: Record<string, schemas["WalletBalanceDto"][]> = {
+  [accounts[0].id]: wallet,
+  [accounts[1].id]: [
     {
       asset: "USDC",
       contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-      amount: { total: "15230.500000", available: "15100.500000", reserved: "130.000000" },
-    },
-    {
-      asset: "EURC",
-      contractAddress: "0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42",
-      amount: { total: "8020.000000", available: "8020.000000", reserved: "0.000000" },
-    },
-  ],
-} satisfies schemas["Wallet"];
-
-/** Each seeded account has its own wallet – no cross-account leakage. */
-const walletSeeds: Record<string, schemas["Wallet"][]> = {
-  [accounts[0].id]: [wallet],
-  [accounts[1].id]: [
-    {
-      id: "w1f3a8c2-3333-4c30-9d74-000000000002",
-      chain: "BASE",
-      type: "VENLY_MANAGED",
-      address: "0x1b6c1e8a29f8b2ca4df2f3cbb3a2f6dc38c1ef4d",
-      amlStatus: "APPROVED",
-      balances: [
-        {
-          asset: "USDC",
-          contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-          amount: { total: "2500.000000", available: "2500.000000", reserved: "0.000000" },
-        },
-      ],
+      amount: { total: 2500, available: 2500, reserved: 0 },
     },
   ],
   [accounts[2].id]: [
     {
-      id: "w1f3a8c2-3333-4c30-9d74-000000000003",
-      chain: "AVALANCHE",
-      type: "VENLY_MANAGED",
-      address: "0x2f6dc38c1ef4d1b6c1e8a29f8b2ca4df2f3cbb3a",
-      amlStatus: "APPROVED",
-      balances: [
-        {
-          asset: "EURC",
-          contractAddress: "0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42",
-          amount: { total: "12000.000000", available: "12000.000000", reserved: "0.000000" },
-        },
-      ],
+      asset: "EURC",
+      contractAddress: "0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42",
+      amount: { total: 12000, available: 12000, reserved: 0 },
     },
   ],
   // accounts[3] (suspended) has no wallet yet.
@@ -213,34 +192,16 @@ const walletSeeds: Record<string, schemas["Wallet"][]> = {
   // spendable. UIs must render available 0 honestly (not as "no money").
   [accounts[5].id]: [
     {
-      id: "w1f3a8c2-3333-4c30-9d74-000000000006",
-      chain: "BASE",
-      type: "VENLY_MANAGED",
-      address: "0xef4d1b6c1e8a29f8b2ca4df2f3cbb3a2f6dc38c1",
-      amlStatus: "APPROVED",
-      balances: [
-        {
-          asset: "USDC",
-          contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-          amount: { total: "4200.000000", available: "0.000000", reserved: "4200.000000" },
-        },
-      ],
+      asset: "USDC",
+      contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      amount: { total: 4200, available: 0, reserved: 4200 },
     },
   ],
   [accounts[4].id]: [
     {
-      id: "w1f3a8c2-3333-4c30-9d74-000000000005",
-      chain: "BASE",
-      type: "VENLY_MANAGED",
-      address: "0x38c1ef4d1b6c1e8a29f8b2ca4df2f3cbb3a2f6dc",
-      amlStatus: "APPROVED",
-      balances: [
-        {
-          asset: "USDT",
-          contractAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
-          amount: { total: "500.000000", available: "500.000000", reserved: "0.000000" },
-        },
-      ],
+      asset: "USDT",
+      contractAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
+      amount: { total: 500, available: 500, reserved: 0 },
     },
   ],
 };
@@ -325,7 +286,7 @@ export const virtualBankAccounts = [
     name: "Identity unavailable",
     currency: "EUR",
   },
-] satisfies schemas["VirtualBankAccount"][];
+] satisfies schemas["VirtualBankAccountResponse"][];
 
 export const paymentSession = {
   id: "ps9d7b28-5555-4e50-bf96-000000000001",
@@ -342,7 +303,7 @@ export const paymentSession = {
   idempotencyKey: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   createdAt: "2026-07-20T10:00:00Z",
   updatedAt: "2026-07-20T10:00:00Z",
-} satisfies schemas["PaymentSession"];
+} satisfies schemas["PayInSessionDto"];
 
 const paymentExecution = {
   id: "pe5f6a7b-c9d0-4123-9456-000000000001",
@@ -356,13 +317,13 @@ const paymentExecution = {
   transactionHash: "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
   createdAt: "2026-07-20T10:00:00Z",
   updatedAt: "2026-07-20T10:00:02Z",
-} satisfies schemas["PaymentExecution"];
+} satisfies schemas["PaymentExecutionDto"];
 
 export const paymentRequest = {
   id: "pr3c6a47-6666-4f60-8aa7-000000000001",
   accountId: accounts[0].id,
-  amount: { fiat: 25, crypto: "25.000000" },
-  originalAmount: { fiat: 25, crypto: "25.000000" },
+  amount: { fiat: 25, crypto: 25 },
+  originalAmount: { fiat: 25, crypto: 25 },
   currency: "USD",
   externalId: "auth-67890",
   description: "Card authorization #67890",
@@ -370,13 +331,13 @@ export const paymentRequest = {
   executions: [paymentExecution],
   createdAt: "2026-07-20T10:00:00Z",
   updatedAt: "2026-07-20T10:00:02Z",
-} satisfies schemas["PaymentRequest"];
+} satisfies schemas["PaymentRequestDto"];
 
 /** Settlement response: 202 with SETTLING and a pending SETTLEMENT execution. */
 export const paymentRequestSettling = {
   ...paymentRequest,
   status: "SETTLING",
-  settlementAmount: { fiat: 25, crypto: "25.000000" },
+  settlementAmount: { fiat: 25, crypto: 25 },
   executions: [
     paymentExecution,
     {
@@ -390,7 +351,7 @@ export const paymentRequestSettling = {
     },
   ],
   updatedAt: "2026-07-20T11:00:00Z",
-} satisfies schemas["PaymentRequest"];
+} satisfies schemas["PaymentRequestDto"];
 
 /** Reversal response: 202 with REVERSING and a pending REFUND execution. */
 export const paymentRequestReversing = {
@@ -410,7 +371,12 @@ export const paymentRequestReversing = {
     },
   ],
   updatedAt: "2026-07-20T11:30:00Z",
-} satisfies schemas["PaymentRequest"];
+} satisfies schemas["PaymentRequestDto"];
+
+/** Contract 1.3.0 idempotent-response wrapper around a mutation fixture. */
+function idempotent<T extends { id?: string }>(resource: T): { createdResourceId?: string; response: T } {
+  return { createdResourceId: resource.id, response: resource };
+}
 
 /**
  * Long-list batch (30 rows): a feed must exceed one screen to prove
@@ -491,7 +457,7 @@ export const transfers = [
     status: "COMPLETED",
     createdAt: "2026-07-01T07:00:00Z",
   },
-] satisfies schemas["Transfer"][];
+] satisfies schemas["TransferRequestDto"][];
 
 export const permitMessages = [
   {
@@ -504,7 +470,7 @@ export const permitMessages = [
       domain: { name: "USD Coin", version: "2", chainId: 8453 },
     },
   },
-] satisfies schemas["PermitMessage"][];
+] satisfies schemas["PermitMessageDto"][];
 
 export const permitResult = {
   id: "pe6a3f88-aaaa-4da0-cee1-000000000001",
@@ -513,7 +479,7 @@ export const permitResult = {
   contractAddress: permitMessages[0].contractAddress,
   status: "SUBMITTED",
   permitTxId: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-} satisfies schemas["PermitResult"];
+} satisfies schemas["PermitResultDto"];
 
 export const allowances = [
   {
@@ -525,7 +491,133 @@ export const allowances = [
     allowance: "115792089237316195423570985008687907853269984665640564039457.584007913129639935",
     orchestrationWallet: "0x1e8a2b6c1d4f38c1ef4d1b6c1e8a29f8b2ca4df2",
   },
-] satisfies schemas["Allowance"][];
+] satisfies schemas["AllowanceInfo"][];
+
+// ── Payout surface seeds (contract 1.3.0) ────────────────────────────────
+// Beneficiary bank accounts live on the PARTY. The org party (Acme) carries
+// one ACTIVE SEPA account and one PENDING US_ACH account, so both the usable
+// and the still-under-review states render.
+export const payoutBankAccounts = [
+  {
+    id: "pb8f2a10-bbbb-4e10-9cf2-000000000001",
+    partyId: parties[1].id,
+    rail: "SEPA",
+    fiatCurrency: "EUR",
+    label: "Acme supplier account",
+    accountHolderName: "Acme Corporation B.V.",
+    details: { ibanLast4: "3000", bic: "DEUTDEDBFRA" },
+    bankName: "Example Bank N.V.",
+    status: "ACTIVE",
+    createdAt: "2026-07-05T09:00:00Z",
+  },
+  {
+    id: "pb8f2a10-bbbb-4e10-9cf2-000000000002",
+    partyId: parties[1].id,
+    rail: "US_ACH",
+    fiatCurrency: "USD",
+    label: "US contractor account",
+    accountHolderName: "Acme Corporation B.V.",
+    details: { accountNumberLast4: "6789", abaRoutingNumber: "021000021", accountType: "CHECKING" },
+    bankName: "Example Bank USA Inc.",
+    status: "PENDING",
+    createdAt: "2026-08-01T14:30:00Z",
+  },
+] satisfies schemas["PayoutBankAccountDto"][];
+
+// Routes bind a bank account to an ACCOUNT and a deposit asset. The payouts
+// account carries one ACTIVE route (usable) and one still awaiting proof.
+export const payoutRoutes = [
+  {
+    id: "pr9e3b21-cccc-4f20-8da3-000000000001",
+    status: "ACTIVE",
+    depositAsset: { chain: "BASE", name: "USDC" },
+    fiatCurrency: "EUR",
+    depositAddress: "0x4df2f3cbb3a2f6dc38c1ef4d1b6c1e8a29f8b2ca",
+    createdAt: "2026-07-06T10:00:00Z",
+    updatedAt: "2026-07-06T10:20:00Z",
+  },
+  {
+    id: "pr9e3b21-cccc-4f20-8da3-000000000002",
+    status: "AWAITING_OWNERSHIP_PROOF",
+    depositAsset: { chain: "BASE", name: "USDT" },
+    fiatCurrency: "EUR",
+    depositAddress: "0xb3a2f6dc38c1ef4d1b6c1e8a29f8b2ca4df2f3cb",
+    createdAt: "2026-08-02T08:00:00Z",
+  },
+] satisfies schemas["PayoutRouteDto"][];
+
+const payoutRouteSeeds: Record<string, schemas["PayoutRouteDto"][]> = {
+  [accounts[4].id]: payoutRoutes,
+};
+
+const seededBeneficiary = {
+  id: payoutBankAccounts[0].id,
+  partyId: payoutBankAccounts[0].partyId,
+  rail: payoutBankAccounts[0].rail,
+  label: payoutBankAccounts[0].label,
+  accountHolderName: payoutBankAccounts[0].accountHolderName,
+  bankName: payoutBankAccounts[0].bankName,
+  details: payoutBankAccounts[0].details,
+} satisfies schemas["PayoutBeneficiaryDto"];
+
+// Payout history on the payouts account: the happy end, an in-flight state a
+// UI must poll, and the state integrators forget – money that came BACK.
+export const payouts = [
+  {
+    id: "po1d4c32-dddd-4a30-9eb4-000000000001",
+    accountId: accounts[4].id,
+    payoutRoute: {
+      id: payoutRoutes[0].id,
+      depositAsset: payoutRoutes[0].depositAsset,
+      fiatCurrency: payoutRoutes[0].fiatCurrency,
+      depositAddress: payoutRoutes[0].depositAddress,
+      beneficiary: seededBeneficiary,
+    },
+    rail: "SEPA",
+    cryptoAmount: 1500,
+    settledFiatAmount: 1500,
+    fundingMode: "PULL",
+    status: "COMPLETED",
+    sendTxHash: "0x7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2a1b2c3d4e5f6a",
+    requestedAt: "2026-07-15T09:30:00Z",
+    completedAt: "2026-07-15T11:02:00Z",
+  },
+  {
+    id: "po1d4c32-dddd-4a30-9eb4-000000000002",
+    accountId: accounts[4].id,
+    payoutRoute: {
+      id: payoutRoutes[0].id,
+      depositAsset: payoutRoutes[0].depositAsset,
+      fiatCurrency: payoutRoutes[0].fiatCurrency,
+      depositAddress: payoutRoutes[0].depositAddress,
+      beneficiary: seededBeneficiary,
+    },
+    rail: "SEPA",
+    cryptoAmount: 820.5,
+    fundingMode: "PULL",
+    status: "PROVIDER_PROCESSING",
+    sendTxHash: "0x9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2a1b2c3d4e5f6a7b8c",
+    requestedAt: "2026-08-11T16:45:00Z",
+  },
+  {
+    id: "po1d4c32-dddd-4a30-9eb4-000000000003",
+    accountId: accounts[4].id,
+    payoutRoute: {
+      id: payoutRoutes[0].id,
+      depositAsset: payoutRoutes[0].depositAsset,
+      fiatCurrency: payoutRoutes[0].fiatCurrency,
+      depositAddress: payoutRoutes[0].depositAddress,
+      beneficiary: seededBeneficiary,
+    },
+    rail: "SEPA",
+    cryptoAmount: 300,
+    fundingMode: "PULL",
+    status: "RETURNED",
+    sendTxHash: "0x0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2a1b2c3d4e5f6a7b8c9d",
+    failureReason: "Returned by the receiving bank: account closed",
+    requestedAt: "2026-07-28T10:15:00Z",
+  },
+] satisfies schemas["PayoutDto"][];
 
 export const financeSeeds: FinanceSeeds = {
   parties,
@@ -534,6 +626,9 @@ export const financeSeeds: FinanceSeeds = {
   partyRole,
   virtualBankAccounts,
   transfers,
+  payoutBankAccounts,
+  payoutRoutes: payoutRouteSeeds,
+  payouts,
 };
 
 /** Route table over a stateful store: creates persist, gets read back. */
@@ -605,19 +700,20 @@ export function createFinanceRoutes(store: FinanceMockStore): RouteTable {
      kind: "handler",
      handle: (ctx) => itemEnvelope(store.createPaymentSession(ctx)),
     },
-    "POST /accounts/{accountId}/payment-requests": { kind: "item", result: paymentRequest },
-    "POST /payment-requests": { kind: "item", result: paymentRequest },
-    "PATCH /payment-requests/{paymentRequestId}": { kind: "item", result: paymentRequest },
+    // Contract 1.3.0: payment-request mutations return the idempotent wrapper.
+    "POST /accounts/{accountId}/payment-requests": { kind: "item", result: idempotent(paymentRequest) },
+    "POST /payment-requests": { kind: "item", result: idempotent(paymentRequest) },
+    "PATCH /payment-requests/{paymentRequestId}": { kind: "item", result: idempotent(paymentRequest) },
     "POST /payment-requests/{paymentRequestId}/settlements": {
       kind: "item",
-      result: paymentRequestSettling,
+      result: idempotent(paymentRequestSettling),
     },
-    "POST /payment-requests/settlements": { kind: "item", result: paymentRequestSettling },
+    "POST /payment-requests/settlements": { kind: "item", result: idempotent(paymentRequestSettling) },
     "POST /payment-requests/{paymentRequestId}/reversal": {
       kind: "item",
-      result: paymentRequestReversing,
+      result: idempotent(paymentRequestReversing),
     },
-    "POST /payment-requests/reversals": { kind: "item", result: paymentRequestReversing },
+    "POST /payment-requests/reversals": { kind: "item", result: idempotent(paymentRequestReversing) },
     // Transfers
     "POST /accounts/{senderAccountId}/transfers/fiat": {
       kind: "handler",
@@ -639,6 +735,47 @@ export function createFinanceRoutes(store: FinanceMockStore): RouteTable {
     "GET /accounts/{accountId}/wallets/{walletId}/permits": { kind: "array", items: permitMessages },
     "POST /accounts/{accountId}/wallets/{walletId}/permits": { kind: "create", base: permitResult },
     "GET /accounts/{accountId}/wallets/{walletId}/allowances": { kind: "array", items: allowances },
+    // Payout surface (contract 1.3.0)
+    "GET /parties/{partyId}/payout-bank-accounts": {
+      kind: "handler",
+      handle: (ctx) => listEnvelope(store.listPayoutBankAccounts(ctx), ctx.query),
+    },
+    "POST /parties/{partyId}/payout-bank-accounts": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.registerPayoutBankAccount(ctx)),
+    },
+    "GET /parties/{partyId}/payout-bank-accounts/{id}": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.getPayoutBankAccount(ctx)),
+    },
+    "GET /accounts/{accountId}/payout-routes": {
+      kind: "handler",
+      handle: (ctx) => listEnvelope(store.listPayoutRoutes(ctx), ctx.query),
+    },
+    "POST /accounts/{accountId}/payout-routes": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.createPayoutRoute(ctx)),
+    },
+    "POST /accounts/{accountId}/payout-routes/{routeId}/ownership-proof/prepare": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.preparePayoutOwnershipProof(ctx)),
+    },
+    "POST /accounts/{accountId}/payout-routes/{routeId}/ownership-proof/complete": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.completePayoutOwnershipProof(ctx)),
+    },
+    "GET /accounts/{accountId}/payouts": {
+      kind: "handler",
+      handle: (ctx) => listEnvelope(store.listPayouts(ctx), ctx.query),
+    },
+    "POST /accounts/{accountId}/payouts": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.requestPayout(ctx)),
+    },
+    "GET /accounts/{accountId}/payouts/{payoutId}": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.getPayout(ctx)),
+    },
   };
 }
 
@@ -658,12 +795,28 @@ export interface VenlyFinanceMock extends VenlyMock {
   /** Walk a payment session to any documented status, so pay-in can complete. */
   advancePaymentSession(
     id: string,
-    to: schemas["PaymentSessionStatus"],
-  ): schemas["PaymentSession"];
+    to: NonNullable<schemas["PayInSessionDto"]["status"]>,
+  ): schemas["PayInSessionDto"];
   /** Mock-only: simulate an inbound bank credit arriving on a VBA (not real API surface). */
   simulateInboundCredit(vbaId: string, amount: number, referenceCode?: string | null): MockInboundCredit;
   /** Mock-only: list inbound credits, optionally filtered by VBA and newest first. */
   listInboundCredits(vbaId?: string): MockInboundCredit[];
+  /** Walk a payout to any documented status (COMPLETED stamps settlement fields). */
+  advancePayout(
+    id: string,
+    to: NonNullable<schemas["PayoutDto"]["status"]>,
+    opts?: { settledFiatAmount?: number; failureReason?: string; sendTxHash?: string },
+  ): schemas["PayoutDto"];
+  /** Activate or disable a beneficiary bank account (operator action). */
+  advancePayoutBankAccount(
+    id: string,
+    to?: NonNullable<schemas["PayoutBankAccountDto"]["status"]>,
+  ): schemas["PayoutBankAccountDto"];
+  /** Walk a payout route to any documented status. */
+  advancePayoutRoute(
+    id: string,
+    to: NonNullable<schemas["PayoutRouteDto"]["status"]>,
+  ): schemas["PayoutRouteDto"];
   /** Restore the seed fixtures and clear the call log. */
   reset(): void;
 }
@@ -687,8 +840,8 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
   }
   advancePaymentSession(
     id: string,
-    to: schemas["PaymentSessionStatus"],
-  ): schemas["PaymentSession"] {
+    to: NonNullable<schemas["PayInSessionDto"]["status"]>,
+  ): schemas["PayInSessionDto"] {
     return this.store.advancePaymentSession(id, to);
   }
 
@@ -698,6 +851,28 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
 
   listInboundCredits(vbaId?: string): MockInboundCredit[] {
     return this.store.listInboundCredits(vbaId);
+  }
+
+  advancePayout(
+    id: string,
+    to: NonNullable<schemas["PayoutDto"]["status"]>,
+    opts?: { settledFiatAmount?: number; failureReason?: string; sendTxHash?: string },
+  ): schemas["PayoutDto"] {
+    return this.store.advancePayout(id, to, opts);
+  }
+
+  advancePayoutBankAccount(
+    id: string,
+    to: NonNullable<schemas["PayoutBankAccountDto"]["status"]> = "ACTIVE",
+  ): schemas["PayoutBankAccountDto"] {
+    return this.store.advancePayoutBankAccount(id, to);
+  }
+
+  advancePayoutRoute(
+    id: string,
+    to: NonNullable<schemas["PayoutRouteDto"]["status"]>,
+  ): schemas["PayoutRouteDto"] {
+    return this.store.advancePayoutRoute(id, to);
   }
 
   reset(): void {

@@ -111,6 +111,8 @@ const account = await venly.accounts.create({
 
 const wallets = await venly.wallets.list(account.id!);
 
+// vIBANs require a KYC-VERIFIED account. Live, a Venly admin verifies it;
+// in mock mode play the operator: venly.mock?.advanceVerification(account.id!)
 const iban = await venly.virtualBankAccounts.create(account.id!, {
   name: "EUR Payouts",
   inCurrency: "EUR",
@@ -135,6 +137,42 @@ await venly.paymentRequests.settle(pr.id!, {
 await venly.paymentRequests.reverse(pr.id!, {
   reason: "MERCHANT_VOID", idempotencyKey: crypto.randomUUID(),
 });
+```
+
+### Third-party payouts (contract 1.3.0)
+
+Crypto leaves the account; fiat lands in a registered beneficiary bank
+account. Three resources deep: a bank account on the party, a route on the
+account (activated by wallet-ownership proof), payouts against the route.
+
+```ts
+// Payouts require a VERIFIED account. In mock mode, play the operator for
+// both pending states: account KYC and the beneficiary bank account below.
+venly.mock?.advanceVerification(account.id!);
+
+const beneficiary = await venly.payoutBankAccounts.register(party.id!, {
+  rail: "SEPA", fiatCurrency: "EUR", accountHolderName: "Supplier GmbH",
+  railDetails: { iban: "DE89...", bic: "DEUTDEDBFRA" },
+}); // starts PENDING; an operator activates it
+venly.mock?.advancePayoutBankAccount(beneficiary.id!, "ACTIVE");
+
+const route = await venly.payoutRoutes.create(account.id!, {
+  payoutBankAccountId: beneficiary.id!,
+  depositAsset: { chain: "BASE", name: "USDC" },
+}); // AWAITING_OWNERSHIP_PROOF until the funding wallet signs
+
+// No body: the server derives the funding wallet and chain from the route.
+const proof = await venly.payoutRoutes.prepareOwnershipProof(account.id!, route.id!);
+await venly.payoutRoutes.completeOwnershipProof(account.id!, route.id!, {
+  message: proof.message!, signature: "0x...",
+}); // route ACTIVE
+
+const payout = await venly.payouts.request(account.id!, {
+  payoutRouteId: route.id!, cryptoAmount: 250.5,
+  idempotencyKey: crypto.randomUUID(),
+}); // REQUESTED → SENDING → PROVIDER_PROCESSING → COMPLETED | REJECTED | FAILED | RETURNED
+
+// Mock drivers walk the lifecycle: venly.mock.advancePayout(payout.id!, "COMPLETED")
 ```
 
 ### Pagination

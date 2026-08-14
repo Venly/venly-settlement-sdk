@@ -39,15 +39,16 @@ test("fidelity: a created ORGANISATION tracks kybStatus, never kycStatus", async
   assert.equal((await f.parties.get(org.id)).kybStatus, "DENIED", "KYB's negative state is DENIED");
 });
 
-test("fidelity: a created account starts VERIFICATION_PENDING with an auto-provisioned wallet", async () => {
+test("fidelity: a created account starts VERIFICATION_PENDING with an empty balance list", async () => {
   const f = mockFinance();
   const acct = await f.accounts.create({ externalId: "acct-new", chain: "BASE", name: "New" });
   assert.equal(acct.kycStatus, "VERIFICATION_PENDING");
 
+  // Contract 1.3.0: listWallets returns per-asset balance rows only (no
+  // wallet wrapper), and a fresh wallet holds nothing.
   const wallets = await f.wallets.list(acct.id);
-  assert.equal(wallets.items.length, 1, "wallet is a side effect of account creation");
-  assert.equal(wallets.items[0].chain, "BASE");
-  assert.deepEqual(wallets.items[0].balances, [], "a fresh wallet holds nothing");
+  assert.deepEqual(wallets.items, [], "a fresh wallet holds nothing");
+  assert.equal(wallets.resultPresent, true, "empty is a real answer, not a missing envelope");
 
   f.mock.advanceVerification(acct.id);
   assert.equal((await f.accounts.get(acct.id)).kycStatus, "VERIFIED");
@@ -175,12 +176,14 @@ test("fidelity: virtual bank accounts never leak across accounts", async () => {
   assert.ok(other.items.every((v) => !own.items.some((candidate) => candidate.id === v.id)));
 });
 
-test("fidelity: each account has its own wallet", async () => {
+test("fidelity: each account has its own balances", async () => {
   const f = mockFinance();
   const w1 = await f.wallets.list(ACCT_1);
   const w2 = await f.wallets.list(ACCT_2);
-  assert.notEqual(w1.items[0].id, w2.items[0].id);
-  assert.notEqual(w1.items[0].address, w2.items[0].address);
+  // Contract 1.3.0 exposes no wallet identity, so distinctness shows in the
+  // balance rows themselves: no shared row values across accounts.
+  assert.ok(w1.items.length > 0 && w2.items.length > 0);
+  assert.notDeepEqual(w1.items, w2.items, "accounts do not share balance fixtures");
 });
 
 test("fidelity: create responses carry only response-schema fields", async () => {

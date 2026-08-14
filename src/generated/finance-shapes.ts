@@ -9,6 +9,126 @@ export interface RequestShape {
 }
 
 export const financeRequestShapes: Record<string, RequestShape> = {
+  "PUT /webhooks/{webhookId}": {
+    "required": [
+      "authenticationMethod",
+      "url"
+    ],
+    "properties": {
+      "url": null,
+      "name": null,
+      "authenticationMethod": null
+    }
+  },
+  "POST /webhooks": {
+    "required": [
+      "authenticationMethod",
+      "url"
+    ],
+    "properties": {
+      "url": null,
+      "name": null,
+      "authenticationMethod": null
+    }
+  },
+  "POST /payment-requests": {
+    "required": [
+      "cardProviderReference",
+      "paymentRequest"
+    ],
+    "properties": {
+      "cardProviderReference": [
+        "type",
+        "referenceId"
+      ],
+      "paymentRequest": [
+        "amount",
+        "chain",
+        "asset",
+        "currency",
+        "externalId",
+        "description",
+        "idempotencyKey"
+      ]
+    }
+  },
+  "PATCH /payment-requests": {
+    "required": [
+      "currency",
+      "idempotencyKey",
+      "paymentRequestReference"
+    ],
+    "properties": {
+      "paymentRequestReference": [
+        "cardProviderReference",
+        "externalId"
+      ],
+      "amount": null,
+      "currency": null,
+      "idempotencyKey": null,
+      "adjustAmountBy": null
+    }
+  },
+  "POST /payment-requests/{paymentRequestId}/shortfall-resolution": {
+    "required": [
+      "idempotencyKey"
+    ],
+    "properties": {
+      "idempotencyKey": null
+    }
+  },
+  "POST /payment-requests/{paymentRequestId}/settlements": {
+    "required": [
+      "amount",
+      "currency",
+      "idempotencyKey"
+    ],
+    "properties": {
+      "amount": null,
+      "currency": null,
+      "idempotencyKey": null
+    }
+  },
+  "POST /payment-requests/{paymentRequestId}/reversal": {
+    "required": [
+      "idempotencyKey",
+      "reason"
+    ],
+    "properties": {
+      "reason": null,
+      "description": null,
+      "idempotencyKey": null
+    }
+  },
+  "POST /payment-requests/shortfall-resolution": {
+    "required": [
+      "idempotencyKey",
+      "paymentRequestReference"
+    ],
+    "properties": {
+      "paymentRequestReference": [
+        "cardProviderReference",
+        "externalId"
+      ],
+      "idempotencyKey": null
+    }
+  },
+  "POST /payment-requests/reversals": {
+    "required": [
+      "idempotencyKey",
+      "paymentRequestReference",
+      "reason"
+    ],
+    "properties": {
+      "paymentRequestReference": [
+        "cardProviderReference",
+        "externalId"
+      ],
+      "reason": null,
+      "description": null,
+      "idempotencyKey": null
+    }
+  },
   "POST /parties": {
     "required": [
       "partyType"
@@ -27,24 +147,31 @@ export const financeRequestShapes: Record<string, RequestShape> = {
         "state",
         "postalCode",
         "country"
-      ]
+      ],
+      "sumsubToken": null
     }
   },
-  "PATCH /parties/{partyId}": {
-    "required": [
-      "version"
-    ],
+  "POST /parties/{partyId}/payout-bank-accounts": {
+    "required": [],
     "properties": {
-      "version": null,
-      "firstName": null,
-      "lastName": null,
-      "name": null,
-      "vatNumber": null,
-      "address": [
-        "addressLine1",
-        "addressLine2",
+      "rail": null,
+      "fiatCurrency": null,
+      "label": null,
+      "accountHolderName": null,
+      "beneficiaryEmail": null,
+      "beneficiaryPhoneNumber": null,
+      "railDetails": [
+        "accountNumber",
+        "abaRoutingNumber",
+        "accountType",
+        "iban",
+        "bic"
+      ],
+      "bankName": null,
+      "bankAddress": [
+        "street1",
         "city",
-        "state",
+        "region",
         "postalCode",
         "country"
       ]
@@ -52,14 +179,15 @@ export const financeRequestShapes: Record<string, RequestShape> = {
   },
   "POST /accounts": {
     "required": [
-      "externalId",
-      "chain"
+      "chain",
+      "externalId"
     ],
     "properties": {
       "externalId": null,
       "name": null,
       "chain": null,
       "address": null,
+      "kycStatus": null,
       "partyId": null,
       "party": [
         "partyType",
@@ -68,168 +196,26 @@ export const financeRequestShapes: Record<string, RequestShape> = {
         "lastName",
         "name",
         "vatNumber",
-        "address"
+        "address",
+        "sumsubToken"
       ],
       "cardProviderReference": [
         "type",
         "referenceId"
       ]
-    }
-  },
-  "POST /accounts/{accountId}/party-roles": {
-    "required": [
-      "partyId",
-      "roleType"
-    ],
-    "properties": {
-      "partyId": null,
-      "roleType": null
-    }
-  },
-  "POST /accounts/{accountId}/virtual-bank-accounts": {
-    "required": [
-      "name",
-      "inCurrency",
-      "targetCryptocurrency",
-      "idempotencyKey"
-    ],
-    "properties": {
-      "name": null,
-      "inCurrency": null,
-      "targetCryptocurrency": null,
-      "idempotencyKey": null
-    }
-  },
-  "POST /accounts/{accountId}/fiat-to-crypto/payment-sessions": {
-    "required": [
-      "inAmount",
-      "inCurrency",
-      "outCryptocurrency",
-      "callbackUrl",
-      "idempotencyKey"
-    ],
-    "properties": {
-      "inAmount": null,
-      "inCurrency": null,
-      "outCryptocurrency": null,
-      "callbackUrl": null,
-      "successRedirectUrl": null,
-      "failureRedirectUrl": null,
-      "externalRef": null,
-      "idempotencyKey": null,
-      "metadata": null
-    }
-  },
-  "POST /payment-requests": {
-    "required": [
-      "cardProviderReference",
-      "paymentRequest"
-    ],
-    "properties": {
-      "cardProviderReference": [
-        "type",
-        "referenceId"
-      ],
-      "paymentRequest": [
-        "amount",
-        "currency",
-        "externalId",
-        "description",
-        "idempotencyKey"
-      ]
-    }
-  },
-  "POST /accounts/{accountId}/payment-requests": {
-    "required": [
-      "amount",
-      "currency",
-      "idempotencyKey"
-    ],
-    "properties": {
-      "amount": null,
-      "currency": null,
-      "externalId": null,
-      "description": null,
-      "idempotencyKey": null
-    }
-  },
-  "POST /payment-requests/{paymentRequestId}/settlements": {
-    "required": [
-      "amount",
-      "currency",
-      "idempotencyKey"
-    ],
-    "properties": {
-      "amount": null,
-      "currency": null,
-      "idempotencyKey": null
-    }
-  },
-  "POST /payment-requests/settlements": {
-    "required": [
-      "paymentRequestReference",
-      "amount",
-      "currency",
-      "idempotencyKey"
-    ],
-    "properties": {
-      "paymentRequestReference": [
-        "cardProviderReference",
-        "externalId"
-      ],
-      "amount": null,
-      "currency": null,
-      "idempotencyKey": null
-    }
-  },
-  "POST /payment-requests/{paymentRequestId}/reversal": {
-    "required": [
-      "reason",
-      "idempotencyKey"
-    ],
-    "properties": {
-      "reason": null,
-      "description": null,
-      "idempotencyKey": null
-    }
-  },
-  "POST /payment-requests/reversals": {
-    "required": [
-      "paymentRequestReference",
-      "reason",
-      "idempotencyKey"
-    ],
-    "properties": {
-      "paymentRequestReference": [
-        "cardProviderReference",
-        "externalId"
-      ],
-      "reason": null,
-      "description": null,
-      "idempotencyKey": null
-    }
-  },
-  "PATCH /payment-requests/{paymentRequestId}": {
-    "required": [
-      "amount",
-      "currency",
-      "idempotencyKey"
-    ],
-    "properties": {
-      "amount": null,
-      "currency": null,
-      "idempotencyKey": null
     }
   },
   "POST /accounts/{senderAccountId}/transfers/fiat": {
     "required": [
-      "currency",
       "amount",
+      "currency",
       "idempotencyKey"
     ],
     "properties": {
       "receiverAccountId": null,
       "receiverExternalId": null,
+      "chain": null,
+      "asset": null,
       "currency": null,
       "amount": null,
       "description": null,
@@ -239,9 +225,9 @@ export const financeRequestShapes: Record<string, RequestShape> = {
   },
   "POST /accounts/{senderAccountId}/transfers/crypto": {
     "required": [
-      "chain",
-      "asset",
       "amount",
+      "asset",
+      "chain",
       "idempotencyKey"
     ],
     "properties": {
@@ -257,8 +243,8 @@ export const financeRequestShapes: Record<string, RequestShape> = {
   },
   "POST /accounts/{accountId}/wallets/{walletId}/permits": {
     "required": [
-      "supportedAssetId",
-      "signature"
+      "signature",
+      "supportedAssetId"
     ],
     "properties": {
       "supportedAssetId": null,
@@ -268,42 +254,246 @@ export const financeRequestShapes: Record<string, RequestShape> = {
         "s"
       ]
     }
+  },
+  "POST /accounts/{accountId}/virtual-bank-accounts": {
+    "required": [
+      "idempotencyKey",
+      "inCurrency",
+      "name",
+      "targetCryptocurrency"
+    ],
+    "properties": {
+      "name": null,
+      "inCurrency": null,
+      "targetCryptocurrency": null,
+      "idempotencyKey": null,
+      "ownershipProof": [
+        "walletAddress",
+        "blockchain",
+        "message",
+        "signature"
+      ]
+    }
+  },
+  "POST /accounts/{accountId}/virtual-bank-accounts/prepare": {
+    "required": [
+      "blockchain",
+      "walletAddress"
+    ],
+    "properties": {
+      "walletAddress": null,
+      "blockchain": null
+    }
+  },
+  "POST /accounts/{accountId}/payouts": {
+    "required": [
+      "cryptoAmount",
+      "idempotencyKey",
+      "payoutRouteId"
+    ],
+    "properties": {
+      "payoutRouteId": null,
+      "cryptoAmount": null,
+      "idempotencyKey": null
+    }
+  },
+  "POST /accounts/{accountId}/payout-routes": {
+    "required": [
+      "depositAsset",
+      "payoutBankAccountId"
+    ],
+    "properties": {
+      "payoutBankAccountId": null,
+      "depositAsset": [
+        "chain",
+        "name"
+      ]
+    }
+  },
+  "POST /accounts/{accountId}/payout-routes/{routeId}/ownership-proof/complete": {
+    "required": [
+      "message",
+      "signature"
+    ],
+    "properties": {
+      "message": null,
+      "signature": null
+    }
+  },
+  "POST /accounts/{accountId}/payment-requests": {
+    "required": [
+      "amount",
+      "currency",
+      "idempotencyKey"
+    ],
+    "properties": {
+      "amount": null,
+      "chain": null,
+      "asset": null,
+      "currency": null,
+      "externalId": null,
+      "description": null,
+      "idempotencyKey": null
+    }
+  },
+  "POST /accounts/{accountId}/party-roles": {
+    "required": [
+      "partyId",
+      "roleType"
+    ],
+    "properties": {
+      "partyId": null,
+      "roleType": null
+    }
+  },
+  "POST /accounts/{accountId}/fiat-to-crypto/payment-sessions": {
+    "required": [
+      "callbackUrl",
+      "idempotencyKey",
+      "inAmount",
+      "inCurrency",
+      "outCryptocurrency"
+    ],
+    "properties": {
+      "inAmount": null,
+      "inCurrency": null,
+      "outCryptocurrency": null,
+      "successRedirectUrl": null,
+      "failureRedirectUrl": null,
+      "callbackUrl": null,
+      "externalRef": null,
+      "idempotencyKey": null,
+      "metadata": null
+    }
+  },
+  "PATCH /payment-requests/{paymentRequestId}": {
+    "required": [
+      "currency",
+      "idempotencyKey"
+    ],
+    "properties": {
+      "amount": null,
+      "currency": null,
+      "idempotencyKey": null,
+      "adjustAmountBy": null
+    }
+  },
+  "PATCH /parties/{partyId}": {
+    "required": [
+      "version"
+    ],
+    "properties": {
+      "firstName": null,
+      "lastName": null,
+      "name": null,
+      "vatNumber": null,
+      "address": [
+        "addressLine1",
+        "addressLine2",
+        "city",
+        "state",
+        "postalCode",
+        "country"
+      ],
+      "version": null
+    }
   }
 };
 
 /** Fields the success envelope's result schema actually declares, per route. */
 export const financeResponseShapes: Record<string, string[]> = {
+  "PUT /webhooks/{webhookId}": [
+    "id",
+    "url",
+    "name",
+    "authenticationMethod",
+    "status"
+  ],
+  "POST /webhooks": [
+    "id",
+    "url",
+    "name",
+    "authenticationMethod",
+    "status"
+  ],
+  "POST /webhooks/{webhookId}/ping": [
+    "pagination",
+    "sort",
+    "success",
+    "result",
+    "errors"
+  ],
+  "POST /payment-requests": [
+    "createdResourceId",
+    "response"
+  ],
+  "PATCH /payment-requests": [
+    "createdResourceId",
+    "response"
+  ],
+  "POST /payment-requests/{paymentRequestId}/shortfall-resolution": [
+    "createdResourceId",
+    "response"
+  ],
+  "POST /payment-requests/{paymentRequestId}/settlements": [
+    "createdResourceId",
+    "response"
+  ],
+  "POST /payment-requests/{paymentRequestId}/reversal": [
+    "createdResourceId",
+    "response"
+  ],
+  "POST /payment-requests/shortfall-resolution": [
+    "createdResourceId",
+    "response"
+  ],
+  "POST /payment-requests/settlements": [
+    "index",
+    "idempotencyKey",
+    "paymentRequestReference",
+    "status",
+    "paymentRequest"
+  ],
+  "POST /payment-requests/reversals": [
+    "createdResourceId",
+    "response"
+  ],
   "POST /parties": [
     "id",
     "externalId",
     "partyType",
     "status",
+    "address",
     "firstName",
     "lastName",
     "kycStatus",
     "name",
     "vatNumber",
     "kybStatus",
-    "address",
     "createdAt",
     "updatedAt",
     "version"
   ],
-  "PATCH /parties/{partyId}": [
+  "POST /parties/{partyId}/verification": [
+    "partyId",
+    "verificationUrl",
+    "status"
+  ],
+  "POST /parties/{partyId}/payout-bank-accounts": [
     "id",
-    "externalId",
-    "partyType",
+    "partyId",
+    "rail",
+    "fiatCurrency",
+    "label",
+    "accountHolderName",
+    "details",
+    "bankName",
+    "beneficiaryEmail",
+    "beneficiaryPhoneNumber",
+    "bankAddress",
     "status",
-    "firstName",
-    "lastName",
-    "kycStatus",
-    "name",
-    "vatNumber",
-    "kybStatus",
-    "address",
     "createdAt",
-    "updatedAt",
-    "version"
+    "updatedAt"
   ],
   "POST /accounts": [
     "id",
@@ -313,187 +503,6 @@ export const financeResponseShapes: Record<string, string[]> = {
     "status",
     "createdAt",
     "version"
-  ],
-  "POST /accounts/{accountId}/party-roles": [
-    "partyId",
-    "roleType",
-    "status",
-    "createdAt",
-    "updatedAt"
-  ],
-  "POST /accounts/{accountId}/virtual-bank-accounts": [
-    "id",
-    "accountId",
-    "bankAccountType",
-    "name",
-    "status",
-    "currency",
-    "targetCryptocurrency",
-    "iban",
-    "bic",
-    "bankName",
-    "beneficiaryName",
-    "referenceCode",
-    "createdAt",
-    "updatedAt"
-  ],
-  "POST /accounts/{accountId}/fiat-to-crypto/payment-sessions": [
-    "id",
-    "accountId",
-    "status",
-    "inAmount",
-    "inCurrency",
-    "outCryptocurrency",
-    "paymentUrl",
-    "externalRef",
-    "walletId",
-    "blockchainTxId",
-    "cancellable",
-    "expiresAt",
-    "metadata",
-    "idempotencyKey",
-    "createdAt",
-    "updatedAt"
-  ],
-  "POST /payment-requests": [
-    "id",
-    "accountId",
-    "amount",
-    "originalAmount",
-    "settlementAmount",
-    "settledAmount",
-    "shortfallAmount",
-    "currency",
-    "externalId",
-    "description",
-    "status",
-    "settledAt",
-    "reversalReason",
-    "reversalDescription",
-    "reversedAt",
-    "executions",
-    "createdAt",
-    "updatedAt"
-  ],
-  "POST /accounts/{accountId}/payment-requests": [
-    "id",
-    "accountId",
-    "amount",
-    "originalAmount",
-    "settlementAmount",
-    "settledAmount",
-    "shortfallAmount",
-    "currency",
-    "externalId",
-    "description",
-    "status",
-    "settledAt",
-    "reversalReason",
-    "reversalDescription",
-    "reversedAt",
-    "executions",
-    "createdAt",
-    "updatedAt"
-  ],
-  "POST /payment-requests/{paymentRequestId}/settlements": [
-    "id",
-    "accountId",
-    "amount",
-    "originalAmount",
-    "settlementAmount",
-    "settledAmount",
-    "shortfallAmount",
-    "currency",
-    "externalId",
-    "description",
-    "status",
-    "settledAt",
-    "reversalReason",
-    "reversalDescription",
-    "reversedAt",
-    "executions",
-    "createdAt",
-    "updatedAt"
-  ],
-  "POST /payment-requests/settlements": [
-    "id",
-    "accountId",
-    "amount",
-    "originalAmount",
-    "settlementAmount",
-    "settledAmount",
-    "shortfallAmount",
-    "currency",
-    "externalId",
-    "description",
-    "status",
-    "settledAt",
-    "reversalReason",
-    "reversalDescription",
-    "reversedAt",
-    "executions",
-    "createdAt",
-    "updatedAt"
-  ],
-  "POST /payment-requests/{paymentRequestId}/reversal": [
-    "id",
-    "accountId",
-    "amount",
-    "originalAmount",
-    "settlementAmount",
-    "settledAmount",
-    "shortfallAmount",
-    "currency",
-    "externalId",
-    "description",
-    "status",
-    "settledAt",
-    "reversalReason",
-    "reversalDescription",
-    "reversedAt",
-    "executions",
-    "createdAt",
-    "updatedAt"
-  ],
-  "POST /payment-requests/reversals": [
-    "id",
-    "accountId",
-    "amount",
-    "originalAmount",
-    "settlementAmount",
-    "settledAmount",
-    "shortfallAmount",
-    "currency",
-    "externalId",
-    "description",
-    "status",
-    "settledAt",
-    "reversalReason",
-    "reversalDescription",
-    "reversedAt",
-    "executions",
-    "createdAt",
-    "updatedAt"
-  ],
-  "PATCH /payment-requests/{paymentRequestId}": [
-    "id",
-    "accountId",
-    "amount",
-    "originalAmount",
-    "settlementAmount",
-    "settledAmount",
-    "shortfallAmount",
-    "currency",
-    "externalId",
-    "description",
-    "status",
-    "settledAt",
-    "reversalReason",
-    "reversalDescription",
-    "reversedAt",
-    "executions",
-    "createdAt",
-    "updatedAt"
   ],
   "POST /accounts/{senderAccountId}/transfers/fiat": [
     "id",
@@ -537,5 +546,98 @@ export const financeResponseShapes: Record<string, string[]> = {
     "status",
     "permitTxId",
     "skipped"
+  ],
+  "POST /accounts/{accountId}/wallets/{walletId}/allowance-verification": [
+    "walletId",
+    "status",
+    "verificationExpiresAt",
+    "assets"
+  ],
+  "POST /accounts/{accountId}/virtual-bank-accounts": [
+    "createdResourceId",
+    "response"
+  ],
+  "POST /accounts/{accountId}/virtual-bank-accounts/prepare": [
+    "walletAddress",
+    "blockchain",
+    "message",
+    "signedOnUtc"
+  ],
+  "POST /accounts/{accountId}/payouts": [
+    "createdResourceId",
+    "response"
+  ],
+  "POST /accounts/{accountId}/payout-routes": [
+    "id",
+    "status",
+    "depositAsset",
+    "fiatCurrency",
+    "depositAddress",
+    "createdAt",
+    "updatedAt"
+  ],
+  "POST /accounts/{accountId}/payout-routes/{routeId}/ownership-proof/prepare": [
+    "walletAddress",
+    "blockchain",
+    "message",
+    "signedOnUtc"
+  ],
+  "POST /accounts/{accountId}/payout-routes/{routeId}/ownership-proof/complete": [
+    "id",
+    "status",
+    "depositAsset",
+    "fiatCurrency",
+    "depositAddress",
+    "createdAt",
+    "updatedAt"
+  ],
+  "POST /accounts/{accountId}/payment-requests": [
+    "createdResourceId",
+    "response"
+  ],
+  "POST /accounts/{accountId}/party-roles": [
+    "partyId",
+    "roleType",
+    "status",
+    "createdAt",
+    "updatedAt"
+  ],
+  "POST /accounts/{accountId}/fiat-to-crypto/payment-sessions": [
+    "id",
+    "accountId",
+    "status",
+    "inAmount",
+    "inCurrency",
+    "outCryptocurrency",
+    "paymentUrl",
+    "externalRef",
+    "walletId",
+    "blockchainTxId",
+    "cancellable",
+    "expiresAt",
+    "metadata",
+    "idempotencyKey",
+    "createdAt",
+    "updatedAt"
+  ],
+  "PATCH /payment-requests/{paymentRequestId}": [
+    "createdResourceId",
+    "response"
+  ],
+  "PATCH /parties/{partyId}": [
+    "id",
+    "externalId",
+    "partyType",
+    "status",
+    "address",
+    "firstName",
+    "lastName",
+    "kycStatus",
+    "name",
+    "vatNumber",
+    "kybStatus",
+    "createdAt",
+    "updatedAt",
+    "version"
   ]
 };

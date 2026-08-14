@@ -3,13 +3,16 @@ import { financeResponseShapes } from "../generated/finance-shapes.js";
 import { mockError, type HandlerContext } from "./transport.js";
 
 type schemas = components["schemas"];
-type Party = schemas["Party"];
-type Account = schemas["Account"];
-type Wallet = schemas["Wallet"];
-type PartyRole = schemas["PartyRole"];
-type VirtualBankAccount = schemas["VirtualBankAccount"];
-type Transfer = schemas["Transfer"];
-type PaymentSession = schemas["PaymentSession"];
+type Party = schemas["PartyDto"];
+type Account = schemas["AccountListItemDto"];
+type Wallet = schemas["WalletBalanceDto"];
+type PartyRole = schemas["PartyRoleDto"];
+type VirtualBankAccount = schemas["VirtualBankAccountResponse"];
+type Transfer = schemas["TransferRequestDto"];
+type PaymentSession = schemas["PayInSessionDto"];
+type PayoutBankAccount = schemas["PayoutBankAccountDto"];
+type PayoutRoute = schemas["PayoutRouteDto"];
+type Payout = schemas["PayoutDto"];
 
 /**
  * A simulated inbound bank credit. The Finance API models no such resource:
@@ -34,6 +37,11 @@ export interface FinanceSeeds {
   partyRole: PartyRole;
   virtualBankAccounts: VirtualBankAccount[];
   transfers: Transfer[];
+  /** Beneficiary bank accounts per party (flat; each row carries partyId). */
+  payoutBankAccounts: PayoutBankAccount[];
+  /** Payout routes per account id (routes carry no accountId on the wire). */
+  payoutRoutes: Record<string, PayoutRoute[]>;
+  payouts: Payout[];
 }
 
 export type VerificationStatusInput =
@@ -143,6 +151,14 @@ export class FinanceMockStore {
   transfers: Transfer[] = [];
   paymentSessions: PaymentSession[] = [];
   inboundCredits: MockInboundCredit[] = [];
+  payoutBankAccounts: PayoutBankAccount[] = [];
+  payoutRoutes = new Map<string, PayoutRoute[]>();
+  payouts: Payout[] = [];
+  private payoutIntents = new Map<string, {
+    fingerprint: string;
+    outcome: "failed" | "succeeded";
+    result?: Payout;
+  }>();
   private virtualBankAccountIntents = new Map<string, {
     fingerprint: string;
     outcome: "failed" | "succeeded";
@@ -168,7 +184,12 @@ export class FinanceMockStore {
     this.transfers = s.transfers;
     this.paymentSessions = [];
     this.inboundCredits = [];
+    this.payoutBankAccounts = s.payoutBankAccounts;
+    this.payoutRoutes = new Map(Object.entries(s.payoutRoutes));
+    this.payouts = s.payouts;
     this.virtualBankAccountIntents.clear();
+    this.payoutIntents.clear();
+    this.payoutProofWallets.clear();
     this.counter = 0;
   }
 
@@ -293,17 +314,10 @@ export class FinanceMockStore {
         .get(account.id as string)!
         .push({ partyId: b.partyId, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" });
     }
-    // The live API provisions the wallet as a side effect of account creation.
-    this.wallets.set(account.id as string, [
-      {
-        id: this.mintId(),
-        chain: (b.chain ?? "BASE") as Wallet["chain"],
-        type: "VENLY_MANAGED",
-        address: mintAddress(),
-        amlStatus: "APPROVED",
-        balances: [],
-      },
-    ]);
+    // The live API provisions the wallet as a side effect of account
+    // creation; contract 1.3.0 exposes it only as balance rows, and a fresh
+    // wallet holds nothing.
+    this.wallets.set(account.id as string, []);
     return toResponseShape("POST /accounts", account as Record<string, unknown>) as Account;
   }
 
@@ -351,7 +365,9 @@ export class FinanceMockStore {
     return this.virtualBankAccounts.filter((v) => v.accountId === ctx.params.accountId);
   }
 
-  createVirtualBankAccount(ctx: HandlerContext): VirtualBankAccount {
+  createVirtualBankAccount(
+    ctx: HandlerContext,
+  ): schemas["IdempotentResponseVirtualBankAccountResponse"] {
     const account = this.getAccount(ctx);
     const b = ctx.body as schemas["CreateVirtualBankAccountRequest"];
     const intentKey = `${account.id}:${ctx.idempotencyKey ?? b.idempotencyKey}`;
@@ -363,8 +379,11 @@ export class FinanceMockStore {
       }
       return toResponseShape(
         "POST /accounts/{accountId}/virtual-bank-accounts",
-        existing.result as Record<string, unknown>,
-      ) as VirtualBankAccount;
+        {
+          createdResourceId: (existing.result as VirtualBankAccount).id,
+          response: existing.result,
+        } as Record<string, unknown>,
+      ) as schemas["IdempotentResponseVirtualBankAccountResponse"];
     }
     if (account.status !== "ACTIVE" || account.kycStatus !== "VERIFIED") {
       this.virtualBankAccountIntents.set(intentKey, { fingerprint, outcome: "failed" });
@@ -388,10 +407,11 @@ export class FinanceMockStore {
     };
     this.virtualBankAccounts.push(vba);
     this.virtualBankAccountIntents.set(intentKey, { fingerprint, outcome: "succeeded", result: vba });
+    // Contract 1.3.0: creates return the idempotent wrapper, not the bare resource.
     return toResponseShape(
       "POST /accounts/{accountId}/virtual-bank-accounts",
-      vba as Record<string, unknown>,
-    ) as VirtualBankAccount;
+      { createdResourceId: vba.id, response: vba } as Record<string, unknown>,
+    ) as schemas["IdempotentResponseVirtualBankAccountResponse"];
   }
 
   getVirtualBankAccount(ctx: HandlerContext): VirtualBankAccount {
@@ -558,7 +578,7 @@ export class FinanceMockStore {
   }
 
   createPaymentSession(ctx: HandlerContext): PaymentSession {
-    const b = ctx.body as schemas["CreatePayInSessionRequest"];
+    const b = ctx.body as schemas["CreatePayInSessionInput"];
     const id = this.mintId();
     const session: PaymentSession = {
       id,
@@ -584,7 +604,7 @@ export class FinanceMockStore {
    * session - only POST, with the outcome delivered to `callbackUrl` - so a
    * caller has no other way to observe what this driver did.
    */
-  advancePaymentSession(id: string, to: schemas["PaymentSessionStatus"]): PaymentSession {
+  advancePaymentSession(id: string, to: NonNullable<schemas["PayInSessionDto"]["status"]>): PaymentSession {
     const session = this.paymentSessions.find((s) => s.id === id);
     if (!session) {
       throw new Error(`advancePaymentSession: no payment session with id ${id} in the mock store.`);
@@ -646,5 +666,309 @@ export class FinanceMockStore {
     // timestamp and their relative order becomes implementation-defined, which
     // is a flaky ordering guarantee rather than a stable one.
     return credits.reverse();
+  }
+
+  // ── Payouts (contract 1.3.0) ─────────────────────────────────────────
+  // Ceremony: register a beneficiary bank account on the PARTY, bind it to an
+  // ACCOUNT as a payout route, prove ownership of the funding wallet, then
+  // request payouts against the ACTIVE route. Where the contract is silent on
+  // transition semantics (who activates a bank account, when a route needs
+  // proof), the mock takes the least-opinionated reading and leaves the rest
+  // to explicit drivers – documented as MG-14 in the program's mock-gap ledger.
+
+  listPayoutBankAccounts(ctx: HandlerContext): PayoutBankAccount[] {
+    this.getParty(ctx);
+    return this.payoutBankAccounts.filter((a) => a.partyId === ctx.params.partyId);
+  }
+
+  getPayoutBankAccount(ctx: HandlerContext): PayoutBankAccount {
+    this.getParty(ctx);
+    const found = this.payoutBankAccounts.find(
+      (a) => a.id === ctx.params.id && a.partyId === ctx.params.partyId,
+    );
+    if (!found) {
+      notFound(ctx, "payout-bank-account-not-found", `No payout bank account with id ${ctx.params.id}.`);
+    }
+    return found;
+  }
+
+  registerPayoutBankAccount(ctx: HandlerContext): PayoutBankAccount {
+    const party = this.getParty(ctx);
+    const b = ctx.body as schemas["RegisterPayoutBankAccountRequest"];
+    // The response's `details` are MASKED rail details: the mock derives the
+    // mask from the submitted rail details rather than echoing them whole.
+    const details: schemas["MaskedRailDetailsDto"] = {};
+    if (b.railDetails?.iban) details.ibanLast4 = b.railDetails.iban.slice(-4);
+    if (b.railDetails?.bic) details.bic = b.railDetails.bic;
+    if (b.railDetails?.accountNumber) {
+      details.accountNumberLast4 = b.railDetails.accountNumber.slice(-4);
+    }
+    if (b.railDetails?.abaRoutingNumber) details.abaRoutingNumber = b.railDetails.abaRoutingNumber;
+    if (b.railDetails?.accountType) {
+      details.accountType = b.railDetails.accountType as schemas["MaskedRailDetailsDto"]["accountType"];
+    }
+    const bankAccount: PayoutBankAccount = {
+      id: this.mintId(),
+      partyId: party.id,
+      rail: b.rail as PayoutBankAccount["rail"],
+      fiatCurrency: b.fiatCurrency,
+      label: b.label,
+      accountHolderName: b.accountHolderName,
+      details,
+      bankName: b.bankName,
+      beneficiaryEmail: b.beneficiaryEmail,
+      beneficiaryPhoneNumber: b.beneficiaryPhoneNumber,
+      bankAddress: b.bankAddress,
+      // New beneficiary accounts start PENDING; activation is an operator
+      // decision the public API does not expose. Driver: advancePayoutBankAccount.
+      status: "PENDING",
+      createdAt: now(),
+    };
+    this.payoutBankAccounts.push(bankAccount);
+    return toResponseShape(
+      "POST /parties/{partyId}/payout-bank-accounts",
+      bankAccount as Record<string, unknown>,
+    ) as PayoutBankAccount;
+  }
+
+  listPayoutRoutes(ctx: HandlerContext): PayoutRoute[] {
+    this.getAccount(ctx);
+    return this.payoutRoutes.get(ctx.params.accountId) ?? [];
+  }
+
+  private getPayoutRoute(ctx: HandlerContext, routeId = ctx.params.routeId): PayoutRoute {
+    const routes = this.payoutRoutes.get(ctx.params.accountId) ?? [];
+    const route = routes.find((r) => r.id === routeId);
+    if (!route) notFound(ctx, "payout-route-not-found", `No payout route with id ${routeId}.`);
+    return route;
+  }
+
+  createPayoutRoute(ctx: HandlerContext): PayoutRoute {
+    const account = this.getAccount(ctx);
+    const b = ctx.body as schemas["CreatePayoutRouteRequest"];
+    const bankAccount = this.payoutBankAccounts.find((a) => a.id === b.payoutBankAccountId);
+    if (!bankAccount) {
+      badRequest(ctx, `No payout bank account with id ${b.payoutBankAccountId}.`);
+    }
+    if (bankAccount.status !== "ACTIVE") {
+      badRequest(ctx, "The payout bank account must be ACTIVE before a route can use it.");
+    }
+    const route: PayoutRoute = {
+      id: this.mintId(),
+      // A fresh route awaits proof that the integrator controls the wallet
+      // that will fund it; completeOwnershipProof moves it to ACTIVE.
+      status: "AWAITING_OWNERSHIP_PROOF",
+      depositAsset: b.depositAsset,
+      fiatCurrency: bankAccount.fiatCurrency,
+      depositAddress: mintAddress(),
+      createdAt: now(),
+    };
+    const routes = this.payoutRoutes.get(account.id as string) ?? [];
+    routes.push(route);
+    this.payoutRoutes.set(account.id as string, routes);
+    return toResponseShape(
+      "POST /accounts/{accountId}/payout-routes",
+      route as Record<string, unknown>,
+    ) as PayoutRoute;
+  }
+
+  private payoutProofWallets = new Map<string, string>();
+
+  preparePayoutOwnershipProof(ctx: HandlerContext): schemas["PayoutOwnershipProofDto"] {
+    this.getAccount(ctx);
+    const route = this.getPayoutRoute(ctx);
+    // The endpoint takes no body: the server derives the funding wallet and
+    // chain from the route. The mock mints one wallet per route and keeps it
+    // stable so a repeated prepare returns the same message.
+    let walletAddress = this.payoutProofWallets.get(route.id as string);
+    if (!walletAddress) {
+      walletAddress = mintAddress();
+      this.payoutProofWallets.set(route.id as string, walletAddress);
+    }
+    return {
+      walletAddress,
+      blockchain: route.depositAsset?.chain,
+      message: `venly-ownership-proof:${route.id}:${walletAddress}`,
+      signedOnUtc: now(),
+    };
+  }
+
+  completePayoutOwnershipProof(ctx: HandlerContext): PayoutRoute {
+    this.getAccount(ctx);
+    const route = this.getPayoutRoute(ctx);
+    if (route.status === "REJECTED") {
+      badRequest(ctx, "A REJECTED route cannot be activated.");
+    }
+    route.status = "ACTIVE";
+    route.updatedAt = now();
+    return route;
+  }
+
+  listPayouts(ctx: HandlerContext): Payout[] {
+    this.getAccount(ctx);
+    const rows = applyQueryFilters(
+      this.payouts.filter((p) => p.accountId === ctx.params.accountId) as Record<string, unknown>[],
+      ctx.query,
+      ["status"],
+    ) as Payout[];
+    // The list schema carries payoutRoute as PayoutRouteSummaryDto (id,
+    // depositAsset, fiatCurrency, status) - no beneficiary, no depositAddress.
+    // Those live on the detail (getPayout). Teaching the fat shape in a list
+    // would train integrators on fields the real list never returns.
+    return rows.map((p) => {
+      if (!p.payoutRoute) return p;
+      const route = [...this.payoutRoutes.values()]
+        .flat()
+        .find((r) => r.id === p.payoutRoute?.id);
+      return {
+        ...p,
+        payoutRoute: {
+          id: p.payoutRoute.id,
+          depositAsset: p.payoutRoute.depositAsset,
+          fiatCurrency: p.payoutRoute.fiatCurrency,
+          ...(route?.status !== undefined ? { status: route.status } : {}),
+        },
+      } as Payout;
+    });
+  }
+
+  getPayout(ctx: HandlerContext): Payout {
+    this.getAccount(ctx);
+    const payout = this.payouts.find(
+      (p) => p.id === ctx.params.payoutId && p.accountId === ctx.params.accountId,
+    );
+    if (!payout) notFound(ctx, "payout-not-found", `No payout with id ${ctx.params.payoutId}.`);
+    return payout;
+  }
+
+  requestPayout(ctx: HandlerContext): schemas["IdempotentResponsePayoutDto"] {
+    const account = this.getAccount(ctx);
+    const b = ctx.body as schemas["CreatePayoutRequest"];
+    const intentKey = `${account.id}:${ctx.idempotencyKey ?? b.idempotencyKey}`;
+    const fingerprint = requestFingerprint(b);
+    const existing = this.payoutIntents.get(intentKey);
+    if (existing) {
+      if (existing.outcome === "failed" || existing.fingerprint !== fingerprint || !existing.result) {
+        idempotencyConflict(ctx);
+      }
+      return toResponseShape("POST /accounts/{accountId}/payouts", {
+        createdResourceId: existing.result.id,
+        response: existing.result,
+      } as Record<string, unknown>) as schemas["IdempotentResponsePayoutDto"];
+    }
+    if (account.status !== "ACTIVE" || account.kycStatus !== "VERIFIED") {
+      this.payoutIntents.set(intentKey, { fingerprint, outcome: "failed" });
+      badRequest(ctx, "Payouts require an active, verified account.");
+    }
+    const routes = this.payoutRoutes.get(account.id as string) ?? [];
+    const route = routes.find((r) => r.id === b.payoutRouteId);
+    if (!route) {
+      this.payoutIntents.set(intentKey, { fingerprint, outcome: "failed" });
+      badRequest(ctx, `No payout route with id ${b.payoutRouteId} on this account.`);
+    }
+    if (route.status !== "ACTIVE") {
+      this.payoutIntents.set(intentKey, { fingerprint, outcome: "failed" });
+      badRequest(ctx, `Payouts require an ACTIVE route; ${route.id} is ${route.status}.`);
+    }
+    if (!(b.cryptoAmount > 0)) {
+      this.payoutIntents.set(intentKey, { fingerprint, outcome: "failed" });
+      badRequest(ctx, "cryptoAmount must be a positive number.");
+    }
+    const bankAccount = this.payoutBankAccounts.find(
+      (a) => a.fiatCurrency === route.fiatCurrency && a.status === "ACTIVE",
+    );
+    const payout: Payout = {
+      id: this.mintId(),
+      accountId: account.id,
+      payoutRoute: {
+        id: route.id,
+        depositAsset: route.depositAsset,
+        fiatCurrency: route.fiatCurrency,
+        depositAddress: route.depositAddress,
+        beneficiary: bankAccount && {
+          id: bankAccount.id,
+          partyId: bankAccount.partyId,
+          rail: bankAccount.rail,
+          label: bankAccount.label,
+          accountHolderName: bankAccount.accountHolderName,
+          bankName: bankAccount.bankName,
+          details: bankAccount.details,
+        },
+      },
+      rail: bankAccount?.rail,
+      cryptoAmount: b.cryptoAmount,
+      // The account's Venly-managed wallet funds the payout unless the
+      // integrator pushes to the route's deposit address themselves.
+      fundingMode: "PULL",
+      status: "REQUESTED",
+      requestedAt: now(),
+    };
+    this.payouts.push(payout);
+    this.payoutIntents.set(intentKey, { fingerprint, outcome: "succeeded", result: payout });
+    return toResponseShape("POST /accounts/{accountId}/payouts", {
+      createdResourceId: payout.id,
+      response: payout,
+    } as Record<string, unknown>) as schemas["IdempotentResponsePayoutDto"];
+  }
+
+  /**
+   * Walk a payout to any documented status. COMPLETED stamps completedAt, a
+   * send hash and – stablecoin par unless overridden – settledFiatAmount;
+   * REJECTED/FAILED/RETURNED stamp a failureReason. The override arguments
+   * are the integrator's seam, same doctrine as simulateInboundCredit.
+   */
+  advancePayout(
+    id: string,
+    to: NonNullable<Payout["status"]>,
+    opts?: { settledFiatAmount?: number; failureReason?: string; sendTxHash?: string },
+  ): Payout {
+    const payout = this.payouts.find((p) => p.id === id);
+    if (!payout) {
+      throw new Error(`advancePayout: no payout with id ${id} in the mock store.`);
+    }
+    payout.status = to;
+    if (to === "SENDING" || to === "PROVIDER_PROCESSING" || to === "COMPLETED") {
+      payout.sendTxHash = opts?.sendTxHash ?? payout.sendTxHash ?? mintHash();
+    }
+    if (to === "COMPLETED") {
+      payout.completedAt = now();
+      payout.settledFiatAmount = opts?.settledFiatAmount ?? payout.cryptoAmount;
+    }
+    if (to === "REJECTED" || to === "FAILED" || to === "RETURNED") {
+      payout.failureReason =
+        opts?.failureReason ??
+        payout.failureReason ??
+        (to === "RETURNED"
+          ? "Returned by the receiving bank"
+          : "Rejected by the payout provider");
+    }
+    return payout;
+  }
+
+  /** Activate (or disable) a beneficiary bank account – an operator action. */
+  advancePayoutBankAccount(
+    id: string,
+    to: NonNullable<PayoutBankAccount["status"]> = "ACTIVE",
+  ): PayoutBankAccount {
+    const bankAccount = this.payoutBankAccounts.find((a) => a.id === id);
+    if (!bankAccount) {
+      throw new Error(`advancePayoutBankAccount: no payout bank account with id ${id} in the mock store.`);
+    }
+    bankAccount.status = to;
+    bankAccount.updatedAt = now();
+    return bankAccount;
+  }
+
+  /** Walk a payout route to any documented status (e.g. simulate REJECTED). */
+  advancePayoutRoute(id: string, to: NonNullable<PayoutRoute["status"]>): PayoutRoute {
+    for (const routes of this.payoutRoutes.values()) {
+      const route = routes.find((r) => r.id === id);
+      if (route) {
+        route.status = to;
+        route.updatedAt = now();
+        return route;
+      }
+    }
+    throw new Error(`advancePayoutRoute: no payout route with id ${id} in the mock store.`);
   }
 }

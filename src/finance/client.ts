@@ -24,6 +24,17 @@ function unwrap<T>(res: Envelope<T>): T {
   return res.result as T;
 }
 
+/**
+ * Contract 1.3.0 wraps mutation results in an idempotent-response envelope
+ * `{ createdResourceId, response }`. The SDK resolves to the resource itself;
+ * `createdResourceId` duplicates `response.id`.
+ */
+type Idempotent<T> = { createdResourceId?: string; response?: T };
+
+function unwrapIdempotent<T>(res: Envelope<Idempotent<T>>): T {
+  return res.result?.response as T;
+}
+
 function unwrapPage<T>(res: Envelope<T[]>): Page<T> {
   return {
     items: Array.isArray(res.result) ? res.result : [],
@@ -50,7 +61,7 @@ function alignIdempotency<B extends { idempotencyKey?: string }>(
   };
 }
 
-export type FinanceEnvironment = "production" | "staging";
+export type FinanceEnvironment = "production" | "staging" | "qa";
 
 export interface VenlyFinanceCredentialOptions {
   clientId: string;
@@ -101,6 +112,12 @@ const FINANCE_URLS: Record<FinanceEnvironment, { base: string; token: string }> 
     token:
       "https://login-staging.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token",
   },
+  // QA runs the leading contract (the version this SDK is generated from);
+  // production trails it.
+  qa: {
+    base: "https://api-qa.venlyfinance.com/v1",
+    token: "https://login-qa.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token",
+  },
 };
 
 /**
@@ -128,6 +145,9 @@ export class VenlyFinanceClient {
   readonly transfers: TransfersResource;
   readonly permits: PermitsResource;
   readonly allowances: AllowancesResource;
+  readonly payouts: PayoutsResource;
+  readonly payoutRoutes: PayoutRoutesResource;
+  readonly payoutBankAccounts: PayoutBankAccountsResource;
 
   private readonly http: Transport;
 
@@ -168,6 +188,9 @@ export class VenlyFinanceClient {
     this.transfers = new TransfersResource(this.http);
     this.permits = new PermitsResource(this.http);
     this.allowances = new AllowancesResource(this.http);
+    this.payouts = new PayoutsResource(this.http);
+    this.payoutRoutes = new PayoutRoutesResource(this.http);
+    this.payoutBankAccounts = new PayoutBankAccountsResource(this.http);
   }
 
   /**
@@ -182,28 +205,28 @@ export class VenlyFinanceClient {
 export class PartiesResource {
   constructor(private readonly http: Transport) {}
 
-  list(query?: Query<"listParties">, opts?: CallOptions): Promise<Page<schemas["Party"]>> {
+  list(query?: Query<"listParties">, opts?: CallOptions): Promise<Page<schemas["PartyDto"]>> {
     return this.http
-      .request<Envelope<schemas["Party"][]>>("GET", "/parties", { query, ...opts })
+      .request<Envelope<schemas["PartyDto"][]>>("GET", "/parties", { query, ...opts })
       .then(unwrapPage);
   }
 
-  iterate(query?: Omit<Query<"listParties">, "page">): AsyncGenerator<schemas["Party"]> {
+  iterate(query?: Omit<Query<"listParties">, "page">): AsyncGenerator<schemas["PartyDto"]> {
     return iteratePages(
       (p: PageParams) => this.list({ ...query, page: p.page, size: p.size }),
       { size: query?.size },
     );
   }
 
-  create(body: schemas["CreatePartyRequest"], opts?: CallOptions): Promise<schemas["Party"]> {
+  create(body: schemas["CreatePartyRequest"], opts?: CallOptions): Promise<schemas["PartyDto"]> {
     return this.http
-      .request<Envelope<schemas["Party"]>>("POST", "/parties", { body, ...opts })
+      .request<Envelope<schemas["PartyDto"]>>("POST", "/parties", { body, ...opts })
       .then(unwrap);
   }
 
-  get(partyId: string, opts?: CallOptions): Promise<schemas["Party"]> {
+  get(partyId: string, opts?: CallOptions): Promise<schemas["PartyDto"]> {
     return this.http
-      .request<Envelope<schemas["Party"]>>("GET", `/parties/${partyId}`, opts)
+      .request<Envelope<schemas["PartyDto"]>>("GET", `/parties/${partyId}`, opts)
       .then(unwrap);
   }
 
@@ -211,9 +234,9 @@ export class PartiesResource {
     partyId: string,
     body: schemas["UpdatePartyRequest"],
     opts?: CallOptions,
-  ): Promise<schemas["Party"]> {
+  ): Promise<schemas["PartyDto"]> {
     return this.http
-      .request<Envelope<schemas["Party"]>>("PATCH", `/parties/${partyId}`, { body, ...opts })
+      .request<Envelope<schemas["PartyDto"]>>("PATCH", `/parties/${partyId}`, { body, ...opts })
       .then(unwrap);
   }
 
@@ -225,28 +248,28 @@ export class PartiesResource {
 export class AccountsResource {
   constructor(private readonly http: Transport) {}
 
-  list(query?: Query<"listAccounts">, opts?: CallOptions): Promise<Page<schemas["Account"]>> {
+  list(query?: Query<"listAccounts">, opts?: CallOptions): Promise<Page<schemas["AccountListItemDto"]>> {
     return this.http
-      .request<Envelope<schemas["Account"][]>>("GET", "/accounts", { query, ...opts })
+      .request<Envelope<schemas["AccountListItemDto"][]>>("GET", "/accounts", { query, ...opts })
       .then(unwrapPage);
   }
 
-  iterate(query?: Omit<Query<"listAccounts">, "page">): AsyncGenerator<schemas["Account"]> {
+  iterate(query?: Omit<Query<"listAccounts">, "page">): AsyncGenerator<schemas["AccountListItemDto"]> {
     return iteratePages(
       (p: PageParams) => this.list({ ...query, page: p.page, size: p.size }),
       { size: query?.size },
     );
   }
 
-  create(body: schemas["CreateAccountRequest"], opts?: CallOptions): Promise<schemas["Account"]> {
+  create(body: schemas["CreateAccountRequest"], opts?: CallOptions): Promise<schemas["AccountListItemDto"]> {
     return this.http
-      .request<Envelope<schemas["Account"]>>("POST", "/accounts", { body, ...opts })
+      .request<Envelope<schemas["AccountListItemDto"]>>("POST", "/accounts", { body, ...opts })
       .then(unwrap);
   }
 
-  get(accountId: string, opts?: CallOptions): Promise<schemas["Account"]> {
+  get(accountId: string, opts?: CallOptions): Promise<schemas["AccountListItemDto"]> {
     return this.http
-      .request<Envelope<schemas["Account"]>>("GET", `/accounts/${accountId}`, opts)
+      .request<Envelope<schemas["AccountListItemDto"]>>("GET", `/accounts/${accountId}`, opts)
       .then(unwrap);
   }
 
@@ -254,9 +277,9 @@ export class AccountsResource {
     accountId: string,
     query?: Query<"listPartyRoles">,
     opts?: CallOptions,
-  ): Promise<Page<schemas["PartyRole"]>> {
+  ): Promise<Page<schemas["PartyRoleDto"]>> {
     return this.http
-      .request<Envelope<schemas["PartyRole"][]>>("GET", `/accounts/${accountId}/party-roles`, {
+      .request<Envelope<schemas["PartyRoleDto"][]>>("GET", `/accounts/${accountId}/party-roles`, {
         query,
         ...opts,
       })
@@ -267,9 +290,9 @@ export class AccountsResource {
     accountId: string,
     body: schemas["AddPartyRoleRequest"],
     opts?: CallOptions,
-  ): Promise<schemas["PartyRole"]> {
+  ): Promise<schemas["PartyRoleDto"]> {
     return this.http
-      .request<Envelope<schemas["PartyRole"]>>("POST", `/accounts/${accountId}/party-roles`, {
+      .request<Envelope<schemas["PartyRoleDto"]>>("POST", `/accounts/${accountId}/party-roles`, {
         body,
         ...opts,
       })
@@ -292,9 +315,9 @@ export class WalletsResource {
     accountId: string,
     query?: Query<"listWallets">,
     opts?: CallOptions,
-  ): Promise<Page<schemas["Wallet"]>> {
+  ): Promise<Page<schemas["WalletBalanceDto"]>> {
     return this.http
-      .request<Envelope<schemas["Wallet"][]>>("GET", `/accounts/${accountId}/wallets`, {
+      .request<Envelope<schemas["WalletBalanceDto"][]>>("GET", `/accounts/${accountId}/wallets`, {
         query,
         ...opts,
       })
@@ -310,9 +333,9 @@ export class VirtualBankAccountsResource {
     accountId: string,
     query?: Query<"listVirtualBankAccounts">,
     opts?: CallOptions,
-  ): Promise<Page<schemas["VirtualBankAccount"]>> {
+  ): Promise<Page<schemas["VirtualBankAccountResponse"]>> {
     return this.http
-      .request<Envelope<schemas["VirtualBankAccount"][]>>(
+      .request<Envelope<schemas["VirtualBankAccountResponse"][]>>(
         "GET",
         `/accounts/${accountId}/virtual-bank-accounts`,
         { query, ...opts },
@@ -324,24 +347,24 @@ export class VirtualBankAccountsResource {
     accountId: string,
     body: schemas["CreateVirtualBankAccountRequest"],
     opts?: CallOptions,
-  ): Promise<schemas["VirtualBankAccount"]> {
+  ): Promise<schemas["VirtualBankAccountResponse"]> {
     const aligned = alignIdempotency(body, opts);
     return this.http
-      .request<Envelope<schemas["VirtualBankAccount"]>>(
+      .request<Envelope<Idempotent<schemas["VirtualBankAccountResponse"]>>>(
         "POST",
         `/accounts/${accountId}/virtual-bank-accounts`,
         { body: aligned.body, ...aligned.opts },
       )
-      .then(unwrap);
+      .then(unwrapIdempotent);
   }
 
   get(
     accountId: string,
     virtualBankAccountId: string,
     opts?: CallOptions,
-  ): Promise<schemas["VirtualBankAccount"]> {
+  ): Promise<schemas["VirtualBankAccountResponse"]> {
     return this.http
-      .request<Envelope<schemas["VirtualBankAccount"]>>(
+      .request<Envelope<schemas["VirtualBankAccountResponse"]>>(
         "GET",
         `/accounts/${accountId}/virtual-bank-accounts/${virtualBankAccountId}`,
         opts,
@@ -360,12 +383,12 @@ export class PaymentSessionsResource {
    */
   create(
     accountId: string,
-    body: schemas["CreatePayInSessionRequest"],
+    body: schemas["CreatePayInSessionInput"],
     opts?: CallOptions,
-  ): Promise<schemas["PaymentSession"]> {
+  ): Promise<schemas["PayInSessionDto"]> {
     const aligned = alignIdempotency(body, opts);
     return this.http
-      .request<Envelope<schemas["PaymentSession"]>>(
+      .request<Envelope<schemas["PayInSessionDto"]>>(
         "POST",
         `/accounts/${accountId}/fiat-to-crypto/payment-sessions`,
         { body: aligned.body, ...aligned.opts },
@@ -382,28 +405,29 @@ export class PaymentRequestsResource {
     accountId: string,
     body: schemas["CreatePaymentRequestInput"],
     opts?: CallOptions,
-  ): Promise<schemas["PaymentRequest"]> {
+  ): Promise<schemas["PaymentRequestDto"]> {
     const aligned = alignIdempotency(body, opts);
     return this.http
-      .request<Envelope<schemas["PaymentRequest"]>>(
+      .request<Envelope<Idempotent<schemas["PaymentRequestDto"]>>>(
         "POST",
         `/accounts/${accountId}/payment-requests`,
         { body: aligned.body, ...aligned.opts },
       )
-      .then(unwrap);
+      .then(unwrapIdempotent);
   }
 
   /** Create a payment request addressed by the card provider's own reference. */
   createByCardProvider(
     body: schemas["CardProviderPaymentRequestInput"],
     opts?: CallOptions,
-  ): Promise<schemas["PaymentRequest"]> {
+  ): Promise<schemas["PaymentRequestDto"]> {
     return this.http
-      .request<Envelope<schemas["PaymentRequest"]>>("POST", "/payment-requests", {
+      .request<Envelope<Idempotent<schemas["PaymentRequestDto"]>>>(
+        "POST", "/payment-requests", {
         body,
         ...opts,
       })
-      .then(unwrap);
+      .then(unwrapIdempotent);
   }
 
   /** Adjust the reserved amount of a payment request before settlement. */
@@ -411,15 +435,15 @@ export class PaymentRequestsResource {
     paymentRequestId: string,
     body: schemas["UpdatePaymentRequestInput"],
     opts?: CallOptions,
-  ): Promise<schemas["PaymentRequest"]> {
+  ): Promise<schemas["PaymentRequestDto"]> {
     const aligned = alignIdempotency(body, opts);
     return this.http
-      .request<Envelope<schemas["PaymentRequest"]>>(
+      .request<Envelope<Idempotent<schemas["PaymentRequestDto"]>>>(
         "PATCH",
         `/payment-requests/${paymentRequestId}`,
         { body: aligned.body, ...aligned.opts },
       )
-      .then(unwrap);
+      .then(unwrapIdempotent);
   }
 
   /**
@@ -431,29 +455,30 @@ export class PaymentRequestsResource {
     paymentRequestId: string,
     body: schemas["SettlePaymentRequestInput"],
     opts?: CallOptions,
-  ): Promise<schemas["PaymentRequest"]> {
+  ): Promise<schemas["PaymentRequestDto"]> {
     const aligned = alignIdempotency(body, opts);
     return this.http
-      .request<Envelope<schemas["PaymentRequest"]>>(
+      .request<Envelope<Idempotent<schemas["PaymentRequestDto"]>>>(
         "POST",
         `/payment-requests/${paymentRequestId}/settlements`,
         { body: aligned.body, ...aligned.opts },
       )
-      .then(unwrap);
+      .then(unwrapIdempotent);
   }
 
   /** Settle a payment request addressed by card-provider reference + externalId. */
   settleByReference(
     body: schemas["SettlePaymentRequestByReferenceInput"],
     opts?: CallOptions,
-  ): Promise<schemas["PaymentRequest"]> {
+  ): Promise<schemas["PaymentRequestDto"]> {
     const aligned = alignIdempotency(body, opts);
     return this.http
-      .request<Envelope<schemas["PaymentRequest"]>>("POST", "/payment-requests/settlements", {
+      .request<Envelope<Idempotent<schemas["PaymentRequestDto"]>>>(
+        "POST", "/payment-requests/settlements", {
         body: aligned.body,
         ...aligned.opts,
       })
-      .then(unwrap);
+      .then(unwrapIdempotent);
   }
 
   /** Reverse (void/refund) a payment request; reserved funds return to the account wallet. */
@@ -461,29 +486,30 @@ export class PaymentRequestsResource {
     paymentRequestId: string,
     body: schemas["ReversePaymentRequestInput"],
     opts?: CallOptions,
-  ): Promise<schemas["PaymentRequest"]> {
+  ): Promise<schemas["PaymentRequestDto"]> {
     const aligned = alignIdempotency(body, opts);
     return this.http
-      .request<Envelope<schemas["PaymentRequest"]>>(
+      .request<Envelope<Idempotent<schemas["PaymentRequestDto"]>>>(
         "POST",
         `/payment-requests/${paymentRequestId}/reversal`,
         { body: aligned.body, ...aligned.opts },
       )
-      .then(unwrap);
+      .then(unwrapIdempotent);
   }
 
   /** Reverse a payment request addressed by card-provider reference + externalId. */
   reverseByReference(
     body: schemas["ReversePaymentRequestByReferenceInput"],
     opts?: CallOptions,
-  ): Promise<schemas["PaymentRequest"]> {
+  ): Promise<schemas["PaymentRequestDto"]> {
     const aligned = alignIdempotency(body, opts);
     return this.http
-      .request<Envelope<schemas["PaymentRequest"]>>("POST", "/payment-requests/reversals", {
+      .request<Envelope<Idempotent<schemas["PaymentRequestDto"]>>>(
+        "POST", "/payment-requests/reversals", {
         body: aligned.body,
         ...aligned.opts,
       })
-      .then(unwrap);
+      .then(unwrapIdempotent);
   }
 }
 
@@ -494,10 +520,10 @@ export class TransfersResource {
     senderAccountId: string,
     body: schemas["CreateFiatTransferInput"],
     opts?: CallOptions,
-  ): Promise<schemas["Transfer"]> {
+  ): Promise<schemas["TransferRequestDto"]> {
     const aligned = alignIdempotency(body, opts);
     return this.http
-      .request<Envelope<schemas["Transfer"]>>(
+      .request<Envelope<schemas["TransferRequestDto"]>>(
         "POST",
         `/accounts/${senderAccountId}/transfers/fiat`,
         { body: aligned.body, ...aligned.opts },
@@ -509,10 +535,10 @@ export class TransfersResource {
     senderAccountId: string,
     body: schemas["CreateCryptoTransferInput"],
     opts?: CallOptions,
-  ): Promise<schemas["Transfer"]> {
+  ): Promise<schemas["TransferRequestDto"]> {
     const aligned = alignIdempotency(body, opts);
     return this.http
-      .request<Envelope<schemas["Transfer"]>>(
+      .request<Envelope<schemas["TransferRequestDto"]>>(
         "POST",
         `/accounts/${senderAccountId}/transfers/crypto`,
         { body: aligned.body, ...aligned.opts },
@@ -524,18 +550,18 @@ export class TransfersResource {
     accountId: string,
     query?: Query<"listTransfers">,
     opts?: CallOptions,
-  ): Promise<Page<schemas["Transfer"]>> {
+  ): Promise<Page<schemas["TransferRequestDto"]>> {
     return this.http
-      .request<Envelope<schemas["Transfer"][]>>("GET", `/accounts/${accountId}/transfers`, {
+      .request<Envelope<schemas["TransferRequestDto"][]>>("GET", `/accounts/${accountId}/transfers`, {
         query,
         ...opts,
       })
       .then(unwrapPage);
   }
 
-  get(accountId: string, transferId: string, opts?: CallOptions): Promise<schemas["Transfer"]> {
+  get(accountId: string, transferId: string, opts?: CallOptions): Promise<schemas["TransferRequestDto"]> {
     return this.http
-      .request<Envelope<schemas["Transfer"]>>(
+      .request<Envelope<schemas["TransferRequestDto"]>>(
         "GET",
         `/accounts/${accountId}/transfers/${transferId}`,
         opts,
@@ -553,9 +579,9 @@ export class PermitsResource {
     walletId: string,
     query?: Query<"getPermitMessages">,
     opts?: CallOptions,
-  ): Promise<schemas["PermitMessage"][]> {
+  ): Promise<schemas["PermitMessageDto"][]> {
     return this.http
-      .request<Envelope<schemas["PermitMessage"][]>>(
+      .request<Envelope<schemas["PermitMessageDto"][]>>(
         "GET",
         `/accounts/${accountId}/wallets/${walletId}/permits`,
         { query, ...opts },
@@ -569,9 +595,9 @@ export class PermitsResource {
     walletId: string,
     body: schemas["SubmitPermitRequest"],
     opts?: CallOptions,
-  ): Promise<schemas["PermitResult"]> {
+  ): Promise<schemas["PermitResultDto"]> {
     return this.http
-      .request<Envelope<schemas["PermitResult"]>>(
+      .request<Envelope<schemas["PermitResultDto"]>>(
         "POST",
         `/accounts/${accountId}/wallets/${walletId}/permits`,
         { body, ...opts },
@@ -588,13 +614,175 @@ export class AllowancesResource {
     walletId: string,
     query?: Query<"getWalletAllowances">,
     opts?: CallOptions,
-  ): Promise<schemas["Allowance"][]> {
+  ): Promise<schemas["AllowanceInfo"][]> {
     return this.http
-      .request<Envelope<schemas["Allowance"][]>>(
+      .request<Envelope<schemas["AllowanceInfo"][]>>(
         "GET",
         `/accounts/${accountId}/wallets/${walletId}/allowances`,
         { query, ...opts },
       )
       .then((res) => res.result ?? []);
+  }
+}
+
+/**
+ * Third-party payouts: crypto out of a Venly account, fiat into a registered
+ * beneficiary bank account. The ceremony is three resources deep:
+ * a bank account is registered on the PARTY (`payoutBankAccounts`), a payout
+ * ROUTE binds it to an ACCOUNT and a deposit asset (`payoutRoutes`, activated
+ * via wallet-ownership proof), and each payout then references the route.
+ */
+export class PayoutsResource {
+  constructor(private readonly http: Transport) {}
+
+  list(
+    accountId: string,
+    query?: Query<"listPayouts">,
+    opts?: CallOptions,
+  ): Promise<Page<schemas["PayoutDto"]>> {
+    return this.http
+      .request<Envelope<schemas["PayoutDto"][]>>("GET", `/accounts/${accountId}/payouts`, {
+        query,
+        ...opts,
+      })
+      .then(unwrapPage);
+  }
+
+  get(accountId: string, payoutId: string, opts?: CallOptions): Promise<schemas["PayoutDto"]> {
+    return this.http
+      .request<Envelope<schemas["PayoutDto"]>>(
+        "GET",
+        `/accounts/${accountId}/payouts/${payoutId}`,
+        opts,
+      )
+      .then(unwrap);
+  }
+
+  request(
+    accountId: string,
+    body: schemas["CreatePayoutRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutDto"]> {
+    const aligned = alignIdempotency(body, opts);
+    return this.http
+      .request<Envelope<Idempotent<schemas["PayoutDto"]>>>(
+        "POST",
+        `/accounts/${accountId}/payouts`,
+        { body: aligned.body, ...aligned.opts },
+      )
+      .then(unwrapIdempotent);
+  }
+}
+
+export class PayoutRoutesResource {
+  constructor(private readonly http: Transport) {}
+
+  list(
+    accountId: string,
+    query?: Query<"listRoutes">,
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutRouteDto"][]> {
+    return this.http
+      .request<Envelope<schemas["PayoutRouteDto"][]>>(
+        "GET",
+        `/accounts/${accountId}/payout-routes`,
+        { query, ...opts },
+      )
+      .then((res) => res.result ?? []);
+  }
+
+  create(
+    accountId: string,
+    body: schemas["CreatePayoutRouteRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutRouteDto"]> {
+    return this.http
+      .request<Envelope<schemas["PayoutRouteDto"]>>(
+        "POST",
+        `/accounts/${accountId}/payout-routes`,
+        { body, ...opts },
+      )
+      .then(unwrap);
+  }
+
+  /**
+   * Returns the message the route's funding wallet must sign. Takes no body:
+   * the server derives the wallet and chain from the route itself.
+   */
+  prepareOwnershipProof(
+    accountId: string,
+    routeId: string,
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutOwnershipProofDto"]> {
+    return this.http
+      .request<Envelope<schemas["PayoutOwnershipProofDto"]>>(
+        "POST",
+        `/accounts/${accountId}/payout-routes/${routeId}/ownership-proof/prepare`,
+        opts,
+      )
+      .then(unwrap);
+  }
+
+  /** Submits the signed message; on success the route becomes ACTIVE. */
+  completeOwnershipProof(
+    accountId: string,
+    routeId: string,
+    body: schemas["CompletePayoutOwnershipProofRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutRouteDto"]> {
+    return this.http
+      .request<Envelope<schemas["PayoutRouteDto"]>>(
+        "POST",
+        `/accounts/${accountId}/payout-routes/${routeId}/ownership-proof/complete`,
+        { body, ...opts },
+      )
+      .then(unwrap);
+  }
+}
+
+export class PayoutBankAccountsResource {
+  constructor(private readonly http: Transport) {}
+
+  list(
+    partyId: string,
+    query?: Query<"list">,
+    opts?: CallOptions,
+  ): Promise<Page<schemas["PayoutBankAccountDto"]>> {
+    return this.http
+      .request<Envelope<schemas["PayoutBankAccountDto"][]>>(
+        "GET",
+        `/parties/${partyId}/payout-bank-accounts`,
+        { query, ...opts },
+      )
+      .then(unwrapPage);
+  }
+
+  /** Registers a beneficiary bank account; it starts PENDING until reviewed. */
+  register(
+    partyId: string,
+    body: schemas["RegisterPayoutBankAccountRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutBankAccountDto"]> {
+    return this.http
+      .request<Envelope<schemas["PayoutBankAccountDto"]>>(
+        "POST",
+        `/parties/${partyId}/payout-bank-accounts`,
+        { body, ...opts },
+      )
+      .then(unwrap);
+  }
+
+  get(
+    partyId: string,
+    payoutBankAccountId: string,
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutBankAccountDto"]> {
+    return this.http
+      .request<Envelope<schemas["PayoutBankAccountDto"]>>(
+        "GET",
+        `/parties/${partyId}/payout-bank-accounts/${payoutBankAccountId}`,
+        opts,
+      )
+      .then(unwrap);
   }
 }

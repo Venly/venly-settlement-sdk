@@ -13,8 +13,12 @@ import { VenlyFinanceClient, FundflowClient, VenlyApiError } from "../dist/esm/i
 
 const clientId = process.env.VENLY_CLIENT_ID;
 const clientSecret = process.env.VENLY_CLIENT_SECRET;
+// qa runs the leading contract this SDK is generated from; staging is default.
+const environment = process.env.VENLY_ENV === "qa" ? "qa" : "staging";
 if (!clientId || !clientSecret) {
-  console.error("Set VENLY_CLIENT_ID and VENLY_CLIENT_SECRET (staging realm) and re-run.");
+  console.error(
+    "Set VENLY_CLIENT_ID and VENLY_CLIENT_SECRET (staging realm; add VENLY_ENV=qa for the qa realm) and re-run.",
+  );
   process.exit(2);
 }
 
@@ -32,8 +36,8 @@ async function check(name, fn) {
   }
 }
 
-const finance = new VenlyFinanceClient({ clientId, clientSecret, environment: "staging" });
-const fundflow = new FundflowClient({ clientId, clientSecret, environment: "staging" });
+const finance = new VenlyFinanceClient({ clientId, clientSecret, environment });
+const fundflow = new FundflowClient({ clientId, clientSecret, environment });
 
 // 1. auth + finance base URL + envelope + pagination
 await check("finance parties.list()", async () => {
@@ -53,10 +57,20 @@ await check("finance accounts.list()", async () => {
   return `${page.pagination?.numberOfElements ?? page.items.length} item(s) on page 1`;
 });
 
+// 4. payout surface exists on this environment's contract (read-only; qa has
+// it, production may trail - a 404 here is a contract-version finding, not
+// an auth failure).
+await check("finance payouts route reachable", async () => {
+  const accounts = await finance.accounts.list({ size: 1 });
+  if (!accounts.items.length) return "no accounts to probe payouts with (skipped)";
+  const payouts = await finance.payouts.list(accounts.items[0].id, { size: 1 });
+  return `payout surface answered; ${payouts.pagination?.numberOfElements ?? payouts.items.length} payout(s)`;
+});
+
 let failed = 0;
 for (const [name, verdict, detail] of results) {
   if (verdict === "FAIL") failed += 1;
   console.log(`${verdict.padEnd(4)} ${name} - ${detail}`);
 }
-console.log(failed === 0 ? "\nSMOKE TEST PASSED: SDK validated against staging." : `\n${failed} check(s) failed.`);
+console.log(failed === 0 ? `\nSMOKE TEST PASSED: SDK validated against ${environment}.` : `\n${failed} check(s) failed.`);
 process.exit(failed === 0 ? 0 : 1);
