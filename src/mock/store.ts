@@ -189,6 +189,7 @@ export class FinanceMockStore {
     this.payouts = s.payouts;
     this.virtualBankAccountIntents.clear();
     this.payoutIntents.clear();
+    this.payoutProofWallets.clear();
     this.counter = 0;
   }
 
@@ -771,14 +772,23 @@ export class FinanceMockStore {
     ) as PayoutRoute;
   }
 
-  preparePayoutOwnershipProof(ctx: HandlerContext): schemas["PrepareOwnershipProofResponse"] {
+  private payoutProofWallets = new Map<string, string>();
+
+  preparePayoutOwnershipProof(ctx: HandlerContext): schemas["PayoutOwnershipProofDto"] {
     this.getAccount(ctx);
     const route = this.getPayoutRoute(ctx);
-    const b = ctx.body as schemas["PrepareOwnershipProofRequest"];
+    // The endpoint takes no body: the server derives the funding wallet and
+    // chain from the route. The mock mints one wallet per route and keeps it
+    // stable so a repeated prepare returns the same message.
+    let walletAddress = this.payoutProofWallets.get(route.id as string);
+    if (!walletAddress) {
+      walletAddress = mintAddress();
+      this.payoutProofWallets.set(route.id as string, walletAddress);
+    }
     return {
-      walletAddress: b.walletAddress,
-      blockchain: b.blockchain,
-      message: `venly-ownership-proof:${route.id}:${b.walletAddress}`,
+      walletAddress,
+      blockchain: route.depositAsset?.chain,
+      message: `venly-ownership-proof:${route.id}:${walletAddress}`,
       signedOnUtc: now(),
     };
   }
@@ -796,11 +806,30 @@ export class FinanceMockStore {
 
   listPayouts(ctx: HandlerContext): Payout[] {
     this.getAccount(ctx);
-    return applyQueryFilters(
+    const rows = applyQueryFilters(
       this.payouts.filter((p) => p.accountId === ctx.params.accountId) as Record<string, unknown>[],
       ctx.query,
       ["status"],
     ) as Payout[];
+    // The list schema carries payoutRoute as PayoutRouteSummaryDto (id,
+    // depositAsset, fiatCurrency, status) - no beneficiary, no depositAddress.
+    // Those live on the detail (getPayout). Teaching the fat shape in a list
+    // would train integrators on fields the real list never returns.
+    return rows.map((p) => {
+      if (!p.payoutRoute) return p;
+      const route = [...this.payoutRoutes.values()]
+        .flat()
+        .find((r) => r.id === p.payoutRoute?.id);
+      return {
+        ...p,
+        payoutRoute: {
+          id: p.payoutRoute.id,
+          depositAsset: p.payoutRoute.depositAsset,
+          fiatCurrency: p.payoutRoute.fiatCurrency,
+          ...(route?.status !== undefined ? { status: route.status } : {}),
+        },
+      } as Payout;
+    });
   }
 
   getPayout(ctx: HandlerContext): Payout {

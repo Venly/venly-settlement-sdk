@@ -705,18 +705,20 @@ export class PayoutRoutesResource {
       .then(unwrap);
   }
 
-  /** Returns the message the route's funding wallet must sign. */
+  /**
+   * Returns the message the route's funding wallet must sign. Takes no body:
+   * the server derives the wallet and chain from the route itself.
+   */
   prepareOwnershipProof(
     accountId: string,
     routeId: string,
-    body: schemas["PrepareOwnershipProofRequest"],
     opts?: CallOptions,
-  ): Promise<schemas["PrepareOwnershipProofResponse"]> {
+  ): Promise<schemas["PayoutOwnershipProofDto"]> {
     return this.http
-      .request<Envelope<schemas["PrepareOwnershipProofResponse"]>>(
+      .request<Envelope<schemas["PayoutOwnershipProofDto"]>>(
         "POST",
         `/accounts/${accountId}/payout-routes/${routeId}/ownership-proof/prepare`,
-        { body, ...opts },
+        opts,
       )
       .then(unwrap);
   }

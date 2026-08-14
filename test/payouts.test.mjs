@@ -22,7 +22,12 @@ test("payouts: seeds cover the happy end, in-flight, and money that came back", 
   const done = page.items.find((p) => p.status === "COMPLETED");
   assert.ok(done.completedAt, "COMPLETED carries completedAt");
   assert.equal(done.settledFiatAmount, 1500, "COMPLETED carries the settled fiat amount");
-  assert.ok(done.payoutRoute?.beneficiary?.details?.ibanLast4, "beneficiary details are masked");
+  // List rows carry the route SUMMARY only; beneficiary lives on the detail.
+  assert.equal(done.payoutRoute?.beneficiary, undefined, "no beneficiary on list rows");
+  assert.equal(done.payoutRoute?.depositAddress, undefined, "no deposit address on list rows");
+  assert.equal(done.payoutRoute?.status, "ACTIVE", "summary carries the route status");
+  const detail = await f.payouts.get(PAYOUTS_ACCT, done.id);
+  assert.ok(detail.payoutRoute?.beneficiary?.details?.ibanLast4, "detail carries the masked beneficiary");
 
   const inFlight = page.items.find((p) => p.status === "PROVIDER_PROCESSING");
   assert.ok(inFlight.sendTxHash, "in-flight payout shows the send transaction");
@@ -78,11 +83,12 @@ test("payouts: the full ceremony from bank account to COMPLETED", async () => {
   );
 
   // 5. Ownership proof: prepare returns the message to sign, complete activates.
-  const prep = await f.payoutRoutes.prepareOwnershipProof(PAYOUTS_ACCT, route.id, {
-    walletAddress: "0x9f8b2ca4df2f3cbb3a2f6dc38c1ef4d1b6c1e8a2",
-    blockchain: "BASE",
-  });
+  // Prepare takes no body: the server derives wallet + chain from the route.
+  const prep = await f.payoutRoutes.prepareOwnershipProof(PAYOUTS_ACCT, route.id);
   assert.ok(prep.message.includes(route.id), "the message binds to this route");
+  assert.equal(prep.blockchain, "BASE", "chain comes from the route's deposit asset");
+  const again = await f.payoutRoutes.prepareOwnershipProof(PAYOUTS_ACCT, route.id);
+  assert.equal(again.message, prep.message, "repeated prepare is stable");
   const active = await f.payoutRoutes.completeOwnershipProof(PAYOUTS_ACCT, route.id, {
     message: prep.message,
     signature: "0xsigned",
