@@ -161,9 +161,8 @@ const route = await venly.payoutRoutes.create(account.id!, {
   depositAsset: { chain: "BASE", name: "USDC" },
 }); // AWAITING_OWNERSHIP_PROOF until the funding wallet signs
 
-const proof = await venly.payoutRoutes.prepareOwnershipProof(account.id!, route.id!, {
-  walletAddress: "0x...", blockchain: "BASE",
-});
+// No body: the server derives the funding wallet and chain from the route.
+const proof = await venly.payoutRoutes.prepareOwnershipProof(account.id!, route.id!);
 await venly.payoutRoutes.completeOwnershipProof(account.id!, route.id!, {
   message: proof.message!, signature: "0x...",
 }); // route ACTIVE
