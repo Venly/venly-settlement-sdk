@@ -3,3 +3,4 @@ dist/
 
 # local credentials for the staging/qa smoke
 .env
+*.tgz

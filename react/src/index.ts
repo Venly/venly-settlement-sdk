@@ -104,5 +104,10 @@ export type {
   RampRequest,
   Transfer,
   VirtualBankAccount,
-  Wallet,
+  // Contract 1.3.0: the wallet wrapper left the public surface; listWallets
+  // returns per-asset balance rows.
+  WalletBalance,
+  Payout,
+  PayoutRoute,
+  PayoutBankAccount,
 } from "@venlyfinance/sdk";
