@@ -493,6 +493,132 @@ export const allowances = [
   },
 ] satisfies schemas["AllowanceInfo"][];
 
+// ── Payout surface seeds (contract 1.3.0) ────────────────────────────────
+// Beneficiary bank accounts live on the PARTY. The org party (Acme) carries
+// one ACTIVE SEPA account and one PENDING US_ACH account, so both the usable
+// and the still-under-review states render.
+export const payoutBankAccounts = [
+  {
+    id: "pb8f2a10-bbbb-4e10-9cf2-000000000001",
+    partyId: parties[1].id,
+    rail: "SEPA",
+    fiatCurrency: "EUR",
+    label: "Acme supplier account",
+    accountHolderName: "Acme Corporation B.V.",
+    details: { ibanLast4: "3000", bic: "DEUTDEDBFRA" },
+    bankName: "Example Bank N.V.",
+    status: "ACTIVE",
+    createdAt: "2026-07-05T09:00:00Z",
+  },
+  {
+    id: "pb8f2a10-bbbb-4e10-9cf2-000000000002",
+    partyId: parties[1].id,
+    rail: "US_ACH",
+    fiatCurrency: "USD",
+    label: "US contractor account",
+    accountHolderName: "Acme Corporation B.V.",
+    details: { accountNumberLast4: "6789", abaRoutingNumber: "021000021", accountType: "CHECKING" },
+    bankName: "Example Bank USA Inc.",
+    status: "PENDING",
+    createdAt: "2026-08-01T14:30:00Z",
+  },
+] satisfies schemas["PayoutBankAccountDto"][];
+
+// Routes bind a bank account to an ACCOUNT and a deposit asset. The payouts
+// account carries one ACTIVE route (usable) and one still awaiting proof.
+export const payoutRoutes = [
+  {
+    id: "pr9e3b21-cccc-4f20-8da3-000000000001",
+    status: "ACTIVE",
+    depositAsset: { chain: "BASE", name: "USDC" },
+    fiatCurrency: "EUR",
+    depositAddress: "0x4df2f3cbb3a2f6dc38c1ef4d1b6c1e8a29f8b2ca",
+    createdAt: "2026-07-06T10:00:00Z",
+    updatedAt: "2026-07-06T10:20:00Z",
+  },
+  {
+    id: "pr9e3b21-cccc-4f20-8da3-000000000002",
+    status: "AWAITING_OWNERSHIP_PROOF",
+    depositAsset: { chain: "BASE", name: "USDT" },
+    fiatCurrency: "EUR",
+    depositAddress: "0xb3a2f6dc38c1ef4d1b6c1e8a29f8b2ca4df2f3cb",
+    createdAt: "2026-08-02T08:00:00Z",
+  },
+] satisfies schemas["PayoutRouteDto"][];
+
+const payoutRouteSeeds: Record<string, schemas["PayoutRouteDto"][]> = {
+  [accounts[4].id]: payoutRoutes,
+};
+
+const seededBeneficiary = {
+  id: payoutBankAccounts[0].id,
+  partyId: payoutBankAccounts[0].partyId,
+  rail: payoutBankAccounts[0].rail,
+  label: payoutBankAccounts[0].label,
+  accountHolderName: payoutBankAccounts[0].accountHolderName,
+  bankName: payoutBankAccounts[0].bankName,
+  details: payoutBankAccounts[0].details,
+} satisfies schemas["PayoutBeneficiaryDto"];
+
+// Payout history on the payouts account: the happy end, an in-flight state a
+// UI must poll, and the state integrators forget – money that came BACK.
+export const payouts = [
+  {
+    id: "po1d4c32-dddd-4a30-9eb4-000000000001",
+    accountId: accounts[4].id,
+    payoutRoute: {
+      id: payoutRoutes[0].id,
+      depositAsset: payoutRoutes[0].depositAsset,
+      fiatCurrency: payoutRoutes[0].fiatCurrency,
+      depositAddress: payoutRoutes[0].depositAddress,
+      beneficiary: seededBeneficiary,
+    },
+    rail: "SEPA",
+    cryptoAmount: 1500,
+    settledFiatAmount: 1500,
+    fundingMode: "PULL",
+    status: "COMPLETED",
+    sendTxHash: "0x7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2a1b2c3d4e5f6a",
+    requestedAt: "2026-07-15T09:30:00Z",
+    completedAt: "2026-07-15T11:02:00Z",
+  },
+  {
+    id: "po1d4c32-dddd-4a30-9eb4-000000000002",
+    accountId: accounts[4].id,
+    payoutRoute: {
+      id: payoutRoutes[0].id,
+      depositAsset: payoutRoutes[0].depositAsset,
+      fiatCurrency: payoutRoutes[0].fiatCurrency,
+      depositAddress: payoutRoutes[0].depositAddress,
+      beneficiary: seededBeneficiary,
+    },
+    rail: "SEPA",
+    cryptoAmount: 820.5,
+    fundingMode: "PULL",
+    status: "PROVIDER_PROCESSING",
+    sendTxHash: "0x9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2a1b2c3d4e5f6a7b8c",
+    requestedAt: "2026-08-11T16:45:00Z",
+  },
+  {
+    id: "po1d4c32-dddd-4a30-9eb4-000000000003",
+    accountId: accounts[4].id,
+    payoutRoute: {
+      id: payoutRoutes[0].id,
+      depositAsset: payoutRoutes[0].depositAsset,
+      fiatCurrency: payoutRoutes[0].fiatCurrency,
+      depositAddress: payoutRoutes[0].depositAddress,
+      beneficiary: seededBeneficiary,
+    },
+    rail: "SEPA",
+    cryptoAmount: 300,
+    fundingMode: "PULL",
+    status: "RETURNED",
+    sendTxHash: "0x0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2a1b2c3d4e5f6a7b8c9d",
+    failureReason: "Returned by the receiving bank: account closed",
+    requestedAt: "2026-07-28T10:15:00Z",
+  },
+] satisfies schemas["PayoutDto"][];
+
 export const financeSeeds: FinanceSeeds = {
   parties,
   accounts,
@@ -500,6 +626,9 @@ export const financeSeeds: FinanceSeeds = {
   partyRole,
   virtualBankAccounts,
   transfers,
+  payoutBankAccounts,
+  payoutRoutes: payoutRouteSeeds,
+  payouts,
 };
 
 /** Route table over a stateful store: creates persist, gets read back. */
@@ -606,6 +735,47 @@ export function createFinanceRoutes(store: FinanceMockStore): RouteTable {
     "GET /accounts/{accountId}/wallets/{walletId}/permits": { kind: "array", items: permitMessages },
     "POST /accounts/{accountId}/wallets/{walletId}/permits": { kind: "create", base: permitResult },
     "GET /accounts/{accountId}/wallets/{walletId}/allowances": { kind: "array", items: allowances },
+    // Payout surface (contract 1.3.0)
+    "GET /parties/{partyId}/payout-bank-accounts": {
+      kind: "handler",
+      handle: (ctx) => listEnvelope(store.listPayoutBankAccounts(ctx), ctx.query),
+    },
+    "POST /parties/{partyId}/payout-bank-accounts": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.registerPayoutBankAccount(ctx)),
+    },
+    "GET /parties/{partyId}/payout-bank-accounts/{id}": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.getPayoutBankAccount(ctx)),
+    },
+    "GET /accounts/{accountId}/payout-routes": {
+      kind: "handler",
+      handle: (ctx) => listEnvelope(store.listPayoutRoutes(ctx), ctx.query),
+    },
+    "POST /accounts/{accountId}/payout-routes": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.createPayoutRoute(ctx)),
+    },
+    "POST /accounts/{accountId}/payout-routes/{routeId}/ownership-proof/prepare": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.preparePayoutOwnershipProof(ctx)),
+    },
+    "POST /accounts/{accountId}/payout-routes/{routeId}/ownership-proof/complete": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.completePayoutOwnershipProof(ctx)),
+    },
+    "GET /accounts/{accountId}/payouts": {
+      kind: "handler",
+      handle: (ctx) => listEnvelope(store.listPayouts(ctx), ctx.query),
+    },
+    "POST /accounts/{accountId}/payouts": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.requestPayout(ctx)),
+    },
+    "GET /accounts/{accountId}/payouts/{payoutId}": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.getPayout(ctx)),
+    },
   };
 }
 
@@ -631,6 +801,22 @@ export interface VenlyFinanceMock extends VenlyMock {
   simulateInboundCredit(vbaId: string, amount: number, referenceCode?: string | null): MockInboundCredit;
   /** Mock-only: list inbound credits, optionally filtered by VBA and newest first. */
   listInboundCredits(vbaId?: string): MockInboundCredit[];
+  /** Walk a payout to any documented status (COMPLETED stamps settlement fields). */
+  advancePayout(
+    id: string,
+    to: NonNullable<schemas["PayoutDto"]["status"]>,
+    opts?: { settledFiatAmount?: number; failureReason?: string; sendTxHash?: string },
+  ): schemas["PayoutDto"];
+  /** Activate or disable a beneficiary bank account (operator action). */
+  advancePayoutBankAccount(
+    id: string,
+    to?: NonNullable<schemas["PayoutBankAccountDto"]["status"]>,
+  ): schemas["PayoutBankAccountDto"];
+  /** Walk a payout route to any documented status. */
+  advancePayoutRoute(
+    id: string,
+    to: NonNullable<schemas["PayoutRouteDto"]["status"]>,
+  ): schemas["PayoutRouteDto"];
   /** Restore the seed fixtures and clear the call log. */
   reset(): void;
 }
@@ -665,6 +851,28 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
 
   listInboundCredits(vbaId?: string): MockInboundCredit[] {
     return this.store.listInboundCredits(vbaId);
+  }
+
+  advancePayout(
+    id: string,
+    to: NonNullable<schemas["PayoutDto"]["status"]>,
+    opts?: { settledFiatAmount?: number; failureReason?: string; sendTxHash?: string },
+  ): schemas["PayoutDto"] {
+    return this.store.advancePayout(id, to, opts);
+  }
+
+  advancePayoutBankAccount(
+    id: string,
+    to: NonNullable<schemas["PayoutBankAccountDto"]["status"]> = "ACTIVE",
+  ): schemas["PayoutBankAccountDto"] {
+    return this.store.advancePayoutBankAccount(id, to);
+  }
+
+  advancePayoutRoute(
+    id: string,
+    to: NonNullable<schemas["PayoutRouteDto"]["status"]>,
+  ): schemas["PayoutRouteDto"] {
+    return this.store.advancePayoutRoute(id, to);
   }
 
   reset(): void {

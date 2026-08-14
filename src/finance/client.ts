@@ -61,7 +61,7 @@ function alignIdempotency<B extends { idempotencyKey?: string }>(
   };
 }
 
-export type FinanceEnvironment = "production" | "staging";
+export type FinanceEnvironment = "production" | "staging" | "qa";
 
 export interface VenlyFinanceCredentialOptions {
   clientId: string;
@@ -112,6 +112,12 @@ const FINANCE_URLS: Record<FinanceEnvironment, { base: string; token: string }> 
     token:
       "https://login-staging.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token",
   },
+  // QA runs the leading contract (the version this SDK is generated from);
+  // production trails it.
+  qa: {
+    base: "https://api-qa.venlyfinance.com/v1",
+    token: "https://login-qa.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token",
+  },
 };
 
 /**
@@ -139,6 +145,9 @@ export class VenlyFinanceClient {
   readonly transfers: TransfersResource;
   readonly permits: PermitsResource;
   readonly allowances: AllowancesResource;
+  readonly payouts: PayoutsResource;
+  readonly payoutRoutes: PayoutRoutesResource;
+  readonly payoutBankAccounts: PayoutBankAccountsResource;
 
   private readonly http: Transport;
 
@@ -179,6 +188,9 @@ export class VenlyFinanceClient {
     this.transfers = new TransfersResource(this.http);
     this.permits = new PermitsResource(this.http);
     this.allowances = new AllowancesResource(this.http);
+    this.payouts = new PayoutsResource(this.http);
+    this.payoutRoutes = new PayoutRoutesResource(this.http);
+    this.payoutBankAccounts = new PayoutBankAccountsResource(this.http);
   }
 
   /**
@@ -610,5 +622,165 @@ export class AllowancesResource {
         { query, ...opts },
       )
       .then((res) => res.result ?? []);
+  }
+}
+
+/**
+ * Third-party payouts: crypto out of a Venly account, fiat into a registered
+ * beneficiary bank account. The ceremony is three resources deep:
+ * a bank account is registered on the PARTY (`payoutBankAccounts`), a payout
+ * ROUTE binds it to an ACCOUNT and a deposit asset (`payoutRoutes`, activated
+ * via wallet-ownership proof), and each payout then references the route.
+ */
+export class PayoutsResource {
+  constructor(private readonly http: Transport) {}
+
+  list(
+    accountId: string,
+    query?: Query<"listPayouts">,
+    opts?: CallOptions,
+  ): Promise<Page<schemas["PayoutDto"]>> {
+    return this.http
+      .request<Envelope<schemas["PayoutDto"][]>>("GET", `/accounts/${accountId}/payouts`, {
+        query,
+        ...opts,
+      })
+      .then(unwrapPage);
+  }
+
+  get(accountId: string, payoutId: string, opts?: CallOptions): Promise<schemas["PayoutDto"]> {
+    return this.http
+      .request<Envelope<schemas["PayoutDto"]>>(
+        "GET",
+        `/accounts/${accountId}/payouts/${payoutId}`,
+        opts,
+      )
+      .then(unwrap);
+  }
+
+  request(
+    accountId: string,
+    body: schemas["CreatePayoutRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutDto"]> {
+    const aligned = alignIdempotency(body, opts);
+    return this.http
+      .request<Envelope<Idempotent<schemas["PayoutDto"]>>>(
+        "POST",
+        `/accounts/${accountId}/payouts`,
+        { body: aligned.body, ...aligned.opts },
+      )
+      .then(unwrapIdempotent);
+  }
+}
+
+export class PayoutRoutesResource {
+  constructor(private readonly http: Transport) {}
+
+  list(
+    accountId: string,
+    query?: Query<"listRoutes">,
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutRouteDto"][]> {
+    return this.http
+      .request<Envelope<schemas["PayoutRouteDto"][]>>(
+        "GET",
+        `/accounts/${accountId}/payout-routes`,
+        { query, ...opts },
+      )
+      .then((res) => res.result ?? []);
+  }
+
+  create(
+    accountId: string,
+    body: schemas["CreatePayoutRouteRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutRouteDto"]> {
+    return this.http
+      .request<Envelope<schemas["PayoutRouteDto"]>>(
+        "POST",
+        `/accounts/${accountId}/payout-routes`,
+        { body, ...opts },
+      )
+      .then(unwrap);
+  }
+
+  /** Returns the message the route's funding wallet must sign. */
+  prepareOwnershipProof(
+    accountId: string,
+    routeId: string,
+    body: schemas["PrepareOwnershipProofRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["PrepareOwnershipProofResponse"]> {
+    return this.http
+      .request<Envelope<schemas["PrepareOwnershipProofResponse"]>>(
+        "POST",
+        `/accounts/${accountId}/payout-routes/${routeId}/ownership-proof/prepare`,
+        { body, ...opts },
+      )
+      .then(unwrap);
+  }
+
+  /** Submits the signed message; on success the route becomes ACTIVE. */
+  completeOwnershipProof(
+    accountId: string,
+    routeId: string,
+    body: schemas["CompletePayoutOwnershipProofRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutRouteDto"]> {
+    return this.http
+      .request<Envelope<schemas["PayoutRouteDto"]>>(
+        "POST",
+        `/accounts/${accountId}/payout-routes/${routeId}/ownership-proof/complete`,
+        { body, ...opts },
+      )
+      .then(unwrap);
+  }
+}
+
+export class PayoutBankAccountsResource {
+  constructor(private readonly http: Transport) {}
+
+  list(
+    partyId: string,
+    query?: Query<"list">,
+    opts?: CallOptions,
+  ): Promise<Page<schemas["PayoutBankAccountDto"]>> {
+    return this.http
+      .request<Envelope<schemas["PayoutBankAccountDto"][]>>(
+        "GET",
+        `/parties/${partyId}/payout-bank-accounts`,
+        { query, ...opts },
+      )
+      .then(unwrapPage);
+  }
+
+  /** Registers a beneficiary bank account; it starts PENDING until reviewed. */
+  register(
+    partyId: string,
+    body: schemas["RegisterPayoutBankAccountRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutBankAccountDto"]> {
+    return this.http
+      .request<Envelope<schemas["PayoutBankAccountDto"]>>(
+        "POST",
+        `/parties/${partyId}/payout-bank-accounts`,
+        { body, ...opts },
+      )
+      .then(unwrap);
+  }
+
+  get(
+    partyId: string,
+    payoutBankAccountId: string,
+    opts?: CallOptions,
+  ): Promise<schemas["PayoutBankAccountDto"]> {
+    return this.http
+      .request<Envelope<schemas["PayoutBankAccountDto"]>>(
+        "GET",
+        `/parties/${partyId}/payout-bank-accounts/${payoutBankAccountId}`,
+        opts,
+      )
+      .then(unwrap);
   }
 }
