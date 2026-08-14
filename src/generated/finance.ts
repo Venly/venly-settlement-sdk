@@ -4,166 +4,44 @@
  */
 
 export interface paths {
-    "/parties": {
+    "/webhooks/{webhookId}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * List all parties
-         * @description **Step 1 of the Finance API Flow**
-         *
-         *     Retrieves all parties (Individuals and Organisations) in your system. Parties are the foundation of the Finance API - they represent the people or organizations that will hold accounts.
-         *
-         *     **Use this endpoint to:**
-         *     - View all registered customers and organizations
-         *     - Search for existing parties before creating accounts
-         *     - Audit party records and their KYC/KYB status
-         *
-         *     **Next Step:** Use the party ID to create an account.
-         */
-        get: operations["listParties"];
-        put?: never;
-        /**
-         * Create a new party
-         * @description **Step 1 of the Finance API Flow**
-         *
-         *     Creates a new party (Individual or Organisation). This is the first step in onboarding a customer or organization to the Finance platform.
-         *
-         *     **Party Types:**
-         *     - **INDIVIDUAL**: Natural persons. Requires firstName, lastName.
-         *     - **ORGANISATION**: Companies or businesses. Requires name, optionally vatNumber.
-         *
-         *     **Next Step:** Use the returned party ID to create an account.
-         */
-        post: operations["createParty"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/parties/{partyId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get party details
-         * @description Retrieves detailed information about a specific party by ID.
-         *
-         *     **Returns:**
-         *     - Complete party information including personal/organization details
-         *     - Current KYC/KYB status
-         *     - Address information
-         *     - Party status (ACTIVE, SUSPENDED, BLOCKED)
-         */
-        get: operations["getParty"];
-        put?: never;
+        /** Requires Authority: view:webhooks */
+        get: operations["getWebhook"];
+        /** Requires Authority: manage:webhooks */
+        put: operations["updateWebhook"];
         post?: never;
-        /**
-         * Delete party
-         * @description Permanently deletes a party. Only allowed when:
-         *     - Party has no associated accounts
-         *     - Party is not in a blocked status
-         */
-        delete: operations["deleteParty"];
+        /** Requires Authority: manage:webhooks */
+        delete: operations["deleteWebhook"];
         options?: never;
         head?: never;
-        /**
-         * Update party details
-         * @description Updates an existing party's information. Only provided fields will be updated.
-         *
-         *     **For Individuals:** Can update firstName, lastName, and address
-         *     **For Organisations:** Can update name, vatNumber, and address
-         *
-         *     **Optimistic locking:** You must send the current `version` of the party. If the
-         *     version is stale the request fails with `409 concurrent-modification` — re-fetch and retry.
-         *
-         *     **Note:** Cannot change partyType after creation. KYC/KYB status is managed separately.
-         */
-        patch: operations["updateParty"];
+        patch?: never;
         trace?: never;
     };
-    "/accounts": {
+    "/webhooks": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List all accounts */
-        get: operations["listAccounts"];
+        /** Requires Authority: view:webhooks */
+        get: operations["listWebhooks"];
         put?: never;
-        /**
-         * Create a new account
-         * @description Creates a new account and auto-provisions a custodial wallet on the specified chain.
-         *
-         *     **Party Association:**
-         *     - Provide `partyId` to associate with an existing party
-         *     - Provide `party` object to create a new party inline (Individual or Organisation)
-         *     - The party is associated as ACCOUNT_HOLDER
-         *
-         *     When creating a party inline, specify `partyType: INDIVIDUAL` with firstName/lastName,
-         *     or `partyType: ORGANISATION` with name/vatNumber.
-         *
-         *     **SELF_CUSTODY companies** must supply the wallet `address`; VENLY_MANAGED companies
-         *     leave it blank and Venly generates the wallet.
-         */
-        post: operations["createAccount"];
+        /** Requires Authority: manage:webhooks */
+        post: operations["createWebhook"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/accounts/{accountId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get account details */
-        get: operations["getAccount"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/accounts/{accountId}/party-roles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List party roles for an account
-         * @description Returns all parties associated with this account and their roles.
-         */
-        get: operations["listPartyRoles"];
-        put?: never;
-        /**
-         * Add a party to an account
-         * @description Associates an existing party with this account in a specific role.
-         *     A party can only have one role per account.
-         */
-        post: operations["addPartyRole"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/accounts/{accountId}/party-roles/{partyId}": {
+    "/webhooks/{webhookId}/ping": {
         parameters: {
             query?: never;
             header?: never;
@@ -172,101 +50,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post?: never;
-        /**
-         * Remove a party from an account
-         * @description Removes a party's role from this account.
-         *     Cannot remove the last ACCOUNT_HOLDER from an account.
-         */
-        delete: operations["removePartyRole"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/accounts/{accountId}/wallets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List wallets for an account
-         * @description Lists the custodial wallets bound to an account, each with its per-asset balances
-         *     (total / available / reserved) and AML screening status.
-         */
-        get: operations["listWallets"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/accounts/{accountId}/virtual-bank-accounts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List virtual bank accounts */
-        get: operations["listVirtualBankAccounts"];
-        put?: never;
-        /**
-         * Create a virtual bank account
-         * @description Creates a virtual bank account for the specified account.
-         *
-         *     The client provides a display name, the fiat currency to receive (inCurrency), and the
-         *     target cryptocurrency for conversion. The backend provisions the appropriate bank
-         *     account based on the currency.
-         *
-         *     **Requires** the account to be KYC `VERIFIED`.
-         *
-         *     **Currently supported:** EUR (provisions a EUR_SEPA account returning IBAN/BIC).
-         */
-        post: operations["createVirtualBankAccount"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/accounts/{accountId}/virtual-bank-accounts/{virtualBankAccountId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get virtual bank account details */
-        get: operations["getVirtualBankAccount"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/accounts/{accountId}/fiat-to-crypto/payment-sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create a fiat-to-crypto payment session
-         * @description Creates a hosted pay-in session. The response includes a `paymentUrl` to redirect the
-         *     payer to; on completion the incoming fiat is converted to the chosen cryptocurrency and
-         *     credited to the account's wallet. `callbackUrl` and a UUID `idempotencyKey` are required.
-         */
-        post: operations["createPayInSession"];
+        /** Requires Authority: manage:webhooks */
+        post: operations["pingWebhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -282,18 +67,16 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Create payment request by card provider
-         * @description Creates a payment request without an account ID in the path: the account is resolved from `cardProviderReference` (`type` + `referenceId`), then funds are reserved from that account's wallet exactly as the per-account endpoint does. The nested `paymentRequest` body matches `CreatePaymentRequestInput`.
-         */
+        /** Requires Authority: manage:all-payment-requests */
         post: operations["createPaymentRequestByCardProvider"];
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Requires Authority: manage:all-payment-requests */
+        patch: operations["updatePaymentRequestByReference"];
         trace?: never;
     };
-    "/accounts/{accountId}/payment-requests": {
+    "/payment-requests/{paymentRequestId}/shortfall-resolution": {
         parameters: {
             query?: never;
             header?: never;
@@ -302,11 +85,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Create payment request for account
-         * @description Creates a payment request for an account, reserving funds from its wallet for the payment. The response returns `status: RESERVED`, moves the reserved amount into the wallet's `reserved` balance, and includes an `executions` array — each entry carrying its on-chain `transactionHash`. Send a unique `idempotencyKey` per request.
-         */
-        post: operations["createPaymentRequest"];
+        /** Requires Authority: manage:payment-requests */
+        post: operations["resolveShortfall"];
         delete?: never;
         options?: never;
         head?: never;
@@ -322,39 +102,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Settle a payment request
-         * @description Finalises a payment request: the settled amount moves from escrow to the company's settlement wallet. The call returns immediately with `status: SETTLING` and the settlement `executions` in `PENDING`; the request reaches its terminal `SETTLED` state once those transfers confirm on-chain.
-         *
-         *     `amount` is the final settlement figure in the authorized fiat `currency`, and the executions follow from how it compares to the authorized amount:
-         *
-         *     - Equal to the authorized amount: one `SETTLEMENT` execution.
-         *     - Below the authorized amount: a `SETTLEMENT` plus a `REFUND` that returns the difference from escrow to the account wallet.
-         *     - Above the authorized amount: the full escrow settles, plus a `SETTLEMENT_OVERAGE` that collects the extra from the account wallet.
-         *
-         *     Pass a unique `idempotencyKey`. Sending the same key with the same body again returns the original result.
-         */
+        /** Requires Authority: manage:payment-requests */
         post: operations["settlePaymentRequest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/payment-requests/settlements": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Settle a payment request by card-provider reference
-         * @description Settles a payment request identified by its card-provider reference instead of a path ID: the request is located from `paymentRequestReference.cardProviderReference` (`type` + `referenceId`) and its `externalId`. Behaviour and response match [settle a payment request](#operation/settlePaymentRequest).
-         */
-        post: operations["settlePaymentRequestByReference"];
         delete?: never;
         options?: never;
         head?: never;
@@ -370,13 +119,42 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Reverse a payment request
-         * @description Unwinds a payment request and returns the entire escrow balance to the account wallet. The call returns `status: REVERSING` with a `PENDING` `REVERSAL` execution; the request becomes `REVERSED` once that transfer confirms on-chain. `REVERSED` is a final state, and `reason` is recorded on the request.
-         *
-         *     Pass a unique `idempotencyKey`. Sending the same key with the same body again returns the original result.
-         */
+        /** Requires Authority: manage:payment-requests */
         post: operations["reversePaymentRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payment-requests/shortfall-resolution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requires Authority: manage:all-payment-requests */
+        post: operations["resolveShortfallByReference"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payment-requests/settlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requires Authority: manage:all-payment-requests */
+        post: operations["settlePaymentRequestsByReference"];
         delete?: never;
         options?: never;
         head?: never;
@@ -392,11 +170,305 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Reverse a payment request by card-provider reference
-         * @description Reverses a payment request identified by its card-provider reference instead of a path ID: the request is located from `paymentRequestReference.cardProviderReference` (`type` + `referenceId`) and its `externalId`. Behaviour and response match [reverse a payment request](#operation/reversePaymentRequest).
-         */
+        /** Requires Authority: manage:all-payment-requests */
         post: operations["reversePaymentRequestByReference"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:parties */
+        get: operations["listParties"];
+        put?: never;
+        /** Requires Authority: manage:parties */
+        post: operations["createParty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parties/{partyId}/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requires Authority: manage:parties */
+        post: operations["createPartyVerificationLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parties/{partyId}/payout-bank-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:pay-outs */
+        get: operations["list"];
+        put?: never;
+        /** Requires Authority: manage:pay-outs */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:accounts */
+        get: operations["listAccounts"];
+        put?: never;
+        /** Requires Authority: manage:accounts */
+        post: operations["createAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{senderAccountId}/transfers/fiat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requires Authority: manage:transfers */
+        post: operations["createFiatTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{senderAccountId}/transfers/crypto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requires Authority: manage:transfers */
+        post: operations["createCryptoTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/wallets/{walletId}/permits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:accounts */
+        get: operations["getPermitMessages"];
+        put?: never;
+        /** Requires Authority: manage:accounts */
+        post: operations["submitPermit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/wallets/{walletId}/allowance-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requires Authority: manage:accounts */
+        post: operations["verifyWalletAllowances"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/virtual-bank-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:accounts */
+        get: operations["listVirtualBankAccounts"];
+        put?: never;
+        /** Requires Authority: manage:accounts */
+        post: operations["createVirtualBankAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/virtual-bank-accounts/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requires Authority: manage:accounts */
+        post: operations["prepareOwnershipProof"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/payouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:pay-outs */
+        get: operations["listPayouts"];
+        put?: never;
+        /** Requires Authority: manage:pay-outs */
+        post: operations["requestPayout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/payout-routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:pay-outs */
+        get: operations["listRoutes"];
+        put?: never;
+        /** Requires Authority: manage:pay-outs */
+        post: operations["createRoute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/payout-routes/{routeId}/ownership-proof/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requires Authority: manage:pay-outs */
+        post: operations["prepareOwnershipProof_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/payout-routes/{routeId}/ownership-proof/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requires Authority: manage:pay-outs */
+        post: operations["completeOwnershipProof"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/payment-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requires Authority: manage:payment-requests */
+        post: operations["createPaymentRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/party-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:accounts */
+        get: operations["listPartyRoles"];
+        put?: never;
+        /** Requires Authority: manage:accounts */
+        post: operations["addPartyRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/fiat-to-crypto/payment-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requires Authority: manage:pay-in-sessions */
+        post: operations["createPayInSession"];
         delete?: never;
         options?: never;
         head?: never;
@@ -416,56 +488,142 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Update the authorized amount of a payment request
-         * @description Sets a new absolute authorized `amount` on a payment request. The execution that runs depends on how the new amount compares to the current one:
-         *
-         *     - A lower amount releases the difference from escrow back to the account wallet via an `AUTHORIZATION_ADJUSTMENT` execution.
-         *     - A higher amount pulls the additional funds from the account wallet into escrow via an `INCREMENTAL_AUTHORIZATION` execution.
-         *
-         *     The request keeps `status: RESERVED`, `amount` reflects the new value, and `originalAmount` preserves the amount set at creation. Pass a unique `idempotencyKey`.
-         */
+        /** Requires Authority: manage:payment-requests */
         patch: operations["updatePaymentRequest"];
         trace?: never;
     };
-    "/accounts/{senderAccountId}/transfers/fiat": {
+    "/parties/{partyId}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Requires Authority: manage:parties */
+        get: operations["getParty"];
         put?: never;
-        /**
-         * Create fiat transfer
-         * @description Creates a fiat-denominated transfer from the sender account to a receiver account.
-         *     The fiat amount is resolved to the underlying crypto asset and settled on-chain; the
-         *     response carries a `fiatOrigin` block with the original currency, amount and exchange rate.
-         */
-        post: operations["createFiatTransfer"];
+        post?: never;
+        /** Requires Authority: manage:parties */
+        delete: operations["deleteParty"];
+        options?: never;
+        head?: never;
+        /** Requires Authority: manage:parties */
+        patch: operations["updateParty"];
+        trace?: never;
+    };
+    "/supported-assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires one of the Authorities: manage:payment-requests,manage:transfers,manage:pay-in-sessions,manage:accounts */
+        get: operations["listSupportedAssets"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/accounts/{senderAccountId}/transfers/crypto": {
+    "/parties/{partyId}/payout-bank-accounts/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Requires Authority: manage:pay-outs */
+        get: operations["get"];
         put?: never;
-        /**
-         * Create crypto transfer
-         * @description Creates a cryptocurrency transfer from the sender account to a receiver account,
-         *     moving crypto assets directly between accounts on the specified blockchain.
-         *     Retries with the same `idempotencyKey` return the original transfer (no double-spend).
-         */
-        post: operations["createCryptoTransfer"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parties/{partyId}/iv-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:parties */
+        get: operations["getPartyIvVerification"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:accounts */
+        get: operations["getAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/wallets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:accounts */
+        get: operations["listWallets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/wallets/{walletId}/allowances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:accounts */
+        get: operations["getWalletAllowances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/virtual-bank-accounts/{virtualBankAccountId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requires Authority: manage:accounts */
+        get: operations["getVirtualBankAccount"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -479,11 +637,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List transfers for account
-         * @description Retrieves all transfers associated with an account (both sent and received, fiat and crypto).
-         *     Can filter by account role (sender/receiver) and transfer status.
-         */
+        /** Requires Authority: manage:transfers */
         get: operations["listTransfers"];
         put?: never;
         post?: never;
@@ -500,11 +654,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get transfer details
-         * @description Retrieves detailed information about a specific transfer. The account must be the
-         *     sender or receiver of the transfer, otherwise a 404 is returned.
-         */
+        /** Requires Authority: manage:transfers */
         get: operations["getTransfer"];
         put?: never;
         post?: never;
@@ -514,54 +664,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/accounts/{accountId}/wallets/{walletId}/permits": {
+    "/accounts/{accountId}/supported-assets": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get permit messages for wallet
-         * @description Retrieves the EIP-712 permit messages a self-custody wallet must sign to grant the orchestration wallet an allowance. Returns one entry per supported asset, each with a `supportedAssetId` and the `typedData` to sign.
-         *
-         *     Sign `typedData` with the wallet **owner's** key (the signature must recover to `owner`), then submit it via POST.
-         *
-         *     **Note:** Applies to SELF_CUSTODY companies only — VENLY_MANAGED wallets (and all escrow wallets) are permitted automatically by Venly.
-         */
-        get: operations["getPermitMessages"];
+        /** Requires Authority: manage:accounts */
+        get: operations["listAccountSupportedAssets"];
         put?: never;
-        /**
-         * Submit signed permit
-         * @description Submits a signed EIP-712 permit for on-chain execution by the orchestration wallet (which pays the gas). The signature **must recover to the wallet `owner`** — otherwise the permit settles as `FAILED`.
-         *
-         *     Returns HTTP 200 with the permit `status`: `SUBMITTED` while it settles on-chain, then `CONFIRMED`. Poll `GET .../permits` for the transition. When all of a wallet's permits are `CONFIRMED`, the wallet becomes `ACTIVE` and can send transfers/payments. Re-submitting an already-confirmed permit returns `409`.
-         */
-        post: operations["submitPermit"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/accounts/{accountId}/wallets/{walletId}/allowances": {
+    "/accounts/{accountId}/payouts/{payoutId}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get wallet token allowances
-         * @description Retrieves the current token allowances for a wallet — which tokens have been approved
-         *     for spending by the orchestration wallet and the approved amounts.
-         *
-         *     **Note:** Allowances apply to SELF_CUSTODY companies only.
-         */
-        get: operations["getWalletAllowances"];
+        /** Requires Authority: manage:pay-outs */
+        get: operations["getPayout"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/party-roles/{partyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Requires Authority: manage:accounts */
+        delete: operations["removePartyRole"];
         options?: never;
         head?: never;
         patch?: never;
@@ -571,463 +719,634 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /**
-         * @description Type of party
-         * @enum {string}
-         */
-        PartyType: "INDIVIDUAL" | "ORGANISATION";
-        /**
-         * @description Status of a party
-         * @enum {string}
-         */
-        PartyStatus: "ACTIVE" | "SUSPENDED" | "BLOCKED";
-        /**
-         * @description Role type for the party-account relationship
-         * @enum {string}
-         */
-        PartyRoleType: "ACCOUNT_HOLDER";
-        /**
-         * @description Status of a party role
-         * @enum {string}
-         */
-        PartyRoleStatus: "ACTIVE" | "INACTIVE";
-        /**
-         * @description Status of an account
-         * @enum {string}
-         */
-        AccountStatus: "ACTIVE" | "SUSPENDED" | "CLOSED";
-        /**
-         * @description Custody model of the wallet
-         * @enum {string}
-         */
-        WalletType: "VENLY_MANAGED" | "SELF_CUSTODY";
-        /**
-         * @description Status of a virtual bank account
-         * @enum {string}
-         */
-        VirtualBankAccountStatus: "ACTIVE" | "CLOSED";
-        /**
-         * @description Type of bank account, determining the payment rails.
-         *     Currently only EUR_SEPA is provisioned. Future rails (USD_WIRE, USD_ACH, GBP_FPS, …)
-         *     will be added in later releases.
-         * @enum {string}
-         */
-        BankAccountType: "EUR_SEPA";
-        /**
-         * @description Supported blockchain network
-         * @enum {string}
-         */
-        BlockchainNetwork: "AVALANCHE" | "BASE" | "POLYGON";
-        /**
-         * @description Supported cryptocurrency / stablecoin asset
-         * @enum {string}
-         */
-        Cryptocurrency: "USDC" | "EURC" | "USDT" | "USDS";
-        /**
-         * @description Supported fiat currencies. Virtual bank accounts currently support EUR only.
-         * @enum {string}
-         */
-        FiatCurrency: "EUR" | "GBP" | "USD";
-        /**
-         * @description KYC verification status (Individuals & accounts)
-         * @enum {string}
-         */
-        KycStatus: "VERIFICATION_PENDING" | "VERIFIED" | "REJECTED";
-        /**
-         * @description KYB verification status (Organisations)
-         * @enum {string}
-         */
-        KybStatus: "PENDING" | "VERIFIED" | "DENIED";
-        /**
-         * @description AML screening status of a wallet
-         * @enum {string}
-         */
-        AmlStatus: "PENDING" | "APPROVED" | "REJECTED";
-        /**
-         * @description Status of a transfer
-         * @enum {string}
-         */
-        TransferStatus: "PENDING" | "COMPLETED" | "FAILED";
-        /**
-         * @description Status of a payment request
-         * @enum {string}
-         */
-        PaymentRequestStatus: "PENDING" | "RESERVED" | "SETTLING" | "SETTLED" | "SETTLED_WITH_SHORTFALL" | "REVERSING" | "REVERSED" | "FAILED";
-        /**
-         * @description Status of a single payment-request execution
-         * @enum {string}
-         */
-        PaymentExecutionStatus: "PENDING" | "RESERVED" | "SETTLED" | "REVERSED" | "FAILED";
-        /**
-         * @description The role an execution plays in a payment request's lifecycle.
-         * @enum {string}
-         */
-        PaymentExecutionType: "AUTHORIZATION" | "INCREMENTAL_AUTHORIZATION" | "AUTHORIZATION_ADJUSTMENT" | "SETTLEMENT" | "SETTLEMENT_OVERAGE" | "REFUND" | "REVERSAL";
-        /**
-         * @description Why a payment request was reversed (recorded for audit).
-         * @enum {string}
-         */
-        ReversalReason: "CUSTOMER_CANCELLATION" | "MERCHANT_VOID" | "ACQUIRER_FAILURE" | "NETWORK_DECLINE" | "OTHER";
-        /**
-         * @description Status of an EIP-712 permit
-         * @enum {string}
-         */
-        PermitStatus: "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED";
-        /**
-         * @description Status of a fiat-to-crypto payment session
-         * @enum {string}
-         */
-        PaymentSessionStatus: "CREATED" | "PENDING_PAYMENT" | "PAYMENT_RECEIVED" | "CONVERTING" | "MINTING" | "COMPLETED" | "FAILED" | "EXPIRED" | "CANCELLED" | "REFUNDING" | "REFUNDED";
-        BaseResponse: {
-            /** @description Indicates whether the request was successful */
-            success?: boolean;
+        ApiKeyAuthenticationMethod: {
+            type: "ApiKeyAuthenticationMethod";
+        } & (Omit<components["schemas"]["WebhookAuthenticationMethod"], "type"> & {
+            headerName: string;
+            apiKey: string;
+        });
+        BasicAuthenticationMethod: {
+            type: "BasicAuthenticationMethod";
+        } & (Omit<components["schemas"]["WebhookAuthenticationMethod"], "type"> & {
+            username: string;
+            password: string;
+        });
+        UpdateWebhookRequest: {
+            url: string;
+            name?: string;
+            authenticationMethod: components["schemas"]["ApiKeyAuthenticationMethod"] | components["schemas"]["BasicAuthenticationMethod"];
         };
-        /** @description Pagination metadata (top-level sibling of `result`) */
-        Pagination: {
-            /**
-             * Format: int32
-             * @description Current page number (1-based)
-             */
-            pageNumber?: number;
-            /**
-             * Format: int32
-             * @description Number of items per page
-             */
-            pageSize?: number;
-            /**
-             * Format: int64
-             * @description Total number of items across all pages
-             */
-            numberOfElements?: number;
-            /**
-             * Format: int32
-             * @description Total number of pages
-             */
-            numberOfPages?: number;
-            /** @description Whether there is a next page */
-            hasNextPage?: boolean;
-            /** @description Whether there is a previous page */
-            hasPreviousPage?: boolean;
+        WebhookAuthenticationMethod: {
+            /** @enum {string} */
+            type?: "API_KEY" | "BASIC_AUTHENTICATION";
         };
-        /** @description Error response wrapper */
-        ErrorResponse: {
-            /**
-             * @description Always false for error responses
-             * @example false
-             */
-            success?: boolean;
-            /** @description List of errors that occurred */
-            errors?: components["schemas"]["ErrorBody"][];
-            /** @description Null or omitted when success is false */
-            result?: Record<string, never> | null;
+        WebhookDto: {
+            id?: string;
+            url?: string;
+            name?: string;
+            authenticationMethod?: components["schemas"]["ApiKeyAuthenticationMethod"] | components["schemas"]["BasicAuthenticationMethod"];
+            /** @enum {string} */
+            status?: "ACTIVE";
         };
-        /** @description Individual error details */
-        ErrorBody: {
-            /**
-             * @description Machine-readable error code
-             * @example invalid-request
-             */
+        CreateWebhookRequest: {
+            url: string;
+            name?: string;
+            authenticationMethod: components["schemas"]["ApiKeyAuthenticationMethod"] | components["schemas"]["BasicAuthenticationMethod"];
+        };
+        BatchItemFailure: {
+            /** Format: int32 */
+            index?: number;
+            idempotencyKey?: string;
+            paymentRequestReference?: components["schemas"]["Reference"];
+            /** Format: int32 */
+            status?: number;
             code?: string;
-            /**
-             * @description Human-readable error message
-             * @example The request contains invalid parameters.
-             */
             message?: string;
         };
-        /** @description Standardized address format used across all endpoints */
-        Address: {
+        CardProvider: {
+            type?: string;
+            referenceId?: string;
+        };
+        ErrorBody: {
+            code?: string;
+            message?: string;
+            failures?: components["schemas"]["BatchItemFailure"][];
+        };
+        Pagination: {
+            /** Format: int32 */
+            pageNumber?: number;
+            /** Format: int32 */
+            pageSize?: number;
+            /** Format: int64 */
+            numberOfElements?: number;
+            /** Format: int32 */
+            numberOfPages?: number;
+            hasNextPage?: boolean;
+            hasPreviousPage?: boolean;
+        };
+        Reference: {
+            cardProviderReference?: components["schemas"]["CardProvider"];
+            externalId?: string;
+        };
+        ResponseEnvelopeVoid: {
+            pagination?: components["schemas"]["Pagination"];
+            sort?: components["schemas"]["Sort"];
+            success?: boolean;
+            result?: unknown;
+            errors?: components["schemas"]["ErrorBody"][];
+        };
+        Sort: {
+            orders?: components["schemas"]["SortOrder"][];
+        };
+        SortOrder: {
+            property?: string;
+            /** @enum {string} */
+            direction?: "ASC" | "DESC";
+        };
+        CardProviderPaymentRequestInput: {
+            cardProviderReference: components["schemas"]["CardProviderReference"];
+            paymentRequest: components["schemas"]["CreatePaymentRequestInput"];
+        };
+        CardProviderReference: {
+            type: string;
+            referenceId: string;
+        };
+        CreatePaymentRequestInput: {
+            amount: number;
+            /** @enum {string} */
+            chain?: "AVALANCHE" | "BASE" | "ETHEREUM" | "POLYGON" | "SOLANA";
+            asset?: string;
+            currency: string;
+            externalId?: string;
+            description?: string;
+            idempotencyKey: string;
+        };
+        IdempotentResponsePaymentRequestDto: {
+            /** Format: uuid */
+            createdResourceId?: string;
+            response?: components["schemas"]["PaymentRequestDto"];
+        };
+        MonetaryAmountDto: {
+            fiat?: number;
+            crypto?: number;
+        };
+        PaymentExecutionDto: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            walletPairId?: string;
+            /** @enum {string} */
+            chain?: "AVALANCHE" | "BASE" | "ETHEREUM" | "POLYGON" | "SOLANA";
+            asset?: string;
+            amount?: number;
+            exchangeRate?: number;
+            /** @enum {string} */
+            status?: "PENDING" | "RESERVED" | "SETTLED" | "REVERSED" | "FAILED";
+            /** @enum {string} */
+            type?: "AUTHORIZATION" | "SETTLEMENT" | "REFUND" | "SETTLEMENT_OVERAGE" | "REVERSAL" | "AUTHORIZATION_ADJUSTMENT" | "INCREMENTAL_AUTHORIZATION";
+            transactionHash?: string;
+            errorMessage?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        PaymentRequestDto: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            accountId?: string;
+            amount?: components["schemas"]["MonetaryAmountDto"];
+            originalAmount?: components["schemas"]["MonetaryAmountDto"];
+            settlementAmount?: components["schemas"]["MonetaryAmountDto"];
+            settledAmount?: components["schemas"]["MonetaryAmountDto"];
+            shortfallAmount?: components["schemas"]["MonetaryAmountDto"];
+            /** Format: date-time */
+            settledAt?: string;
+            currency?: string;
+            externalId?: string;
+            description?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "RESERVED" | "SETTLING" | "SETTLED" | "SETTLED_WITH_SHORTFALL" | "REVERSING" | "REVERSED" | "FAILED";
+            /** @enum {string} */
+            reversalReason?: "CUSTOMER_CANCELLATION" | "MERCHANT_VOID" | "ACQUIRER_FAILURE" | "NETWORK_DECLINE" | "OTHER";
+            reversalDescription?: string;
+            /** Format: date-time */
+            reversedAt?: string;
+            executions?: components["schemas"]["PaymentExecutionDto"][];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        ShortfallResolutionInput: {
+            idempotencyKey: string;
+        };
+        SettlePaymentRequestInput: {
+            amount: number;
+            currency: string;
+            idempotencyKey: string;
+        };
+        ReversePaymentRequestInput: {
+            /** @enum {string} */
+            reason: "CUSTOMER_CANCELLATION" | "MERCHANT_VOID" | "ACQUIRER_FAILURE" | "NETWORK_DECLINE" | "OTHER";
+            description?: string;
+            idempotencyKey: string;
+        };
+        PaymentRequestReference: {
+            cardProviderReference: components["schemas"]["CardProviderReference"];
+            externalId: string;
+        };
+        ShortfallResolutionByReferenceInput: {
+            paymentRequestReference: components["schemas"]["PaymentRequestReference"];
+            idempotencyKey: string;
+        };
+        SettlePaymentRequestByReferenceInput: {
+            paymentRequestReference: components["schemas"]["PaymentRequestReference"];
+            amount: number;
+            currency: string;
+            idempotencyKey: string;
+        };
+        BatchSettlementItemResult: {
+            /** Format: int32 */
+            index?: number;
+            idempotencyKey?: string;
+            paymentRequestReference?: components["schemas"]["PaymentRequestReference"];
+            /** @enum {string} */
+            status?: "ACCEPTED";
+            paymentRequest?: components["schemas"]["PaymentRequestDto"];
+        };
+        ReversePaymentRequestByReferenceInput: {
+            paymentRequestReference: components["schemas"]["PaymentRequestReference"];
+            /** @enum {string} */
+            reason: "CUSTOMER_CANCELLATION" | "MERCHANT_VOID" | "ACQUIRER_FAILURE" | "NETWORK_DECLINE" | "OTHER";
+            description?: string;
+            idempotencyKey: string;
+        };
+        AddressDto: {
             addressLine1?: string;
             addressLine2?: string;
             city?: string;
             state?: string;
             postalCode?: string;
-            /** @description ISO 3166-1 alpha-2 country code */
             country?: string;
         };
-        /**
-         * @description A party represents an Individual or Organisation that can hold accounts.
-         *     The partyType field determines which additional fields are present.
-         */
-        Party: {
+        CreatePartyRequest: {
+            /** @enum {string} */
+            partyType: "INDIVIDUAL" | "ORGANISATION";
+            externalId?: string;
+            firstName?: string;
+            lastName?: string;
+            name?: string;
+            vatNumber?: string;
+            address?: components["schemas"]["AddressDto"];
+            sumsubToken?: string;
+        };
+        PartyDto: {
             /** Format: uuid */
             id?: string;
-            /** @description External reference ID */
             externalId?: string;
-            partyType?: components["schemas"]["PartyType"];
-            status?: components["schemas"]["PartyStatus"];
-            /** @description First name (Individual only) */
+            /** @enum {string} */
+            partyType?: "INDIVIDUAL" | "ORGANISATION";
+            /** @enum {string} */
+            status?: "ACTIVE" | "SUSPENDED" | "BLOCKED";
+            address?: components["schemas"]["AddressDto"];
             firstName?: string;
-            /** @description Last name (Individual only) */
             lastName?: string;
-            kycStatus?: components["schemas"]["KycStatus"];
-            /** @description Organisation name (Organisation only) */
+            /** @enum {string} */
+            kycStatus?: "VERIFICATION_PENDING" | "VERIFIED" | "REJECTED";
             name?: string;
-            /** @description VAT number (Organisation only) */
             vatNumber?: string;
-            kybStatus?: components["schemas"]["KybStatus"];
-            address?: components["schemas"]["Address"];
+            /** @enum {string} */
+            kybStatus?: "PENDING" | "VERIFIED" | "DENIED";
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
             updatedAt?: string;
-            /**
-             * Format: int64
-             * @description Optimistic-locking version, required when updating
-             */
+            /** Format: int64 */
             version?: number;
         };
-        /**
-         * @example {
-         *       "partyType": "INDIVIDUAL",
-         *       "firstName": "John",
-         *       "lastName": "Doe",
-         *       "address": {
-         *         "addressLine1": "123 Main Street",
-         *         "city": "Amsterdam",
-         *         "postalCode": "1012AB",
-         *         "country": "NL"
-         *       }
-         *     }
-         */
-        CreatePartyRequest: {
-            partyType: components["schemas"]["PartyType"];
-            /** @description Optional external reference ID */
-            externalId?: string;
-            /** @description Required for INDIVIDUAL parties */
-            firstName?: string;
-            /** @description Required for INDIVIDUAL parties */
-            lastName?: string;
-            /** @description Organisation name. Required for ORGANISATION parties */
-            name?: string;
-            /** @description VAT number. ORGANISATION parties only */
-            vatNumber?: string;
-            address?: components["schemas"]["Address"];
-        };
-        /**
-         * @description Update party details. Only fields applicable to the party type can be updated.
-         *     For Individuals: firstName, lastName, address.
-         *     For Organisations: name, vatNumber, address.
-         */
-        UpdatePartyRequest: {
-            /**
-             * Format: int64
-             * @description Current version of the party for optimistic locking
-             */
-            version: number;
-            /** @description First name (Individual only) */
-            firstName?: string;
-            /** @description Last name (Individual only) */
-            lastName?: string;
-            /** @description Organisation name (Organisation only) */
-            name?: string;
-            /** @description VAT number (Organisation only) */
-            vatNumber?: string;
-            address?: components["schemas"]["Address"];
-        };
-        SinglePartyResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["Party"];
-        };
-        PartyListResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["PartyListItem"][];
-            pagination?: components["schemas"]["Pagination"];
-        };
-        /** @description Represents the relationship between a Party and an Account */
-        PartyRole: {
+        PartyVerificationLinkDto: {
             /** Format: uuid */
             partyId?: string;
-            roleType?: components["schemas"]["PartyRoleType"];
-            status?: components["schemas"]["PartyRoleStatus"];
+            verificationUrl?: string;
+            status?: string;
+        };
+        BankAddressDto: {
+            street1?: string;
+            city?: string;
+            region?: string;
+            postalCode?: string;
+            country?: string;
+        };
+        RailDetailsRequest: {
+            accountNumber?: string;
+            abaRoutingNumber?: string;
+            accountType?: string;
+            iban?: string;
+            bic?: string;
+        };
+        RegisterPayoutBankAccountRequest: {
+            rail?: string;
+            fiatCurrency?: string;
+            label?: string;
+            accountHolderName?: string;
+            /** Format: email */
+            beneficiaryEmail?: string;
+            beneficiaryPhoneNumber?: string;
+            railDetails?: components["schemas"]["RailDetailsRequest"];
+            bankName?: string;
+            bankAddress?: components["schemas"]["BankAddressDto"];
+        };
+        MaskedRailDetailsDto: {
+            accountNumberLast4?: string;
+            abaRoutingNumber?: string;
+            /** @enum {string} */
+            accountType?: "CHECKING" | "SAVINGS";
+            ibanLast4?: string;
+            bic?: string;
+        };
+        PayoutBankAccountDto: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            partyId?: string;
+            /** @enum {string} */
+            rail?: "US_ACH" | "SEPA";
+            fiatCurrency?: string;
+            label?: string;
+            accountHolderName?: string;
+            details?: components["schemas"]["MaskedRailDetailsDto"];
+            bankName?: string;
+            beneficiaryEmail?: string;
+            beneficiaryPhoneNumber?: string;
+            bankAddress?: components["schemas"]["BankAddressDto"];
+            /** @enum {string} */
+            status?: "PENDING" | "ACTIVE" | "DISABLED";
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
             updatedAt?: string;
         };
-        AddPartyRoleRequest: {
-            /**
-             * Format: uuid
-             * @description ID of the party to add to the account
-             */
-            partyId: string;
-            roleType: components["schemas"]["PartyRoleType"];
-        };
-        SinglePartyRoleResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["PartyRole"];
-        };
-        PartyRoleListResponse: components["schemas"]["BaseResponse"] & {
-            /** @description Party roles for the account (not paginated) */
-            result?: components["schemas"]["PartyRole"][];
-        };
-        Account: {
-            /** Format: uuid */
-            id?: string;
-            externalId?: string;
-            /** @description Display name for the account */
-            name?: string;
-            kycStatus?: components["schemas"]["KycStatus"];
-            status?: components["schemas"]["AccountStatus"];
-            /** Format: date-time */
-            createdAt?: string;
-            /**
-             * Format: int64
-             * @description Optimistic-locking version
-             */
-            version?: number;
-        };
-        /**
-         * @description Create a new account. You can either:
-         *     - Reference an existing party by providing `partyId`
-         *     - Create a new party inline by providing the `party` object
-         *
-         *     SELF_CUSTODY companies must also supply the wallet `address`.
-         * @example {
-         *       "externalId": "user-12345",
-         *       "name": "John Doe Account",
-         *       "chain": "BASE",
-         *       "party": {
-         *         "partyType": "INDIVIDUAL",
-         *         "firstName": "John",
-         *         "lastName": "Doe",
-         *         "address": {
-         *           "addressLine1": "123 Main Street",
-         *           "city": "Amsterdam",
-         *           "postalCode": "1012AB",
-         *           "country": "NL"
-         *         }
-         *       }
-         *     }
-         */
         CreateAccountRequest: {
-            /** @description Unique external reference for this account */
             externalId: string;
-            /** @description Display name for the account */
             name?: string;
-            chain: components["schemas"]["BlockchainNetwork"];
-            /** @description Wallet address. Required for SELF_CUSTODY companies */
+            /** @enum {string} */
+            chain: "AVALANCHE" | "BASE" | "ETHEREUM" | "POLYGON" | "SOLANA";
             address?: string;
-            /**
-             * Format: uuid
-             * @description ID of an existing party to associate as account holder
-             */
+            /** @enum {string} */
+            kycStatus?: "VERIFICATION_PENDING" | "VERIFIED" | "NOT_REQUIRED" | "REJECTED";
+            /** Format: uuid */
             partyId?: string;
             party?: components["schemas"]["CreatePartyRequest"];
             cardProviderReference?: components["schemas"]["CardProviderReference"];
         };
-        SingleAccountResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["Account"];
-        };
-        AccountListResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["Account"][];
-            pagination?: components["schemas"]["Pagination"];
-        };
-        /** @description Balance breakdown for a single asset, as decimal strings */
-        CryptoBalance: {
-            total?: string;
-            available?: string;
-            reserved?: string;
-        };
-        TokenBalance: {
-            /** @description Asset symbol (e.g. USDC) */
-            asset?: string;
-            /** @description ERC-20 contract address of the asset */
-            contractAddress?: string;
-            amount?: components["schemas"]["CryptoBalance"];
-        };
-        Wallet: {
+        AccountListItemDto: {
             /** Format: uuid */
             id?: string;
-            chain?: components["schemas"]["BlockchainNetwork"];
-            type?: components["schemas"]["WalletType"];
-            address?: string;
-            balances?: components["schemas"]["TokenBalance"][];
-            amlStatus?: components["schemas"]["AmlStatus"];
-        };
-        WalletListResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["Wallet"][];
-            pagination?: components["schemas"]["Pagination"];
-        };
-        /** @description Virtual bank account for receiving payments. EUR_SEPA accounts return iban/bic. */
-        VirtualBankAccount: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            accountId?: string;
-            bankAccountType?: components["schemas"]["BankAccountType"];
-            /** @description Display name for the bank account */
+            externalId?: string;
             name?: string;
-            status?: components["schemas"]["VirtualBankAccountStatus"];
-            /** @description Fiat currency this account receives */
-            currency?: components["schemas"]["FiatCurrency"];
-            /** @description Cryptocurrency that incoming fiat is converted to */
-            targetCryptocurrency?: components["schemas"]["Cryptocurrency"];
-            /**
-             * @description IBAN for EUR_SEPA accounts
-             * @example DE89370400440532013000
-             */
-            iban?: string;
-            /**
-             * @description BIC/SWIFT code for EUR_SEPA accounts
-             * @example DEUTDEDB
-             */
-            bic?: string;
-            /** @description Name of the bank */
-            bankName?: string;
-            /** @description Name of the account beneficiary */
-            beneficiaryName?: string;
-            /** @description Unique reference code to include in payment transfers */
-            referenceCode?: string;
+            /** @enum {string} */
+            kycStatus?: "VERIFICATION_PENDING" | "VERIFIED" | "NOT_REQUIRED" | "REJECTED";
+            /** @enum {string} */
+            status?: "ACTIVE" | "SUSPENDED" | "CLOSED";
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: int64 */
+            version?: number;
+        };
+        CreateFiatTransferInput: {
+            /** Format: uuid */
+            receiverAccountId?: string;
+            receiverExternalId?: string;
+            /** @enum {string} */
+            chain?: "AVALANCHE" | "BASE" | "ETHEREUM" | "POLYGON" | "SOLANA";
+            asset?: string;
+            currency: string;
+            amount: number;
+            description?: string;
+            merchantReference?: string;
+            idempotencyKey: string;
+        };
+        FiatOriginDto: {
+            currency?: string;
+            amount?: number;
+            exchangeRate?: number;
+        };
+        TransferRequestDto: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            senderAccountId?: string;
+            /** Format: uuid */
+            receiverAccountId?: string;
+            /** @enum {string} */
+            chain?: "AVALANCHE" | "BASE" | "ETHEREUM" | "POLYGON" | "SOLANA";
+            asset?: string;
+            amount?: number;
+            fiatOrigin?: components["schemas"]["FiatOriginDto"];
+            description?: string;
+            merchantReference?: string;
+            idempotencyKey?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "COMPLETED" | "FAILED";
+            transactionHash?: string;
+            errorMessage?: string;
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
             updatedAt?: string;
         };
-        /**
-         * @description Request to create a virtual bank account. The backend provisions the appropriate
-         *     bank account type based on inCurrency (e.g. EUR -> EUR_SEPA).
-         * @example {
-         *       "name": "My EUR Deposit Account",
-         *       "inCurrency": "EUR",
-         *       "targetCryptocurrency": "USDC",
-         *       "idempotencyKey": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-         *     }
-         */
-        CreateVirtualBankAccountRequest: {
-            /** @description Display name for the bank account */
-            name: string;
-            /** @description Fiat currency to receive (ISO 4217). Determines the bank account type (EUR -> EUR_SEPA) */
-            inCurrency: string;
-            /** @description Cryptocurrency to convert incoming fiat payments to (e.g. USDC) */
-            targetCryptocurrency: string;
-            /** @description Unique key to prevent duplicate operations on retry */
+        CreateCryptoTransferInput: {
+            /** Format: uuid */
+            receiverAccountId?: string;
+            receiverExternalId?: string;
+            /** @enum {string} */
+            chain: "AVALANCHE" | "BASE" | "ETHEREUM" | "POLYGON" | "SOLANA";
+            asset: string;
+            amount: number;
+            description?: string;
+            merchantReference?: string;
             idempotencyKey: string;
         };
-        SingleVirtualBankAccountResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["VirtualBankAccount"];
+        PermitSignature: {
+            v: string;
+            r: string;
+            s: string;
         };
-        VirtualBankAccountListResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["VirtualBankAccount"][];
-            pagination?: components["schemas"]["Pagination"];
+        SubmitPermitRequest: {
+            /** Format: uuid */
+            supportedAssetId: string;
+            signature: components["schemas"]["PermitSignature"];
         };
-        PaymentSession: {
+        PermitResultDto: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            supportedAssetId?: string;
+            asset?: string;
+            contractAddress?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED";
+            permitTxId?: string;
+            skipped?: boolean;
+        };
+        AllowanceVerificationAssetDto: {
+            /** Format: uuid */
+            supportedAssetId?: string;
+            asset?: string;
+            contractAddress?: string;
+            allowanceSufficient?: boolean;
+            /** @enum {string} */
+            permitStatus?: "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED";
+        };
+        AllowanceVerificationResultDto: {
+            /** Format: uuid */
+            walletId?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "ACTIVE" | "VERIFYING_ALLOWANCE" | "FROZEN" | "CLOSED";
+            /** Format: date-time */
+            verificationExpiresAt?: string;
+            assets?: components["schemas"]["AllowanceVerificationAssetDto"][];
+        };
+        CreateVirtualBankAccountRequest: {
+            name: string;
+            inCurrency: string;
+            targetCryptocurrency: string;
+            idempotencyKey: string;
+            ownershipProof?: components["schemas"]["OwnershipProof"];
+        };
+        OwnershipProof: {
+            walletAddress: string;
+            blockchain: string;
+            message: string;
+            signature: string;
+        };
+        IdempotentResponseVirtualBankAccountResponse: {
+            /** Format: uuid */
+            createdResourceId?: string;
+            response?: components["schemas"]["VirtualBankAccountResponse"];
+        };
+        ProviderDepositRail: {
+            /** @enum {string} */
+            railType?: "ACH" | "WIRE" | "RTP" | "SWIFT" | "SEPA";
+            iban?: string;
+            bic?: string;
+            accountNumber?: string;
+            routingNumber?: string;
+            bankName?: string;
+            bankAddress?: string;
+            beneficiaryName?: string;
+            beneficiaryAddress?: string;
+            paymentReference?: string;
+        };
+        VirtualBankAccountResponse: {
             /** Format: uuid */
             id?: string;
             /** Format: uuid */
             accountId?: string;
-            status?: components["schemas"]["PaymentSessionStatus"];
-            /** @description Fiat amount to be paid in */
+            /** @enum {string} */
+            bankAccountType?: "EUR_SEPA" | "USD_ACH";
+            name?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "ACTIVE" | "CLOSED";
+            currency?: string;
+            targetCryptocurrency?: string;
+            iban?: string;
+            bic?: string;
+            accountNumber?: string;
+            routingNumber?: string;
+            bankName?: string;
+            beneficiaryName?: string;
+            referenceCode?: string;
+            depositRails?: components["schemas"]["ProviderDepositRail"][];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        PrepareOwnershipProofRequest: {
+            walletAddress: string;
+            blockchain: string;
+        };
+        PrepareOwnershipProofResponse: {
+            walletAddress?: string;
+            blockchain?: string;
+            message?: string;
+            signedOnUtc?: string;
+        };
+        CreatePayoutRequest: {
+            /** Format: uuid */
+            payoutRouteId: string;
+            cryptoAmount: number;
+            idempotencyKey: string;
+        };
+        DepositAssetDto: {
+            /** @enum {string} */
+            chain: "AVALANCHE" | "BASE" | "ETHEREUM" | "POLYGON" | "SOLANA";
+            name: string;
+        };
+        IdempotentResponsePayoutDto: {
+            /** Format: uuid */
+            createdResourceId?: string;
+            response?: components["schemas"]["PayoutDto"];
+        };
+        PayoutBeneficiaryDto: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            partyId?: string;
+            /** @enum {string} */
+            rail?: "US_ACH" | "SEPA";
+            label?: string;
+            accountHolderName?: string;
+            bankName?: string;
+            details?: components["schemas"]["MaskedRailDetailsDto"];
+        };
+        PayoutDto: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            accountId?: string;
+            payoutRoute?: components["schemas"]["PayoutRouteInfoDto"];
+            /** @enum {string} */
+            rail?: "US_ACH" | "SEPA";
+            cryptoAmount?: number;
+            settledFiatAmount?: number;
+            /** @enum {string} */
+            fundingMode?: "PULL" | "PUSH";
+            /** @enum {string} */
+            status?: "REQUESTED" | "SENDING" | "PROVIDER_PROCESSING" | "COMPLETED" | "REJECTED" | "FAILED" | "RETURNED";
+            sendTxHash?: string;
+            /** Format: date-time */
+            requestedAt?: string;
+            /** Format: date-time */
+            completedAt?: string;
+            failureReason?: string;
+        };
+        PayoutRouteInfoDto: {
+            /** Format: uuid */
+            id?: string;
+            depositAsset?: components["schemas"]["DepositAssetDto"];
+            fiatCurrency?: string;
+            depositAddress?: string;
+            beneficiary?: components["schemas"]["PayoutBeneficiaryDto"];
+        };
+        CreatePayoutRouteRequest: {
+            /** Format: uuid */
+            payoutBankAccountId: string;
+            depositAsset: components["schemas"]["DepositAssetDto"];
+        };
+        PayoutRouteDto: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "REGISTERING" | "AWAITING_OWNERSHIP_PROOF" | "ACTIVE" | "REJECTED";
+            depositAsset?: components["schemas"]["DepositAssetDto"];
+            fiatCurrency?: string;
+            depositAddress?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        PayoutOwnershipProofDto: {
+            walletAddress?: string;
+            blockchain?: string;
+            message?: string;
+            signedOnUtc?: string;
+        };
+        CompletePayoutOwnershipProofRequest: {
+            message: string;
+            signature: string;
+        };
+        AddPartyRoleRequest: {
+            /** Format: uuid */
+            partyId: string;
+            /** @enum {string} */
+            roleType: "ACCOUNT_HOLDER" | "PAYOUT_RECIPIENT";
+        };
+        PartyRoleDto: {
+            /** Format: uuid */
+            partyId?: string;
+            /** @enum {string} */
+            roleType?: "ACCOUNT_HOLDER" | "PAYOUT_RECIPIENT";
+            /** @enum {string} */
+            status?: "ACTIVE" | "INACTIVE";
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        CreatePayInSessionInput: {
+            inAmount: string;
+            inCurrency: string;
+            outCryptocurrency: string;
+            successRedirectUrl?: string;
+            failureRedirectUrl?: string;
+            callbackUrl: string;
+            externalRef?: string;
+            /** Format: uuid */
+            idempotencyKey: string;
+            metadata?: {
+                [key: string]: string;
+            };
+        };
+        PayInSessionDto: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            accountId?: string;
+            /** @enum {string} */
+            status?: "CREATED" | "PENDING_PAYMENT" | "PAYMENT_RECEIVED" | "CONVERTING" | "MINTING" | "COMPLETED" | "FAILED" | "EXPIRED" | "CANCELLED" | "REFUNDING" | "REFUNDED";
             inAmount?: number;
-            /** @description Fiat currency of the incoming payment */
             inCurrency?: string;
-            /** @description Cryptocurrency the incoming fiat is converted to */
             outCryptocurrency?: string;
-            /**
-             * Format: uri
-             * @description Hosted URL to redirect the payer to
-             */
             paymentUrl?: string;
             externalRef?: string;
             /** Format: uuid */
             walletId?: string;
-            blockchainTxId?: string | null;
+            blockchainTxId?: string;
             cancellable?: boolean;
             /** Format: date-time */
             expiresAt?: string;
@@ -1041,243 +1360,54 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
-        CreatePayInSessionRequest: {
-            /** @description Fiat amount to pay in */
-            inAmount: string;
-            /** @description Fiat currency of the incoming payment (e.g. EUR) */
-            inCurrency: string;
-            /** @description Cryptocurrency to convert the incoming fiat to (e.g. USDC) */
-            outCryptocurrency: string;
-            /** @description HTTPS URL to receive payment status callbacks */
-            callbackUrl: string;
-            /** @description URL to redirect the user to on successful payment */
-            successRedirectUrl?: string;
-            /** @description URL to redirect the user to on failed payment */
-            failureRedirectUrl?: string;
-            /** @description Optional external reference */
-            externalRef?: string;
-            /**
-             * Format: uuid
-             * @description Unique UUID key to prevent duplicate operations on retry
-             */
-            idempotencyKey: string;
-            metadata?: {
-                [key: string]: string;
-            };
-        };
-        SinglePaymentSessionResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["PaymentSession"];
-        };
-        /** @description A single on-chain settlement attempt for a payment request */
-        PaymentExecution: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            walletPairId?: string;
-            type?: components["schemas"]["PaymentExecutionType"];
-            chain?: components["schemas"]["BlockchainNetwork"];
-            asset?: string;
+        UpdatePaymentRequestByReferenceInput: {
+            paymentRequestReference: components["schemas"]["PaymentRequestReference"];
             amount?: number;
-            exchangeRate?: number;
-            status?: components["schemas"]["PaymentExecutionStatus"];
-            transactionHash?: string;
-            errorMessage?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        /** @description Payment amount, expressed in both the request fiat currency and the settled crypto amount. `amount` is the request's current value; `originalAmount` preserves the value at creation time (the two can diverge after an adjustment). */
-        PaymentRequestAmount: {
-            /** @description Amount in the request `currency` (e.g. USD) */
-            fiat?: number;
-            /** @description Settled crypto amount as a decimal string (e.g. USDC) */
-            crypto?: string;
-        };
-        PaymentRequest: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            accountId?: string;
-            amount?: components["schemas"]["PaymentRequestAmount"];
-            originalAmount?: components["schemas"]["PaymentRequestAmount"];
-            settlementAmount?: components["schemas"]["PaymentRequestAmount"];
-            settledAmount?: components["schemas"]["PaymentRequestAmount"];
-            shortfallAmount?: components["schemas"]["PaymentRequestAmount"];
-            currency?: string;
-            externalId?: string;
-            description?: string;
-            status?: components["schemas"]["PaymentRequestStatus"];
-            /**
-             * Format: date-time
-             * @description When settlement completed (terminal SETTLED / SETTLED_WITH_SHORTFALL)
-             */
-            settledAt?: string;
-            reversalReason?: components["schemas"]["ReversalReason"];
-            /** @description Optional free-text reason supplied on reversal */
-            reversalDescription?: string;
-            /**
-             * Format: date-time
-             * @description When the reversal completed
-             */
-            reversedAt?: string;
-            executions?: components["schemas"]["PaymentExecution"][];
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        CreatePaymentRequestInput: {
-            /** @description Payment amount */
-            amount: number;
-            /** @description Currency code (e.g. EUR, USD) */
             currency: string;
-            /** @description Optional external reference ID */
-            externalId?: string;
-            /** @description Optional payment description */
-            description?: string;
-            /** @description Unique key to prevent duplicate operations on retry */
             idempotencyKey: string;
+            adjustAmountBy?: number;
         };
-        CardProviderReference: {
-            /** @description Card provider type identifier (case-sensitive) */
-            type: string;
-            /** @description Unique reference ID from the card provider */
-            referenceId: string;
-        };
-        CardProviderPaymentRequestInput: {
-            cardProviderReference: components["schemas"]["CardProviderReference"];
-            paymentRequest: components["schemas"]["CreatePaymentRequestInput"];
-        };
-        SinglePaymentRequestResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["PaymentRequest"];
-        };
-        /** @description Identifies a payment request by the card-provider reference of its account plus the request's `externalId` — used by the "by reference" settle/reverse endpoints. */
-        PaymentRequestReference: {
-            cardProviderReference: components["schemas"]["CardProviderReference"];
-            /** @description The payment request's externalId (e.g. the card-provider TID) */
-            externalId: string;
-        };
-        SettlePaymentRequestInput: {
-            /** @description Final settlement amount, in the authorized fiat currency */
-            amount: number;
-            /** @description Must match the authorized currency */
-            currency: string;
-            /** @description Unique key to prevent duplicate operations on retry */
-            idempotencyKey: string;
-        };
-        /** @description Settles a payment request identified by its card-provider reference. */
-        SettlePaymentRequestByReferenceInput: {
-            paymentRequestReference: components["schemas"]["PaymentRequestReference"];
-            /** @description Final settlement amount, in the authorized fiat currency */
-            amount: number;
-            /** @description Must match the authorized currency */
-            currency: string;
-            /** @description Unique key to prevent duplicate operations on retry */
-            idempotencyKey: string;
-        };
-        ReversePaymentRequestInput: {
-            reason: components["schemas"]["ReversalReason"];
-            /** @description Optional free-text reason for the reversal */
-            description?: string;
-            /** @description Unique key to prevent duplicate operations on retry */
-            idempotencyKey: string;
-        };
-        /** @description Reverses a payment request identified by its card-provider reference. */
-        ReversePaymentRequestByReferenceInput: {
-            paymentRequestReference: components["schemas"]["PaymentRequestReference"];
-            reason: components["schemas"]["ReversalReason"];
-            /** @description Optional free-text reason for the reversal */
-            description?: string;
-            /** @description Unique key to prevent duplicate operations on retry */
-            idempotencyKey: string;
-        };
-        /** @description Sets a new absolute authorized amount on a payment request. A lower amount releases the difference from escrow back to the account wallet; a higher amount pulls the additional funds from the account wallet into escrow. */
         UpdatePaymentRequestInput: {
-            /** @description New absolute authorized amount, in the authorized fiat currency */
-            amount: number;
-            /** @description Must match the authorized currency */
-            currency: string;
-            /** @description Unique key to prevent duplicate operations on retry */
-            idempotencyKey: string;
-        };
-        /** @description Fiat origin details for a fiat-denominated transfer */
-        FiatOrigin: {
-            currency?: string;
             amount?: number;
-            exchangeRate?: number;
-        };
-        Transfer: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            senderAccountId?: string;
-            /** Format: uuid */
-            receiverAccountId?: string;
-            chain?: components["schemas"]["BlockchainNetwork"];
-            asset?: string;
-            amount?: number;
-            fiatOrigin?: components["schemas"]["FiatOrigin"];
-            description?: string;
-            merchantReference?: string;
-            idempotencyKey?: string;
-            status?: components["schemas"]["TransferStatus"];
-            transactionHash?: string;
-            errorMessage?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        CreateFiatTransferInput: {
-            /**
-             * Format: uuid
-             * @description ID of the receiving account
-             */
-            receiverAccountId?: string;
-            /** @description External ID of the receiving account (alternative to receiverAccountId) */
-            receiverExternalId?: string;
-            /** @description Fiat currency code (e.g. EUR, USD) */
             currency: string;
-            /** @description Transfer amount */
-            amount: number;
-            /** @description Optional transfer description */
-            description?: string;
-            /** @description Optional merchant reference */
-            merchantReference?: string;
-            /** @description Unique key to prevent duplicate operations on retry */
             idempotencyKey: string;
+            adjustAmountBy?: number;
         };
-        CreateCryptoTransferInput: {
-            /**
-             * Format: uuid
-             * @description ID of the receiving account
-             */
-            receiverAccountId?: string;
-            /** @description External ID of the receiving account (alternative to receiverAccountId) */
-            receiverExternalId?: string;
-            chain: components["schemas"]["BlockchainNetwork"];
-            /** @description Cryptocurrency asset identifier (e.g. USDC) */
-            asset: string;
-            /** @description Transfer amount */
-            amount: number;
-            /** @description Optional transfer description */
-            description?: string;
-            /** @description Optional merchant reference */
-            merchantReference?: string;
-            /** @description Unique key to prevent duplicate operations on retry */
-            idempotencyKey: string;
-        };
-        SingleTransferResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["Transfer"];
-        };
-        TransferListResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["Transfer"][];
-            pagination?: components["schemas"]["Pagination"];
-        };
-        Eip712TypeEntry: {
+        UpdatePartyRequest: {
+            firstName?: string;
+            lastName?: string;
             name?: string;
-            type?: string;
+            vatNumber?: string;
+            address?: components["schemas"]["AddressDto"];
+            /** Format: int64 */
+            version: number;
+        };
+        SupportedAssetView: {
+            /** @enum {string} */
+            chain?: "AVALANCHE" | "BASE" | "ETHEREUM" | "POLYGON" | "SOLANA";
+            cryptoCurrency?: string;
+            /** Format: int32 */
+            decimals?: number;
+            contractAddress?: string;
+        };
+        PartyIvVerificationDto: {
+            /** Format: uuid */
+            partyId?: string;
+            ivCaseReference?: string;
+            /** @enum {string} */
+            status?: "NOT_LINKED" | "SUBMITTED" | "FORWARDED" | "ACCEPTED" | "COMPLETED" | "FAILED";
+            /** Format: date-time */
+            linkedAt?: string;
+        };
+        CryptoBalanceSummaryDto: {
+            total?: number;
+            available?: number;
+            reserved?: number;
+        };
+        WalletBalanceDto: {
+            asset?: string;
+            contractAddress?: string;
+            amount?: components["schemas"]["CryptoBalanceSummaryDto"];
         };
         Eip712Domain: {
             name?: string;
@@ -1286,16 +1416,6 @@ export interface components {
             chainId?: number;
             verifyingContract?: string;
         };
-        /** @description EIP-2612 permit message payload */
-        PermitData: {
-            owner?: string;
-            spender?: string;
-            value?: string;
-            /** Format: int64 */
-            nonce?: number;
-            deadline?: string;
-        };
-        /** @description EIP-712 typed-data structure to sign */
         Eip712PermitMessage: {
             types?: {
                 [key: string]: components["schemas"]["Eip712TypeEntry"][];
@@ -1304,1259 +1424,1220 @@ export interface components {
             domain?: components["schemas"]["Eip712Domain"];
             message?: components["schemas"]["PermitData"];
         };
-        PermitMessage: {
+        Eip712TypeEntry: {
+            name?: string;
+            type?: string;
+        };
+        PermitData: {
+            owner?: string;
+            spender?: string;
+            value?: string;
+            /** Format: int64 */
+            nonce?: number;
+            deadline?: string;
+        };
+        PermitMessageDto: {
             /** Format: uuid */
             supportedAssetId?: string;
             asset?: string;
             contractAddress?: string;
-            status?: components["schemas"]["PermitStatus"];
+            /** @enum {string} */
+            status?: "PENDING" | "SUBMITTED" | "CONFIRMED" | "FAILED";
             typedData?: components["schemas"]["Eip712PermitMessage"];
         };
-        PermitSignature: {
-            /** @description Recovery byte of the signature */
-            v: string;
-            /** @description First 32 bytes of the signature */
-            r: string;
-            /** @description Second 32 bytes of the signature */
-            s: string;
+        AllowanceInfo: {
+            asset?: components["schemas"]["SettlementAssetDto"];
+            allowance?: string;
+            orchestrationWallet?: string;
         };
-        SubmitPermitRequest: {
-            /**
-             * Format: uuid
-             * @description ID of the supported asset to grant spending permission for
-             */
-            supportedAssetId: string;
-            signature: components["schemas"]["PermitSignature"];
-        };
-        PermitResult: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            supportedAssetId?: string;
-            asset?: string;
-            contractAddress?: string;
-            status?: components["schemas"]["PermitStatus"];
-            /** @description Internal permit transaction identifier (UUID, not an on-chain hash) */
-            permitTxId?: string;
-            /** @description True if the permit was a no-op (e.g. allowance already granted) */
-            skipped?: boolean;
-        };
-        PermitMessageListResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["PermitMessage"][];
-        };
-        SinglePermitResultResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["PermitResult"];
-        };
-        SettlementAsset: {
-            /** @description Asset symbol (e.g. USDC) */
+        SettlementAssetDto: {
             name?: string;
             contractAddress?: string;
             /** Format: int32 */
             decimals?: number;
         };
-        Allowance: {
-            asset?: components["schemas"]["SettlementAsset"];
-            /** @description Approved amount as a decimal string (uint256-max indicates unlimited) */
-            allowance?: string;
-            /** @description Address of the orchestration wallet approved as spender */
-            orchestrationWallet?: string;
+        AccountSupportedAssetView: {
+            /** @enum {string} */
+            chain?: "AVALANCHE" | "BASE" | "ETHEREUM" | "POLYGON" | "SOLANA";
+            cryptoCurrency?: string;
+            /** Format: int32 */
+            decimals?: number;
+            contractAddress?: string;
+            /** @enum {string} */
+            permitStatus?: "READY" | "ACTIVATING" | "ACTION_REQUIRED" | "PENDING" | "FAILED" | "NO_WALLET";
         };
-        AllowanceListResponse: components["schemas"]["BaseResponse"] & {
-            result?: components["schemas"]["Allowance"][];
-        };
-        /** @description Slim party representation returned in list responses. A single-party fetch returns more fields (address, kycStatus/kybStatus, updatedAt, version). */
-        PartyListItem: {
+        PayoutRouteSummaryDto: {
             /** Format: uuid */
             id?: string;
-            externalId?: string;
-            partyType?: components["schemas"]["PartyType"];
-            status?: components["schemas"]["PartyStatus"];
-            /** @description Individual parties only */
-            firstName?: string;
-            /** @description Individual parties only */
-            lastName?: string;
-            /** @description Organisation parties only */
-            name?: string;
-            /** @description Organisation parties only */
-            vatNumber?: string;
-            /** Format: date-time */
-            createdAt?: string;
+            depositAsset?: components["schemas"]["DepositAssetDto"];
+            fiatCurrency?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "REGISTERING" | "AWAITING_OWNERSHIP_PROOF" | "ACTIVE" | "REJECTED";
+        };
+        ResponseEnvelope: {
+            pagination?: components["schemas"]["Pagination"];
+            sort?: components["schemas"]["Sort"];
+            success?: boolean;
+            result?: Record<string, never>;
+            errors?: components["schemas"]["ErrorBody"][];
         };
     };
-    responses: {
-        /** @description Request validation failed (400) */
-        BadRequest: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "success": false,
-                 *       "errors": [
-                 *         {
-                 *           "code": "invalid-request",
-                 *           "message": "The request contains invalid parameters."
-                 *         }
-                 *       ]
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description Authentication required or failed (401) */
-        Unauthorized: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "success": false,
-                 *       "errors": [
-                 *         {
-                 *           "code": "unauthenticated",
-                 *           "message": "Please authenticate to perform this action."
-                 *         }
-                 *       ]
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description Caller lacks the required authority/role (403) */
-        Forbidden: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "success": false,
-                 *       "errors": [
-                 *         {
-                 *           "code": "forbidden",
-                 *           "message": "You do not have permission to access this resource."
-                 *         }
-                 *       ]
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description Resource not found (404) */
-        NotFound: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "success": false,
-                 *       "errors": [
-                 *         {
-                 *           "code": "account-not-found",
-                 *           "message": "The requested resource was not found."
-                 *         }
-                 *       ]
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description Resource conflict / optimistic-lock failure (409) */
-        Conflict: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "success": false,
-                 *       "errors": [
-                 *         {
-                 *           "code": "concurrent-modification",
-                 *           "message": "This request has been modified by another user. Please refresh and try again."
-                 *         }
-                 *       ]
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description Funds or allowance insufficient to complete the operation (402) */
-        PaymentRequired: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "success": false,
-                 *       "errors": [
-                 *         {
-                 *           "code": "insufficient-funds",
-                 *           "message": "The account wallet balance is insufficient to complete this operation."
-                 *         }
-                 *       ]
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description Idempotency conflict — the key was reused with a different body, or replays an operation that originally failed (422) */
-        UnprocessableEntity: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "success": false,
-                 *       "errors": [
-                 *         {
-                 *           "code": "idempotency-conflict",
-                 *           "message": "This idempotency key was already used with a different request."
-                 *         }
-                 *       ]
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-        /** @description Unexpected server error (500) */
-        InternalServerError: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "success": false,
-                 *       "errors": [
-                 *         {
-                 *           "code": "internal-error",
-                 *           "message": "An unexpected error occurred. Please try again later."
-                 *         }
-                 *       ]
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorResponse"];
-            };
-        };
-    };
-    parameters: {
-        /**
-         * @description Unique party identifier
-         * @example 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
-         */
-        PartyId: string;
-        /**
-         * @description Unique account identifier
-         * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-         */
-        AccountId: string;
-        /**
-         * @description Unique payment request identifier
-         * @example d4e5f6a7-b8c9-4012-8345-6789abcdef01
-         */
-        PaymentRequestId: string;
-        /**
-         * @description Unique wallet identifier
-         * @example 9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f
-         */
-        WalletId: string;
-        /**
-         * @description Unique virtual bank account identifier
-         * @example 4d5e6f70-8192-4a3b-9c4d-5e6f7081920a
-         */
-        VirtualBankAccountId: string;
-        /**
-         * @description Page number (1-based indexing)
-         * @example 1
-         */
-        Page: number;
-        /**
-         * @description Number of items per page
-         * @example 20
-         */
-        Size: number;
-        /**
-         * @description Field to sort by
-         * @example createdAt
-         */
-        SortOn: string;
-        /**
-         * @description Sort direction
-         * @example DESC
-         */
-        SortOrder: "ASC" | "DESC";
-    };
+    responses: never;
+    parameters: never;
     requestBodies: never;
     headers: never;
     pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    listParties: {
+    getWebhook: {
         parameters: {
-            query?: {
-                /**
-                 * @description Filter by party type
-                 * @example INDIVIDUAL
-                 */
-                partyType?: components["schemas"]["PartyType"];
-                /**
-                 * @description Filter by party status
-                 * @example ACTIVE
-                 */
-                status?: components["schemas"]["PartyStatus"];
-                /**
-                 * @description Filter by external ID (exact match)
-                 * @example user-12345
-                 */
-                externalId?: string;
-                /**
-                 * @description Field to sort by
-                 * @example createdAt
-                 */
-                sortOn?: components["parameters"]["SortOn"];
-                /**
-                 * @description Sort direction
-                 * @example DESC
-                 */
-                sortOrder?: components["parameters"]["SortOrder"];
-                /**
-                 * @description Page number (1-based indexing)
-                 * @example 1
-                 */
-                page?: components["parameters"]["Page"];
-                /**
-                 * @description Number of items per page
-                 * @example 20
-                 */
-                size?: components["parameters"]["Size"];
-            };
+            query?: never;
             header?: never;
-            path?: never;
+            path: {
+                webhookId: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description List of parties */
+            /** @description OK */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["WebhookDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": [
+                     *       "success": false,
+                     *       "errors": [
                      *         {
-                     *           "id": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
-                     *           "externalId": "user-12345",
-                     *           "partyType": "INDIVIDUAL",
-                     *           "status": "ACTIVE",
-                     *           "firstName": "Jane",
-                     *           "lastName": "Doe",
-                     *           "createdAt": "2026-01-15T09:30:00"
-                     *         }
-                     *       ],
-                     *       "pagination": {
-                     *         "pageNumber": 1,
-                     *         "pageSize": 20,
-                     *         "numberOfElements": 1,
-                     *         "numberOfPages": 1,
-                     *         "hasNextPage": false,
-                     *         "hasPreviousPage": false
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["PartyListResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    createParty: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "partyType": "INDIVIDUAL",
-                 *       "externalId": "user-12345",
-                 *       "firstName": "Jane",
-                 *       "lastName": "Doe",
-                 *       "address": {
-                 *         "addressLine1": "1 Example Street",
-                 *         "city": "Amsterdam",
-                 *         "postalCode": "1011AB",
-                 *         "country": "NL"
-                 *       }
-                 *     }
-                 */
-                "application/json": components["schemas"]["CreatePartyRequest"];
-            };
-        };
-        responses: {
-            /** @description Party created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
-                     *         "externalId": "user-12345",
-                     *         "partyType": "INDIVIDUAL",
-                     *         "status": "ACTIVE",
-                     *         "firstName": "Jane",
-                     *         "lastName": "Doe",
-                     *         "address": {
-                     *           "addressLine1": "1 Example Street",
-                     *           "city": "Amsterdam",
-                     *           "postalCode": "1011AB",
-                     *           "country": "NL"
-                     *         },
-                     *         "createdAt": "2026-01-15T09:30:00",
-                     *         "updatedAt": "2026-01-15T09:30:00",
-                     *         "version": 0
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["SinglePartyResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    getParty: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Unique party identifier
-                 * @example 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
-                 */
-                partyId: components["parameters"]["PartyId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Party details */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
-                     *         "externalId": "user-12345",
-                     *         "partyType": "INDIVIDUAL",
-                     *         "status": "ACTIVE",
-                     *         "firstName": "Jane",
-                     *         "lastName": "Doe",
-                     *         "kycStatus": "VERIFIED",
-                     *         "address": {
-                     *           "addressLine1": "1 Example Street",
-                     *           "city": "Amsterdam",
-                     *           "postalCode": "1011AB",
-                     *           "country": "NL"
-                     *         },
-                     *         "createdAt": "2026-01-15T09:30:00",
-                     *         "updatedAt": "2026-01-15T09:30:00",
-                     *         "version": 0
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["SinglePartyResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    deleteParty: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Unique party identifier
-                 * @example 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
-                 */
-                partyId: components["parameters"]["PartyId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Party deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    updateParty: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Unique party identifier
-                 * @example 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
-                 */
-                partyId: components["parameters"]["PartyId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "version": 0,
-                 *       "firstName": "Janet",
-                 *       "lastName": "Doe"
-                 *     }
-                 */
-                "application/json": components["schemas"]["UpdatePartyRequest"];
-            };
-        };
-        responses: {
-            /** @description Party updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
-                     *         "externalId": "user-12345",
-                     *         "partyType": "INDIVIDUAL",
-                     *         "status": "ACTIVE",
-                     *         "firstName": "Janet",
-                     *         "lastName": "Doe",
-                     *         "address": {
-                     *           "addressLine1": "1 Example Street",
-                     *           "city": "Amsterdam",
-                     *           "postalCode": "1011AB",
-                     *           "country": "NL"
-                     *         },
-                     *         "createdAt": "2026-01-15T09:30:00",
-                     *         "updatedAt": "2026-01-15T09:30:00",
-                     *         "version": 0
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["SinglePartyResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    listAccounts: {
-        parameters: {
-            query?: {
-                /**
-                 * @description Filter by external ID (exact match)
-                 * @example user-12345
-                 */
-                externalId?: string;
-                /**
-                 * @description Filter by account status
-                 * @example ACTIVE
-                 */
-                status?: components["schemas"]["AccountStatus"];
-                /**
-                 * @description Field to sort by
-                 * @example createdAt
-                 */
-                sortOn?: components["parameters"]["SortOn"];
-                /**
-                 * @description Sort direction
-                 * @example DESC
-                 */
-                sortOrder?: components["parameters"]["SortOrder"];
-                /**
-                 * @description Page number (1-based indexing)
-                 * @example 1
-                 */
-                page?: components["parameters"]["Page"];
-                /**
-                 * @description Number of items per page
-                 * @example 20
-                 */
-                size?: components["parameters"]["Size"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of accounts */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "success": true,
-                     *       "result": [
-                     *         {
-                     *           "id": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *           "externalId": "user-12345",
-                     *           "name": "Jane Doe — Main",
-                     *           "kycStatus": "VERIFIED",
-                     *           "status": "ACTIVE",
-                     *           "createdAt": "2026-01-15T09:30:00",
-                     *           "version": 0
-                     *         }
-                     *       ],
-                     *       "pagination": {
-                     *         "pageNumber": 1,
-                     *         "pageSize": 20,
-                     *         "numberOfElements": 1,
-                     *         "numberOfPages": 1,
-                     *         "hasNextPage": false,
-                     *         "hasPreviousPage": false
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["AccountListResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    createAccount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "externalId": "user-12345",
-                 *       "name": "Jane Doe — Main",
-                 *       "chain": "BASE",
-                 *       "address": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-                 *       "partyId": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22"
-                 *     }
-                 */
-                "application/json": components["schemas"]["CreateAccountRequest"];
-            };
-        };
-        responses: {
-            /** @description Account created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "externalId": "user-12345",
-                     *         "name": "Jane Doe — Main",
-                     *         "kycStatus": "VERIFICATION_PENDING",
-                     *         "status": "ACTIVE",
-                     *         "createdAt": "2026-01-15T09:30:00",
-                     *         "version": 0
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["SingleAccountResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    getAccount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Account details */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "externalId": "user-12345",
-                     *         "name": "Jane Doe — Main",
-                     *         "kycStatus": "VERIFIED",
-                     *         "status": "ACTIVE",
-                     *         "createdAt": "2026-01-15T09:30:00",
-                     *         "version": 0
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["SingleAccountResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    listPartyRoles: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of party roles */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "success": true,
-                     *       "result": [
-                     *         {
-                     *           "partyId": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
-                     *           "roleType": "ACCOUNT_HOLDER",
-                     *           "status": "ACTIVE",
-                     *           "createdAt": "2026-01-15T09:30:00",
-                     *           "updatedAt": "2026-01-15T09:30:00"
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
                      *         }
                      *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["PartyRoleListResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    addPartyRole: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "partyId": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
-                 *       "roleType": "ACCOUNT_HOLDER"
-                 *     }
-                 */
-                "application/json": components["schemas"]["AddPartyRoleRequest"];
-            };
-        };
-        responses: {
-            /** @description Party role added */
-            201: {
+            /** @description When the user is not authorized to access the resource */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "partyId": "7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22",
-                     *         "roleType": "ACCOUNT_HOLDER",
-                     *         "status": "ACTIVE",
-                     *         "createdAt": "2026-01-15T09:30:00",
-                     *         "updatedAt": "2026-01-15T09:30:00"
-                     *       }
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["SinglePartyRoleResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            500: components["responses"]["InternalServerError"];
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
-    removePartyRole: {
+    updateWebhook: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-                /**
-                 * @description The party ID to remove from the account
-                 * @example 7e3b9c2a-1f4d-4a8b-9c11-2d6e8f0a1b22
-                 */
-                partyId: string;
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["WebhookDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    deleteWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Party role removed */
+            /** @description No Content */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    listWallets: {
-        parameters: {
-            query?: {
-                /**
-                 * @description Page number (1-based indexing)
-                 * @example 1
-                 */
-                page?: components["parameters"]["Page"];
-                /**
-                 * @description Number of items per page
-                 * @example 20
-                 */
-                size?: components["parameters"]["Size"];
-            };
-            header?: never;
-            path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of wallets */
-            200: {
+            /** @description When the request contains invalid input */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": [
+                     *       "success": false,
+                     *       "errors": [
                      *         {
-                     *           "id": "9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f",
-                     *           "chain": "BASE",
-                     *           "type": "SELF_CUSTODY",
-                     *           "address": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-                     *           "balances": [
-                     *             {
-                     *               "asset": "USDC",
-                     *               "contractAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-                     *               "amount": {
-                     *                 "total": "125.00",
-                     *                 "available": "100.00",
-                     *                 "reserved": "25.00"
-                     *               }
-                     *             }
-                     *           ],
-                     *           "amlStatus": "APPROVED"
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
                      *         }
-                     *       ],
-                     *       "pagination": {
-                     *         "pageNumber": 1,
-                     *         "pageSize": 20,
-                     *         "numberOfElements": 1,
-                     *         "numberOfPages": 1,
-                     *         "hasNextPage": false,
-                     *         "hasPreviousPage": false
-                     *       }
+                     *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["WalletListResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    listVirtualBankAccounts: {
-        parameters: {
-            query?: {
-                /**
-                 * @description Field to sort by
-                 * @example createdAt
-                 */
-                sortOn?: components["parameters"]["SortOn"];
-                /**
-                 * @description Sort direction
-                 * @example DESC
-                 */
-                sortOrder?: components["parameters"]["SortOrder"];
-                /**
-                 * @description Page number (1-based indexing)
-                 * @example 1
-                 */
-                page?: components["parameters"]["Page"];
-                /**
-                 * @description Number of items per page
-                 * @example 20
-                 */
-                size?: components["parameters"]["Size"];
-            };
-            header?: never;
-            path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of virtual bank accounts */
-            200: {
+            /** @description When the user is not authorized to access the resource */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": [
+                     *       "success": false,
+                     *       "errors": [
                      *         {
-                     *           "id": "4d5e6f70-8192-4a3b-9c4d-5e6f7081920a",
-                     *           "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *           "bankAccountType": "EUR_SEPA",
-                     *           "name": "EUR Payouts",
-                     *           "status": "ACTIVE",
-                     *           "currency": "EUR",
-                     *           "targetCryptocurrency": "USDC",
-                     *           "iban": "DE89370400440532013000",
-                     *           "bic": "DEUTDEDB",
-                     *           "bankName": "Example Bank",
-                     *           "beneficiaryName": "Jane Doe",
-                     *           "referenceCode": "VFY-7K2Q-931",
-                     *           "createdAt": "2026-01-15T09:30:00",
-                     *           "updatedAt": "2026-01-15T09:30:00"
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
                      *         }
-                     *       ],
-                     *       "pagination": {
-                     *         "pageNumber": 1,
-                     *         "pageSize": 20,
-                     *         "numberOfElements": 1,
-                     *         "numberOfPages": 1,
-                     *         "hasNextPage": false,
-                     *         "hasPreviousPage": false
-                     *       }
+                     *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["VirtualBankAccountListResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
-    createVirtualBankAccount: {
+    listWebhooks: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["WebhookDto"][];
+                    };
+                };
             };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    createWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                /**
-                 * @example {
-                 *       "name": "EUR Payouts",
-                 *       "inCurrency": "EUR",
-                 *       "targetCryptocurrency": "USDC",
-                 *       "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                 *     }
-                 */
-                "application/json": components["schemas"]["CreateVirtualBankAccountRequest"];
+                "application/json": components["schemas"]["CreateWebhookRequest"];
             };
         };
         responses: {
-            /** @description Virtual bank account created */
+            /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "4d5e6f70-8192-4a3b-9c4d-5e6f7081920a",
-                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "bankAccountType": "EUR_SEPA",
-                     *         "name": "EUR Payouts",
-                     *         "status": "ACTIVE",
-                     *         "currency": "EUR",
-                     *         "targetCryptocurrency": "USDC",
-                     *         "iban": "DE89370400440532013000",
-                     *         "bic": "DEUTDEDB",
-                     *         "bankName": "Example Bank",
-                     *         "beneficiaryName": "Jane Doe",
-                     *         "referenceCode": "VFY-7K2Q-931",
-                     *         "createdAt": "2026-01-15T09:30:00",
-                     *         "updatedAt": "2026-01-15T09:30:00"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["SingleVirtualBankAccountResponse"];
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["WebhookDto"];
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            500: components["responses"]["InternalServerError"];
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
-    getVirtualBankAccount: {
+    pingWebhook: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-                /**
-                 * @description Unique virtual bank account identifier
-                 * @example 4d5e6f70-8192-4a3b-9c4d-5e6f7081920a
-                 */
-                virtualBankAccountId: components["parameters"]["VirtualBankAccountId"];
+                webhookId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Virtual bank account details */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "4d5e6f70-8192-4a3b-9c4d-5e6f7081920a",
-                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "bankAccountType": "EUR_SEPA",
-                     *         "name": "EUR Payouts",
-                     *         "status": "ACTIVE",
-                     *         "currency": "EUR",
-                     *         "targetCryptocurrency": "USDC",
-                     *         "iban": "DE89370400440532013000",
-                     *         "bic": "DEUTDEDB",
-                     *         "bankName": "Example Bank",
-                     *         "beneficiaryName": "Jane Doe",
-                     *         "referenceCode": "VFY-7K2Q-931",
-                     *         "createdAt": "2026-01-15T09:30:00",
-                     *         "updatedAt": "2026-01-15T09:30:00"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["SingleVirtualBankAccountResponse"];
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["ResponseEnvelopeVoid"];
+                    };
                 };
             };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    createPayInSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "inAmount": "100.00",
-                 *       "inCurrency": "EUR",
-                 *       "outCryptocurrency": "USDC",
-                 *       "callbackUrl": "https://example.com/webhooks/pay-in",
-                 *       "successRedirectUrl": "https://example.com/pay-in/success",
-                 *       "failureRedirectUrl": "https://example.com/pay-in/failure",
-                 *       "externalRef": "order-67890",
-                 *       "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                 *     }
-                 */
-                "application/json": components["schemas"]["CreatePayInSessionRequest"];
-            };
-        };
-        responses: {
-            /** @description Payment session created */
-            201: {
+            /** @description When the request contains invalid input */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "5e6f7081-92a3-4b4c-8d5e-6f708192a3b4",
-                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "status": "CREATED",
-                     *         "inAmount": 100,
-                     *         "inCurrency": "EUR",
-                     *         "outCryptocurrency": "USDC",
-                     *         "paymentUrl": "https://pay.example.com/session/5e6f708192a3b4c8",
-                     *         "externalRef": "order-67890",
-                     *         "walletId": "9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f",
-                     *         "blockchainTxId": null,
-                     *         "cancellable": true,
-                     *         "expiresAt": "2026-01-15T10:30:00Z",
-                     *         "metadata": {
-                     *           "orderId": "67890"
-                     *         },
-                     *         "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                     *         "createdAt": "2026-01-15T09:30:00",
-                     *         "updatedAt": "2026-01-15T09:30:00"
-                     *       }
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["SinglePaymentSessionResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description Unsupported currency pair or KYC required */
-            422: {
+            /** @description When the user is not authorized to access the resource */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            500: components["responses"]["InternalServerError"];
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
     createPaymentRequestByCardProvider: {
@@ -2568,242 +2649,192 @@ export interface operations {
         };
         requestBody: {
             content: {
-                /**
-                 * @example {
-                 *       "cardProviderReference": {
-                 *         "type": "paymentology",
-                 *         "referenceId": "ACC-12345"
-                 *       },
-                 *       "paymentRequest": {
-                 *         "amount": 25,
-                 *         "currency": "USD",
-                 *         "externalId": "order-67890",
-                 *         "description": "Order #67890",
-                 *         "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                 *       }
-                 *     }
-                 */
                 "application/json": components["schemas"]["CardProviderPaymentRequestInput"];
             };
         };
         responses: {
-            /** @description Payment request created */
+            /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "d4e5f6a7-b8c9-4012-8345-6789abcdef01",
-                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "amount": {
-                     *           "fiat": 25,
-                     *           "crypto": "25.000000"
-                     *         },
-                     *         "originalAmount": {
-                     *           "fiat": 25,
-                     *           "crypto": "25.000000"
-                     *         },
-                     *         "currency": "USD",
-                     *         "externalId": "order-67890",
-                     *         "description": "Order #67890",
-                     *         "status": "RESERVED",
-                     *         "executions": [
-                     *           {
-                     *             "id": "e5f6a7b8-c9d0-4123-9456-789abcdef012",
-                     *             "walletPairId": "f6a7b8c9-d0e1-4234-a567-89abcdef0123",
-                     *             "type": "AUTHORIZATION",
-                     *             "chain": "BASE",
-                     *             "asset": "USDC",
-                     *             "amount": 25,
-                     *             "exchangeRate": 1,
-                     *             "status": "RESERVED",
-                     *             "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-                     *             "createdAt": "2026-01-15T09:30:00Z",
-                     *             "updatedAt": "2026-01-15T09:30:02Z"
-                     *           }
-                     *         ],
-                     *         "createdAt": "2026-01-15T09:30:00Z",
-                     *         "updatedAt": "2026-01-15T09:30:02Z"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["SinglePaymentRequestResponse"];
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["IdempotentResponsePaymentRequestDto"];
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    createPaymentRequest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "amount": 25,
-                 *       "currency": "USD",
-                 *       "externalId": "order-67890",
-                 *       "description": "Order #67890",
-                 *       "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                 *     }
-                 */
-                "application/json": components["schemas"]["CreatePaymentRequestInput"];
-            };
-        };
-        responses: {
-            /** @description Payment request created */
-            201: {
+            /** @description When the request contains invalid input */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "d4e5f6a7-b8c9-4012-8345-6789abcdef01",
-                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "amount": {
-                     *           "fiat": 25,
-                     *           "crypto": "25.000000"
-                     *         },
-                     *         "originalAmount": {
-                     *           "fiat": 25,
-                     *           "crypto": "25.000000"
-                     *         },
-                     *         "currency": "USD",
-                     *         "externalId": "order-67890",
-                     *         "description": "Order #67890",
-                     *         "status": "RESERVED",
-                     *         "executions": [
-                     *           {
-                     *             "id": "e5f6a7b8-c9d0-4123-9456-789abcdef012",
-                     *             "walletPairId": "f6a7b8c9-d0e1-4234-a567-89abcdef0123",
-                     *             "type": "AUTHORIZATION",
-                     *             "chain": "BASE",
-                     *             "asset": "USDC",
-                     *             "amount": 25,
-                     *             "exchangeRate": 1,
-                     *             "status": "RESERVED",
-                     *             "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-                     *             "createdAt": "2026-01-15T09:30:00Z",
-                     *             "updatedAt": "2026-01-15T09:30:02Z"
-                     *           }
-                     *         ],
-                     *         "createdAt": "2026-01-15T09:30:00Z",
-                     *         "updatedAt": "2026-01-15T09:30:02Z"
-                     *       }
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["SinglePaymentRequestResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    settlePaymentRequest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Unique payment request identifier
-                 * @example d4e5f6a7-b8c9-4012-8345-6789abcdef01
-                 */
-                paymentRequestId: components["parameters"]["PaymentRequestId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "amount": 25,
-                 *       "currency": "USD",
-                 *       "idempotencyKey": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
-                 *     }
-                 */
-                "application/json": components["schemas"]["SettlePaymentRequestInput"];
-            };
-        };
-        responses: {
-            /** @description Settlement accepted; on-chain processing is asynchronous */
-            202: {
+            /** @description When the user is not authorized to access the resource */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "d4e5f6a7-b8c9-4012-8345-6789abcdef01",
-                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "amount": {
-                     *           "fiat": 25,
-                     *           "crypto": "25.000000"
-                     *         },
-                     *         "settlementAmount": {
-                     *           "fiat": 25,
-                     *           "crypto": "25.000000"
-                     *         },
-                     *         "currency": "USD",
-                     *         "externalId": "order-67890",
-                     *         "status": "SETTLING",
-                     *         "executions": [
-                     *           {
-                     *             "id": "a7b8c9d0-e1f2-4345-b678-9abcdef01234",
-                     *             "walletPairId": "f6a7b8c9-d0e1-4234-a567-89abcdef0123",
-                     *             "type": "SETTLEMENT",
-                     *             "chain": "BASE",
-                     *             "asset": "USDC",
-                     *             "amount": 25,
-                     *             "exchangeRate": 1,
-                     *             "status": "PENDING",
-                     *             "createdAt": "2026-01-15T10:00:00Z",
-                     *             "updatedAt": "2026-01-15T10:00:00Z"
-                     *           }
-                     *         ],
-                     *         "createdAt": "2026-01-15T09:30:00Z",
-                     *         "updatedAt": "2026-01-15T10:00:00Z"
-                     *       }
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["SinglePaymentRequestResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["UnprocessableEntity"];
-            500: components["responses"]["InternalServerError"];
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
-    settlePaymentRequestByReference: {
+    updatePaymentRequestByReference: {
         parameters: {
             query?: never;
             header?: never;
@@ -2812,40 +2843,581 @@ export interface operations {
         };
         requestBody: {
             content: {
-                /**
-                 * @example {
-                 *       "paymentRequestReference": {
-                 *         "cardProviderReference": {
-                 *           "type": "paymentology",
-                 *           "referenceId": "ACC-12345"
-                 *         },
-                 *         "externalId": "TID-67890"
-                 *       },
-                 *       "amount": 25,
-                 *       "currency": "USD",
-                 *       "idempotencyKey": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
-                 *     }
-                 */
-                "application/json": components["schemas"]["SettlePaymentRequestByReferenceInput"];
+                "application/json": components["schemas"]["UpdatePaymentRequestByReferenceInput"];
             };
         };
         responses: {
-            /** @description Settlement accepted; on-chain processing is asynchronous */
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["IdempotentResponsePaymentRequestDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    resolveShortfall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paymentRequestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShortfallResolutionInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["IdempotentResponsePaymentRequestDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    settlePaymentRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paymentRequestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettlePaymentRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
             202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SinglePaymentRequestResponse"];
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["IdempotentResponsePaymentRequestDto"];
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["UnprocessableEntity"];
-            500: components["responses"]["InternalServerError"];
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
     reversePaymentRequest: {
@@ -2853,76 +3425,583 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /**
-                 * @description Unique payment request identifier
-                 * @example d4e5f6a7-b8c9-4012-8345-6789abcdef01
-                 */
-                paymentRequestId: components["parameters"]["PaymentRequestId"];
+                paymentRequestId: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                /**
-                 * @example {
-                 *       "reason": "CUSTOMER_CANCELLATION",
-                 *       "description": "Customer requested cancellation",
-                 *       "idempotencyKey": "1b4e28ba-2fa1-11d2-883f-0016d3cca427"
-                 *     }
-                 */
                 "application/json": components["schemas"]["ReversePaymentRequestInput"];
             };
         };
         responses: {
-            /** @description Reversal accepted; on-chain processing is asynchronous */
+            /** @description Accepted */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["IdempotentResponsePaymentRequestDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "d4e5f6a7-b8c9-4012-8345-6789abcdef01",
-                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "amount": {
-                     *           "fiat": 25,
-                     *           "crypto": "25.000000"
-                     *         },
-                     *         "currency": "USD",
-                     *         "status": "REVERSING",
-                     *         "reversalReason": "CUSTOMER_CANCELLATION",
-                     *         "reversalDescription": "Customer requested cancellation",
-                     *         "executions": [
-                     *           {
-                     *             "id": "b8c9d0e1-f2a3-4456-c789-abcdef012345",
-                     *             "walletPairId": "f6a7b8c9-d0e1-4234-a567-89abcdef0123",
-                     *             "type": "REVERSAL",
-                     *             "chain": "BASE",
-                     *             "asset": "USDC",
-                     *             "amount": 25,
-                     *             "exchangeRate": 1,
-                     *             "status": "PENDING",
-                     *             "createdAt": "2026-01-15T10:05:00Z",
-                     *             "updatedAt": "2026-01-15T10:05:00Z"
-                     *           }
-                     *         ],
-                     *         "createdAt": "2026-01-15T09:30:00Z",
-                     *         "updatedAt": "2026-01-15T10:05:00Z"
-                     *       }
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["SinglePaymentRequestResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["UnprocessableEntity"];
-            500: components["responses"]["InternalServerError"];
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    resolveShortfallByReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShortfallResolutionByReferenceInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["IdempotentResponsePaymentRequestDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    settlePaymentRequestsByReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettlePaymentRequestByReferenceInput"][];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["BatchSettlementItemResult"][];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
     reversePaymentRequestByReference: {
@@ -2934,120 +4013,1691 @@ export interface operations {
         };
         requestBody: {
             content: {
-                /**
-                 * @example {
-                 *       "paymentRequestReference": {
-                 *         "cardProviderReference": {
-                 *           "type": "paymentology",
-                 *           "referenceId": "ACC-12345"
-                 *         },
-                 *         "externalId": "TID-67890"
-                 *       },
-                 *       "reason": "NETWORK_DECLINE",
-                 *       "description": "Scheme declined after issuer approval",
-                 *       "idempotencyKey": "1b4e28ba-2fa1-11d2-883f-0016d3cca427"
-                 *     }
-                 */
                 "application/json": components["schemas"]["ReversePaymentRequestByReferenceInput"];
             };
         };
         responses: {
-            /** @description Reversal accepted; on-chain processing is asynchronous */
+            /** @description Accepted */
             202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SinglePaymentRequestResponse"];
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["IdempotentResponsePaymentRequestDto"];
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["UnprocessableEntity"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    updatePaymentRequest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Unique payment request identifier
-                 * @example d4e5f6a7-b8c9-4012-8345-6789abcdef01
-                 */
-                paymentRequestId: components["parameters"]["PaymentRequestId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "amount": 20,
-                 *       "currency": "USD",
-                 *       "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                 *     }
-                 */
-                "application/json": components["schemas"]["UpdatePaymentRequestInput"];
-            };
-        };
-        responses: {
-            /** @description Amount adjustment accepted */
-            200: {
+            /** @description When the request contains invalid input */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "d4e5f6a7-b8c9-4012-8345-6789abcdef01",
-                     *         "accountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "amount": {
-                     *           "fiat": 20,
-                     *           "crypto": "20.000000"
-                     *         },
-                     *         "originalAmount": {
-                     *           "fiat": 25,
-                     *           "crypto": "25.000000"
-                     *         },
-                     *         "currency": "USD",
-                     *         "status": "RESERVED",
-                     *         "executions": [
-                     *           {
-                     *             "id": "c9d0e1f2-a3b4-4567-d89a-bcdef0123456",
-                     *             "walletPairId": "f6a7b8c9-d0e1-4234-a567-89abcdef0123",
-                     *             "type": "AUTHORIZATION_ADJUSTMENT",
-                     *             "chain": "BASE",
-                     *             "asset": "USDC",
-                     *             "amount": 5,
-                     *             "exchangeRate": 1,
-                     *             "status": "PENDING",
-                     *             "createdAt": "2026-01-15T09:45:00Z",
-                     *             "updatedAt": "2026-01-15T09:45:00Z"
-                     *           }
-                     *         ],
-                     *         "createdAt": "2026-01-15T09:30:00Z",
-                     *         "updatedAt": "2026-01-15T09:45:00Z"
-                     *       }
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["SinglePaymentRequestResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            402: components["responses"]["PaymentRequired"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            422: components["responses"]["UnprocessableEntity"];
-            500: components["responses"]["InternalServerError"];
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    listParties: {
+        parameters: {
+            query?: {
+                partyType?: "INDIVIDUAL" | "ORGANISATION";
+                status?: "ACTIVE" | "SUSPENDED" | "BLOCKED";
+                externalId?: string;
+                /** @description Field name to sort by */
+                sortOn?: string;
+                /** @description Sort direction (ASC or DESC) */
+                sortOrder?: "ASC" | "DESC";
+                /**
+                 * @description Page number (1-based indexing)
+                 * @example 1
+                 */
+                page?: number;
+                /**
+                 * @description Number of items per page
+                 * @example 100
+                 */
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        pagination?: {
+                            /** Format: int32 */
+                            pageNumber?: number;
+                            /** Format: int32 */
+                            pageSize?: number;
+                            /** Format: int64 */
+                            numberOfElements?: number;
+                            /** Format: int32 */
+                            numberOfPages?: number;
+                            hasNextPage?: boolean;
+                            hasPreviousPage?: boolean;
+                        };
+                        sort?: {
+                            orders?: {
+                                property?: string;
+                                /** @enum {string} */
+                                direction?: "ASC" | "DESC";
+                            }[];
+                        };
+                        result?: {
+                            /** Format: uuid */
+                            id?: string;
+                            externalId?: string;
+                            /** @enum {string} */
+                            partyType?: "INDIVIDUAL" | "ORGANISATION";
+                            /** @enum {string} */
+                            status?: "ACTIVE" | "SUSPENDED" | "BLOCKED";
+                            firstName?: string;
+                            lastName?: string;
+                            name?: string;
+                            /** Format: date-time */
+                            createdAt?: string;
+                        };
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    createParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePartyRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PartyDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    createPartyVerificationLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PartyVerificationLinkDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: {
+                /** @description Field name to sort by */
+                sortOn?: string;
+                /** @description Sort direction (ASC or DESC) */
+                sortOrder?: "ASC" | "DESC";
+                /**
+                 * @description Page number (1-based indexing)
+                 * @example 1
+                 */
+                page?: number;
+                /**
+                 * @description Number of items per page
+                 * @example 100
+                 */
+                size?: number;
+            };
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        pagination?: {
+                            /** Format: int32 */
+                            pageNumber?: number;
+                            /** Format: int32 */
+                            pageSize?: number;
+                            /** Format: int64 */
+                            numberOfElements?: number;
+                            /** Format: int32 */
+                            numberOfPages?: number;
+                            hasNextPage?: boolean;
+                            hasPreviousPage?: boolean;
+                        };
+                        sort?: {
+                            orders?: {
+                                property?: string;
+                                /** @enum {string} */
+                                direction?: "ASC" | "DESC";
+                            }[];
+                        };
+                        result?: {
+                            /** Format: uuid */
+                            id?: string;
+                            /** Format: uuid */
+                            partyId?: string;
+                            /** @enum {string} */
+                            rail?: "US_ACH" | "SEPA";
+                            fiatCurrency?: string;
+                            label?: string;
+                            accountHolderName?: string;
+                            details?: components["schemas"]["MaskedRailDetailsDto"];
+                            bankName?: string;
+                            beneficiaryEmail?: string;
+                            beneficiaryPhoneNumber?: string;
+                            bankAddress?: components["schemas"]["BankAddressDto"];
+                            /** @enum {string} */
+                            status?: "PENDING" | "ACTIVE" | "DISABLED";
+                            /** Format: date-time */
+                            createdAt?: string;
+                            /** Format: date-time */
+                            updatedAt?: string;
+                        };
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterPayoutBankAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PayoutBankAccountDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    listAccounts: {
+        parameters: {
+            query?: {
+                externalId?: string;
+                status?: "ACTIVE" | "SUSPENDED" | "CLOSED";
+                /** @description Field name to sort by */
+                sortOn?: string;
+                /** @description Sort direction (ASC or DESC) */
+                sortOrder?: "ASC" | "DESC";
+                /**
+                 * @description Page number (1-based indexing)
+                 * @example 1
+                 */
+                page?: number;
+                /**
+                 * @description Number of items per page
+                 * @example 100
+                 */
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        pagination?: {
+                            /** Format: int32 */
+                            pageNumber?: number;
+                            /** Format: int32 */
+                            pageSize?: number;
+                            /** Format: int64 */
+                            numberOfElements?: number;
+                            /** Format: int32 */
+                            numberOfPages?: number;
+                            hasNextPage?: boolean;
+                            hasPreviousPage?: boolean;
+                        };
+                        sort?: {
+                            orders?: {
+                                property?: string;
+                                /** @enum {string} */
+                                direction?: "ASC" | "DESC";
+                            }[];
+                        };
+                        result?: {
+                            /** Format: uuid */
+                            id?: string;
+                            externalId?: string;
+                            name?: string;
+                            /** @enum {string} */
+                            kycStatus?: "VERIFICATION_PENDING" | "VERIFIED" | "NOT_REQUIRED" | "REJECTED";
+                            /** @enum {string} */
+                            status?: "ACTIVE" | "SUSPENDED" | "CLOSED";
+                            /** Format: date-time */
+                            createdAt?: string;
+                            /** Format: int64 */
+                            version?: number;
+                        };
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    createAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["AccountListItemDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
     createFiatTransfer: {
@@ -3055,76 +5705,195 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /**
-                 * @description The account ID initiating the transfer
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
                 senderAccountId: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                /**
-                 * @example {
-                 *       "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
-                 *       "currency": "USD",
-                 *       "amount": 25,
-                 *       "description": "Invoice settlement",
-                 *       "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                 *     }
-                 */
                 "application/json": components["schemas"]["CreateFiatTransferInput"];
             };
         };
         responses: {
-            /** @description Fiat transfer created */
+            /** @description Created */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["TransferRequestDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "a1b2c3d4-e5f6-4789-9abc-def012345678",
-                     *         "senderAccountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
-                     *         "chain": "BASE",
-                     *         "asset": "USDC",
-                     *         "amount": 25,
-                     *         "fiatOrigin": {
-                     *           "currency": "USD",
-                     *           "amount": 25,
-                     *           "exchangeRate": 1
-                     *         },
-                     *         "description": "Invoice settlement",
-                     *         "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                     *         "status": "COMPLETED",
-                     *         "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-                     *         "createdAt": "2026-01-15T09:30:00Z",
-                     *         "updatedAt": "2026-01-15T09:30:02Z"
-                     *       }
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["SingleTransferResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description Validation failed (e.g. receiver KYC not verified, insufficient balance) */
-            422: {
+            /** @description When the user is not authorized to access the resource */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            500: components["responses"]["InternalServerError"];
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
     createCryptoTransfer: {
@@ -3132,232 +5901,195 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /**
-                 * @description The account ID initiating the transfer
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
                 senderAccountId: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                /**
-                 * @example {
-                 *       "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
-                 *       "chain": "BASE",
-                 *       "asset": "USDC",
-                 *       "amount": 25,
-                 *       "description": "Invoice settlement",
-                 *       "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                 *     }
-                 */
                 "application/json": components["schemas"]["CreateCryptoTransferInput"];
             };
         };
         responses: {
-            /** @description Crypto transfer created */
+            /** @description Created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "a1b2c3d4-e5f6-4789-9abc-def012345678",
-                     *         "senderAccountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
-                     *         "chain": "BASE",
-                     *         "asset": "USDC",
-                     *         "amount": 25,
-                     *         "description": "Invoice settlement",
-                     *         "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                     *         "status": "COMPLETED",
-                     *         "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-                     *         "createdAt": "2026-01-15T09:30:00Z",
-                     *         "updatedAt": "2026-01-15T09:30:02Z"
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["SingleTransferResponse"];
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["TransferRequestDto"];
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description Validation failed (e.g. receiver KYC not verified, insufficient balance/allowance) */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    listTransfers: {
-        parameters: {
-            query?: {
-                /**
-                 * @description Filter by the account's role in the transfer
-                 * @example SENDER
-                 */
-                accountRole?: "SENDER" | "RECEIVER";
-                /**
-                 * @description Filter by transfer status
-                 * @example COMPLETED
-                 */
-                status?: components["schemas"]["TransferStatus"];
-                /**
-                 * @description Field to sort by
-                 * @example createdAt
-                 */
-                sortOn?: components["parameters"]["SortOn"];
-                /**
-                 * @description Sort direction
-                 * @example DESC
-                 */
-                sortOrder?: components["parameters"]["SortOrder"];
-                /**
-                 * @description Page number (1-based indexing)
-                 * @example 1
-                 */
-                page?: components["parameters"]["Page"];
-                /**
-                 * @description Number of items per page
-                 * @example 20
-                 */
-                size?: components["parameters"]["Size"];
-            };
-            header?: never;
-            path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of transfers */
-            200: {
+            /** @description When the request contains invalid input */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": [
+                     *       "success": false,
+                     *       "errors": [
                      *         {
-                     *           "id": "a1b2c3d4-e5f6-4789-9abc-def012345678",
-                     *           "senderAccountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *           "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
-                     *           "chain": "BASE",
-                     *           "asset": "USDC",
-                     *           "amount": 25,
-                     *           "description": "Invoice settlement",
-                     *           "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                     *           "status": "COMPLETED",
-                     *           "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-                     *           "createdAt": "2026-01-15T09:30:00Z",
-                     *           "updatedAt": "2026-01-15T09:30:02Z"
-                     *         },
-                     *         {
-                     *           "id": "b2c3d4e5-f6a7-4890-abcd-ef0123456789",
-                     *           "senderAccountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *           "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
-                     *           "chain": "BASE",
-                     *           "asset": "USDC",
-                     *           "amount": 10,
-                     *           "description": "Invoice settlement",
-                     *           "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                     *           "status": "COMPLETED",
-                     *           "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-                     *           "createdAt": "2026-01-15T09:30:00Z",
-                     *           "updatedAt": "2026-01-15T09:30:02Z"
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
                      *         }
-                     *       ],
-                     *       "pagination": {
-                     *         "pageNumber": 1,
-                     *         "pageSize": 20,
-                     *         "numberOfElements": 2,
-                     *         "numberOfPages": 1,
-                     *         "hasNextPage": false,
-                     *         "hasPreviousPage": false
-                     *       }
+                     *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["TransferListResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
-        };
-    };
-    getTransfer: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-                /**
-                 * @description The transfer ID
-                 * @example a1b2c3d4-e5f6-4789-9abc-def012345678
-                 */
-                transferId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Transfer details */
-            200: {
+            /** @description When the user is not authorized to access the resource */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "a1b2c3d4-e5f6-4789-9abc-def012345678",
-                     *         "senderAccountId": "b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f",
-                     *         "receiverAccountId": "c3b2a1f0-9d8c-4e3a-bf21-1a2b3c4d5e60",
-                     *         "chain": "BASE",
-                     *         "asset": "USDC",
-                     *         "amount": 25,
-                     *         "description": "Invoice settlement",
-                     *         "idempotencyKey": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                     *         "status": "COMPLETED",
-                     *         "transactionHash": "0xa1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-                     *         "createdAt": "2026-01-15T09:30:00Z",
-                     *         "updatedAt": "2026-01-15T09:30:02Z"
-                     *       }
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["SingleTransferResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
     getPermitMessages: {
@@ -3365,106 +6097,192 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-                /**
-                 * @description Unique wallet identifier
-                 * @example 9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f
-                 */
-                walletId: components["parameters"]["WalletId"];
+                accountId: string;
+                walletId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description List of permit messages */
+            /** @description OK */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PermitMessageDto"][];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": [
+                     *       "success": false,
+                     *       "errors": [
                      *         {
-                     *           "supportedAssetId": "aabbccdd-1122-4334-9556-7788990011ab",
-                     *           "asset": "USDC",
-                     *           "contractAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-                     *           "status": "CONFIRMED",
-                     *           "typedData": {
-                     *             "types": {
-                     *               "EIP712Domain": [
-                     *                 {
-                     *                   "name": "name",
-                     *                   "type": "string"
-                     *                 },
-                     *                 {
-                     *                   "name": "version",
-                     *                   "type": "string"
-                     *                 },
-                     *                 {
-                     *                   "name": "chainId",
-                     *                   "type": "uint256"
-                     *                 },
-                     *                 {
-                     *                   "name": "verifyingContract",
-                     *                   "type": "address"
-                     *                 }
-                     *               ],
-                     *               "Permit": [
-                     *                 {
-                     *                   "name": "owner",
-                     *                   "type": "address"
-                     *                 },
-                     *                 {
-                     *                   "name": "spender",
-                     *                   "type": "address"
-                     *                 },
-                     *                 {
-                     *                   "name": "value",
-                     *                   "type": "uint256"
-                     *                 },
-                     *                 {
-                     *                   "name": "nonce",
-                     *                   "type": "uint256"
-                     *                 },
-                     *                 {
-                     *                   "name": "deadline",
-                     *                   "type": "uint256"
-                     *                 }
-                     *               ]
-                     *             },
-                     *             "primaryType": "Permit",
-                     *             "domain": {
-                     *               "name": "USDC",
-                     *               "version": "2",
-                     *               "chainId": 84532,
-                     *               "verifyingContract": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
-                     *             },
-                     *             "message": {
-                     *               "owner": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-                     *               "spender": "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4",
-                     *               "value": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                     *               "nonce": 0,
-                     *               "deadline": "4102444800"
-                     *             }
-                     *           }
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
                      *         }
                      *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["PermitMessageListResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
     submitPermit: {
@@ -3472,122 +6290,6208 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-                /**
-                 * @description Unique wallet identifier
-                 * @example 9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f
-                 */
-                walletId: components["parameters"]["WalletId"];
+                accountId: string;
+                walletId: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                /**
-                 * @example {
-                 *       "supportedAssetId": "aabbccdd-1122-4334-9556-7788990011ab",
-                 *       "signature": {
-                 *         "v": "28",
-                 *         "r": "0x1111111111111111111111111111111111111111111111111111111111111111",
-                 *         "s": "0x2222222222222222222222222222222222222222222222222222222222222222"
-                 *       }
-                 *     }
-                 */
                 "application/json": components["schemas"]["SubmitPermitRequest"];
             };
         };
         responses: {
-            /** @description Permit submitted successfully */
+            /** @description OK */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PermitResultDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": {
-                     *         "id": "11aa22bb-33cc-4dd4-9ee5-66ff77aa88bb",
-                     *         "supportedAssetId": "aabbccdd-1122-4334-9556-7788990011ab",
-                     *         "asset": "USDC",
-                     *         "contractAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-                     *         "status": "SUBMITTED",
-                     *         "permitTxId": "0a9f8e7d-6c5b-4a39-8271-6a5b4c3d2e1f",
-                     *         "skipped": false
-                     *       }
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["SinglePermitResultResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            500: components["responses"]["InternalServerError"];
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
-    getWalletAllowances: {
+    verifyWalletAllowances: {
         parameters: {
-            query?: {
-                /**
-                 * @description Filter by a specific asset (e.g. USDC)
-                 * @example USDC
-                 */
-                asset?: string;
-            };
+            query?: never;
             header?: never;
             path: {
-                /**
-                 * @description Unique account identifier
-                 * @example b2a1f0e9-8c7d-4e3a-9f21-0a1b2c3d4e5f
-                 */
-                accountId: components["parameters"]["AccountId"];
-                /**
-                 * @description Unique wallet identifier
-                 * @example 9f8e7d6c-5b4a-4938-8271-6a5b4c3d2e1f
-                 */
-                walletId: components["parameters"]["WalletId"];
+                accountId: string;
+                walletId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description List of token allowances */
+            /** @description OK */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["AllowanceVerificationResultDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     /**
                      * @example {
-                     *       "success": true,
-                     *       "result": [
+                     *       "success": false,
+                     *       "errors": [
                      *         {
-                     *           "asset": {
-                     *             "name": "USDC",
-                     *             "contractAddress": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-                     *             "decimals": 6
-                     *           },
-                     *           "allowance": "100.000000",
-                     *           "orchestrationWallet": "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
                      *         }
                      *       ]
                      *     }
                      */
-                    "application/json": components["schemas"]["AllowanceListResponse"];
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
                 };
             };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            500: components["responses"]["InternalServerError"];
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    listVirtualBankAccounts: {
+        parameters: {
+            query?: {
+                /** @description Field name to sort by */
+                sortOn?: string;
+                /** @description Sort direction (ASC or DESC) */
+                sortOrder?: "ASC" | "DESC";
+                /**
+                 * @description Page number (1-based indexing)
+                 * @example 1
+                 */
+                page?: number;
+                /**
+                 * @description Number of items per page
+                 * @example 100
+                 */
+                size?: number;
+            };
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        pagination?: {
+                            /** Format: int32 */
+                            pageNumber?: number;
+                            /** Format: int32 */
+                            pageSize?: number;
+                            /** Format: int64 */
+                            numberOfElements?: number;
+                            /** Format: int32 */
+                            numberOfPages?: number;
+                            hasNextPage?: boolean;
+                            hasPreviousPage?: boolean;
+                        };
+                        sort?: {
+                            orders?: {
+                                property?: string;
+                                /** @enum {string} */
+                                direction?: "ASC" | "DESC";
+                            }[];
+                        };
+                        result?: {
+                            /** Format: uuid */
+                            id?: string;
+                            /** Format: uuid */
+                            accountId?: string;
+                            /** @enum {string} */
+                            bankAccountType?: "EUR_SEPA" | "USD_ACH";
+                            name?: string;
+                            /** @enum {string} */
+                            status?: "PENDING" | "ACTIVE" | "CLOSED";
+                            currency?: string;
+                            targetCryptocurrency?: string;
+                            iban?: string;
+                            bic?: string;
+                            accountNumber?: string;
+                            routingNumber?: string;
+                            bankName?: string;
+                            beneficiaryName?: string;
+                            referenceCode?: string;
+                            depositRails?: components["schemas"]["ProviderDepositRail"][];
+                            /** Format: date-time */
+                            createdAt?: string;
+                            /** Format: date-time */
+                            updatedAt?: string;
+                        };
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    createVirtualBankAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVirtualBankAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["IdempotentResponseVirtualBankAccountResponse"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    prepareOwnershipProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrepareOwnershipProofRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PrepareOwnershipProofResponse"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    listPayouts: {
+        parameters: {
+            query?: {
+                status?: "REQUESTED" | "SENDING" | "PROVIDER_PROCESSING" | "COMPLETED" | "REJECTED" | "FAILED" | "RETURNED";
+                /** @description Field name to sort by */
+                sortOn?: string;
+                /** @description Sort direction (ASC or DESC) */
+                sortOrder?: "ASC" | "DESC";
+                /**
+                 * @description Page number (1-based indexing)
+                 * @example 1
+                 */
+                page?: number;
+                /**
+                 * @description Number of items per page
+                 * @example 100
+                 */
+                size?: number;
+            };
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        pagination?: {
+                            /** Format: int32 */
+                            pageNumber?: number;
+                            /** Format: int32 */
+                            pageSize?: number;
+                            /** Format: int64 */
+                            numberOfElements?: number;
+                            /** Format: int32 */
+                            numberOfPages?: number;
+                            hasNextPage?: boolean;
+                            hasPreviousPage?: boolean;
+                        };
+                        sort?: {
+                            orders?: {
+                                property?: string;
+                                /** @enum {string} */
+                                direction?: "ASC" | "DESC";
+                            }[];
+                        };
+                        result?: {
+                            /** Format: uuid */
+                            id?: string;
+                            /** Format: uuid */
+                            accountId?: string;
+                            payoutRoute?: components["schemas"]["PayoutRouteSummaryDto"];
+                            /** @enum {string} */
+                            rail?: "US_ACH" | "SEPA";
+                            cryptoAmount?: number;
+                            settledFiatAmount?: number;
+                            /** @enum {string} */
+                            fundingMode?: "PULL" | "PUSH";
+                            /** @enum {string} */
+                            status?: "REQUESTED" | "SENDING" | "PROVIDER_PROCESSING" | "COMPLETED" | "REJECTED" | "FAILED" | "RETURNED";
+                            sendTxHash?: string;
+                            /** Format: date-time */
+                            requestedAt?: string;
+                            /** Format: date-time */
+                            completedAt?: string;
+                            failureReason?: string;
+                        };
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    requestPayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePayoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["IdempotentResponsePayoutDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    listRoutes: {
+        parameters: {
+            query?: {
+                payoutBankAccountId?: string;
+            };
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PayoutRouteDto"][];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    createRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePayoutRouteRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PayoutRouteDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    prepareOwnershipProof_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+                routeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PayoutOwnershipProofDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    completeOwnershipProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+                routeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompletePayoutOwnershipProofRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PayoutRouteDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    createPaymentRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePaymentRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["IdempotentResponsePaymentRequestDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    listPartyRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PartyRoleDto"][];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    addPartyRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddPartyRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PartyRoleDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    createPayInSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePayInSessionInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PayInSessionDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    updatePaymentRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paymentRequestId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePaymentRequestInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["IdempotentResponsePaymentRequestDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    getParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PartyDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    deleteParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    updateParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePartyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PartyDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    listSupportedAssets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["SupportedAssetView"][];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PayoutBankAccountDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    getPartyIvVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PartyIvVerificationDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    getAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["AccountListItemDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    listWallets: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Page number (1-based indexing)
+                 * @example 1
+                 */
+                page?: number;
+                /**
+                 * @description Number of items per page
+                 * @example 100
+                 */
+                size?: number;
+            };
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        pagination?: {
+                            /** Format: int32 */
+                            pageNumber?: number;
+                            /** Format: int32 */
+                            pageSize?: number;
+                            /** Format: int64 */
+                            numberOfElements?: number;
+                            /** Format: int32 */
+                            numberOfPages?: number;
+                            hasNextPage?: boolean;
+                            hasPreviousPage?: boolean;
+                        };
+                        sort?: {
+                            orders?: {
+                                property?: string;
+                                /** @enum {string} */
+                                direction?: "ASC" | "DESC";
+                            }[];
+                        };
+                        result?: {
+                            /** Format: uuid */
+                            id?: string;
+                            /** @enum {string} */
+                            chain?: "AVALANCHE" | "BASE" | "ETHEREUM" | "POLYGON" | "SOLANA";
+                            /** @enum {string} */
+                            type?: "VENLY_MANAGED" | "SELF_CUSTODY";
+                            address?: string;
+                            balances?: components["schemas"]["WalletBalanceDto"][];
+                            /** @enum {string} */
+                            amlStatus?: "PENDING" | "APPROVED" | "FLAGGED" | "BLOCKED";
+                        };
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    getWalletAllowances: {
+        parameters: {
+            query?: {
+                asset?: string;
+            };
+            header?: never;
+            path: {
+                accountId: string;
+                walletId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["AllowanceInfo"][];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    getVirtualBankAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+                virtualBankAccountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["VirtualBankAccountResponse"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    listTransfers: {
+        parameters: {
+            query?: {
+                accountRole?: "SENDER" | "RECEIVER";
+                status?: "PENDING" | "COMPLETED" | "FAILED";
+                /** @description Field name to sort by */
+                sortOn?: string;
+                /** @description Sort direction (ASC or DESC) */
+                sortOrder?: "ASC" | "DESC";
+                /**
+                 * @description Page number (1-based indexing)
+                 * @example 1
+                 */
+                page?: number;
+                /**
+                 * @description Number of items per page
+                 * @example 100
+                 */
+                size?: number;
+            };
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        pagination?: {
+                            /** Format: int32 */
+                            pageNumber?: number;
+                            /** Format: int32 */
+                            pageSize?: number;
+                            /** Format: int64 */
+                            numberOfElements?: number;
+                            /** Format: int32 */
+                            numberOfPages?: number;
+                            hasNextPage?: boolean;
+                            hasPreviousPage?: boolean;
+                        };
+                        sort?: {
+                            orders?: {
+                                property?: string;
+                                /** @enum {string} */
+                                direction?: "ASC" | "DESC";
+                            }[];
+                        };
+                        result?: {
+                            /** Format: uuid */
+                            id?: string;
+                            /** Format: uuid */
+                            senderAccountId?: string;
+                            /** Format: uuid */
+                            receiverAccountId?: string;
+                            /** @enum {string} */
+                            chain?: "AVALANCHE" | "BASE" | "ETHEREUM" | "POLYGON" | "SOLANA";
+                            asset?: string;
+                            amount?: number;
+                            fiatOrigin?: components["schemas"]["FiatOriginDto"];
+                            description?: string;
+                            merchantReference?: string;
+                            idempotencyKey?: string;
+                            /** @enum {string} */
+                            status?: "PENDING" | "COMPLETED" | "FAILED";
+                            transactionHash?: string;
+                            errorMessage?: string;
+                            /** Format: date-time */
+                            createdAt?: string;
+                            /** Format: date-time */
+                            updatedAt?: string;
+                        };
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    getTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+                transferId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["TransferRequestDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    listAccountSupportedAssets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["AccountSupportedAssetView"][];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    getPayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+                payoutId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        /** @default true */
+                        success: boolean;
+                        result?: components["schemas"]["PayoutDto"];
+                    };
+                };
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    removePartyRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description When the request contains invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "validation-error",
+                     *           "message": "A descriptive error message"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the user is not authorized to access the resource */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "UNAUTHORIZED",
+                     *           "message": "Access is denied."
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a user doesn't have proper security authority */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "FORBIDDEN",
+                     *           "message": "User doesn't have proper authority to access this resource"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When a resource is not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "NOT_FOUND"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When the HttpMethod is not supported */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "METHOD_NOT_SUPPORTED",
+                     *           "message": "HttpMethod is not supported. Supported methods are [..]"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Usually when the input is not a valid json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INVALID_MEDIA_TYPE"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
+            /** @description When there's an unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "success": false,
+                     *       "errors": [
+                     *         {
+                     *           "code": "INTERNAL_SERVER_ERROR",
+                     *           "message": "A description of the error (optional)"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        success?: boolean;
+                        errors?: components["schemas"]["ErrorBody"][];
+                        result?: Record<string, never>;
+                    };
+                };
+            };
         };
     };
 }

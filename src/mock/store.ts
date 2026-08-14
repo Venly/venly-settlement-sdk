@@ -3,13 +3,13 @@ import { financeResponseShapes } from "../generated/finance-shapes.js";
 import { mockError, type HandlerContext } from "./transport.js";
 
 type schemas = components["schemas"];
-type Party = schemas["Party"];
-type Account = schemas["Account"];
-type Wallet = schemas["Wallet"];
-type PartyRole = schemas["PartyRole"];
-type VirtualBankAccount = schemas["VirtualBankAccount"];
-type Transfer = schemas["Transfer"];
-type PaymentSession = schemas["PaymentSession"];
+type Party = schemas["PartyDto"];
+type Account = schemas["AccountListItemDto"];
+type Wallet = schemas["WalletBalanceDto"];
+type PartyRole = schemas["PartyRoleDto"];
+type VirtualBankAccount = schemas["VirtualBankAccountResponse"];
+type Transfer = schemas["TransferRequestDto"];
+type PaymentSession = schemas["PayInSessionDto"];
 
 /**
  * A simulated inbound bank credit. The Finance API models no such resource:
@@ -293,17 +293,10 @@ export class FinanceMockStore {
         .get(account.id as string)!
         .push({ partyId: b.partyId, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" });
     }
-    // The live API provisions the wallet as a side effect of account creation.
-    this.wallets.set(account.id as string, [
-      {
-        id: this.mintId(),
-        chain: (b.chain ?? "BASE") as Wallet["chain"],
-        type: "VENLY_MANAGED",
-        address: mintAddress(),
-        amlStatus: "APPROVED",
-        balances: [],
-      },
-    ]);
+    // The live API provisions the wallet as a side effect of account
+    // creation; contract 1.3.0 exposes it only as balance rows, and a fresh
+    // wallet holds nothing.
+    this.wallets.set(account.id as string, []);
     return toResponseShape("POST /accounts", account as Record<string, unknown>) as Account;
   }
 
@@ -351,7 +344,9 @@ export class FinanceMockStore {
     return this.virtualBankAccounts.filter((v) => v.accountId === ctx.params.accountId);
   }
 
-  createVirtualBankAccount(ctx: HandlerContext): VirtualBankAccount {
+  createVirtualBankAccount(
+    ctx: HandlerContext,
+  ): schemas["IdempotentResponseVirtualBankAccountResponse"] {
     const account = this.getAccount(ctx);
     const b = ctx.body as schemas["CreateVirtualBankAccountRequest"];
     const intentKey = `${account.id}:${ctx.idempotencyKey ?? b.idempotencyKey}`;
@@ -363,8 +358,11 @@ export class FinanceMockStore {
       }
       return toResponseShape(
         "POST /accounts/{accountId}/virtual-bank-accounts",
-        existing.result as Record<string, unknown>,
-      ) as VirtualBankAccount;
+        {
+          createdResourceId: (existing.result as VirtualBankAccount).id,
+          response: existing.result,
+        } as Record<string, unknown>,
+      ) as schemas["IdempotentResponseVirtualBankAccountResponse"];
     }
     if (account.status !== "ACTIVE" || account.kycStatus !== "VERIFIED") {
       this.virtualBankAccountIntents.set(intentKey, { fingerprint, outcome: "failed" });
@@ -388,10 +386,11 @@ export class FinanceMockStore {
     };
     this.virtualBankAccounts.push(vba);
     this.virtualBankAccountIntents.set(intentKey, { fingerprint, outcome: "succeeded", result: vba });
+    // Contract 1.3.0: creates return the idempotent wrapper, not the bare resource.
     return toResponseShape(
       "POST /accounts/{accountId}/virtual-bank-accounts",
-      vba as Record<string, unknown>,
-    ) as VirtualBankAccount;
+      { createdResourceId: vba.id, response: vba } as Record<string, unknown>,
+    ) as schemas["IdempotentResponseVirtualBankAccountResponse"];
   }
 
   getVirtualBankAccount(ctx: HandlerContext): VirtualBankAccount {
@@ -558,7 +557,7 @@ export class FinanceMockStore {
   }
 
   createPaymentSession(ctx: HandlerContext): PaymentSession {
-    const b = ctx.body as schemas["CreatePayInSessionRequest"];
+    const b = ctx.body as schemas["CreatePayInSessionInput"];
     const id = this.mintId();
     const session: PaymentSession = {
       id,
@@ -584,7 +583,7 @@ export class FinanceMockStore {
    * session - only POST, with the outcome delivered to `callbackUrl` - so a
    * caller has no other way to observe what this driver did.
    */
-  advancePaymentSession(id: string, to: schemas["PaymentSessionStatus"]): PaymentSession {
+  advancePaymentSession(id: string, to: NonNullable<schemas["PayInSessionDto"]["status"]>): PaymentSession {
     const session = this.paymentSessions.find((s) => s.id === id);
     if (!session) {
       throw new Error(`advancePaymentSession: no payment session with id ${id} in the mock store.`);

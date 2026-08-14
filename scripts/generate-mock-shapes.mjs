@@ -47,9 +47,15 @@ function requestShape(schema) {
   return { required: s.required ?? [], properties };
 }
 
+// springdoc serves response content as "*/*"; hand-authored specs used
+// "application/json". Accept either.
+function pickSchema(content) {
+  return content?.["application/json"]?.schema ?? content?.["*/*"]?.schema;
+}
+
 function responseFields(responses) {
   for (const code of ["200", "201", "202"]) {
-    const content = responses?.[code]?.content?.["application/json"]?.schema;
+    const content = pickSchema(responses?.[code]?.content);
     if (!content) continue;
     const envelope = schemaProps(content);
     let result = envelope?.properties?.result;
@@ -68,7 +74,7 @@ for (const [path, ops] of Object.entries(spec.paths ?? {})) {
     const op = ops[method];
     if (!op) continue;
     const key = `${method.toUpperCase()} ${path}`;
-    const body = op.requestBody?.content?.["application/json"]?.schema;
+    const body = pickSchema(op.requestBody?.content);
     const req = body ? requestShape(body) : undefined;
     if (req) requestShapes[key] = req;
     const res = responseFields(op.responses);

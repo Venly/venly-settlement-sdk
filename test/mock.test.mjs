@@ -79,7 +79,8 @@ test("mock: every namespace method returns a plausible fixture", async () => {
     [
       "wallets.list",
       f.wallets.list(acct),
-      (r) => r.items[0].chain === "BASE" && r.items[0].balances[0].amount.total === "15230.500000",
+      // Contract 1.3.0: balance rows (no wallet wrapper), amounts as numbers.
+      (r) => r.items[0].asset === "USDC" && r.items[0].amount.total === 15230.5,
     ],
     [
       "virtualBankAccounts.list",
@@ -115,7 +116,7 @@ test("mock: every namespace method returns a plausible fixture", async () => {
         idempotencyKey: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
       }),
       // response amount is the {fiat, crypto} object, never the request's number
-      (r) => r.amount.fiat === 25 && r.amount.crypto === "25.000000" && r.status === "RESERVED",
+      (r) => r.amount.fiat === 25 && r.amount.crypto === 25 && r.status === "RESERVED",
     ],
     [
       "paymentRequests.settle",
