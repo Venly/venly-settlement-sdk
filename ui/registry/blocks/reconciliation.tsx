@@ -1274,10 +1274,10 @@ export function ReconciliationBlock({
   const vbaQuery = useVirtualBankAccounts(accountId);
   const { finance } = useVenlyMock();
 
-  const feed: InboundCredit[] = useMemo(() => {
-    if (credits) return credits;
-    return finance ? finance.listInboundCredits() : [];
-  }, [credits, finance]);
+  // Read the mock feed on every render, not once: simulated credits arrive
+  // between renders (driver panels, walkthrough scripts), and a memoized
+  // snapshot would hide them until a remount.
+  const feed: InboundCredit[] = credits ?? (finance ? finance.listInboundCredits() : []);
 
   if (vbaQuery.isPending) {
     return (
