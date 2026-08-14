@@ -27,8 +27,8 @@ const SCHEMA_ITEM = "https://ui.shadcn.com/schema/registry-item.json";
 const SCHEMA_INDEX = "https://ui.shadcn.com/schema/registry.json";
 
 const RUNTIME_DEPENDENCIES = [
-  "@venlyfinance/react@^0.2.0",
-  "@venlyfinance/sdk@^0.3.0",
+  "@venlyfinance/react@^0.3.0",
+  "@venlyfinance/sdk@^0.4.0",
   "@tanstack/react-query@^5.0.0",
 ];
 
@@ -190,6 +190,17 @@ const BLOCKS = [
     description:
       "One feed over both money rails: the account's transfers interleaved with the company's withdrawals and add-money requests, a labelled Scope column, three bands (In progress / Completed / Didn't complete), live-synced detail panels, unified CSV export, and arrow-key row stepping. Mount UnifiedActivityBlock for the full feed, or ActivityBlock for a transfers-only ledger.",
     deps: ["data-table", "status-pill", "side-panel", "timeline", "field-list", "withdraw"],
+  },
+  {
+    name: "reconciliation",
+    title: "Reconciliation block",
+    description:
+      "Match inbound bank credits to expected payments without blurring the two feeds: the credit rows are the integrator's own bank/PSP feed (labelled so), the reference codes are Venly-issued. Sectioned exception queue with zero-counts always drawn, a judging workspace with the received evidence left of the candidates, per-signal match rationale instead of a score, a many-to-one builder with a live difference figure, four peer dispositions, and undo that reopens the expected payment.",
+    deps: ["data-table", "side-panel", "status-pill", "field-list"],
+    // Amount rendering arrives transitively: side-panel already delivers the
+    // money lib, and the blueprint's item list for this journey is verbatim
+    // venly-tokens + the four components above.
+    money: false,
   },
   {
     name: "balances",

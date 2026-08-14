@@ -5,8 +5,8 @@
   "title": "Activity block",
   "description": "One feed over both money rails: the account's transfers interleaved with the company's withdrawals and add-money requests, a labelled Scope column, three bands (In progress / Completed / Didn't complete), live-synced detail panels, unified CSV export, and arrow-key row stepping. Mount UnifiedActivityBlock for the full feed, or ActivityBlock for a transfers-only ledger.",
   "dependencies": [
-    "@venlyfinance/react@^0.2.0",
-    "@venlyfinance/sdk@^0.3.0",
+    "@venlyfinance/react@^0.3.0",
+    "@venlyfinance/sdk@^0.4.0",
     "@tanstack/react-query@^5.0.0"
   ],
   "registryDependencies": [
