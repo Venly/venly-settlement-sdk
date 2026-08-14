@@ -32,7 +32,7 @@ import {
   type ReconciliationModel,
 } from "../registry/blocks/reconciliation.js";
 
-// These tests pin the journey's laws: the two feeds are never blurred, the
+// These tests pin the surface's guarantees: the two feeds are never blurred, the
 // rationale is per-signal (never a bare score), zero-counts stay drawn, a
 // missing result collection is an error rather than an empty queue, part
 // payment is a choice rather than a validation error, and undo is a

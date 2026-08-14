@@ -42,7 +42,7 @@ import { Money, formatAmount } from "../lib/money.js";
  * focused credit in the workspace, Esc closes it.
  */
 
-// ─── Copy (cold-reader gated) ────────────────────────────────────────────────
+// ─── User-facing copy ────────────────────────────────────────────────────────
 
 export const RECONCILIATION_COPY = {
   provenance:
