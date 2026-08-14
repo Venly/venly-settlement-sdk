@@ -37,8 +37,7 @@ import type {
   CreatePayoutRouteInput,
   PayoutBankAccount,
   RegisterPayoutBankAccountInput,
-  PrepareOwnershipProofInput,
-  PrepareOwnershipProofResult,
+  PayoutOwnershipProof,
   CompleteOwnershipProofInput,
 } from "../src/types.js";
 
@@ -355,12 +354,11 @@ export class MockVenlyClient implements VenlyClient {
   async preparePayoutOwnershipProof(
     _accountId: string,
     routeId: string,
-    body: PrepareOwnershipProofInput,
-  ): Promise<PrepareOwnershipProofResult> {
+  ): Promise<PayoutOwnershipProof> {
     this.track("preparePayoutOwnershipProof");
     return {
-      walletAddress: body.walletAddress,
-      blockchain: body.blockchain,
+      walletAddress: "0xabc",
+      blockchain: "BASE",
       message: `proof:${routeId}`,
       signedOnUtc: "2026-08-14T00:00:00Z",
     };

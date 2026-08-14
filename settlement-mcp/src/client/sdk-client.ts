@@ -28,8 +28,7 @@ import type {
   CreatePayoutInput,
   CreatePayoutRouteInput,
   RegisterPayoutBankAccountInput,
-  PrepareOwnershipProofInput,
-  PrepareOwnershipProofResult,
+  PayoutOwnershipProof,
   CompleteOwnershipProofInput,
   RampRequestDto,
   RampRequestListItem,
@@ -337,10 +336,9 @@ export class SdkVenlyClient implements VenlyClient {
   async preparePayoutOwnershipProof(
     accountId: string,
     routeId: string,
-    body: PrepareOwnershipProofInput,
-  ): Promise<PrepareOwnershipProofResult> {
+  ): Promise<PayoutOwnershipProof> {
     this.assertReady();
-    return this.finance.payoutRoutes.prepareOwnershipProof(accountId, routeId, body);
+    return this.finance.payoutRoutes.prepareOwnershipProof(accountId, routeId);
   }
 
   async completePayoutOwnershipProof(

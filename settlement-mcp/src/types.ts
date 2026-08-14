@@ -43,10 +43,7 @@ export type CreatePayoutRouteInput = FinanceSchemas["CreatePayoutRouteRequest"];
 export type PayoutBankAccount = FinanceSchemas["PayoutBankAccountDto"];
 export type RegisterPayoutBankAccountInput =
   FinanceSchemas["RegisterPayoutBankAccountRequest"];
-export type PrepareOwnershipProofInput =
-  FinanceSchemas["PrepareOwnershipProofRequest"];
-export type PrepareOwnershipProofResult =
-  FinanceSchemas["PrepareOwnershipProofResponse"];
+export type PayoutOwnershipProof = FinanceSchemas["PayoutOwnershipProofDto"];
 export type CompleteOwnershipProofInput =
   FinanceSchemas["CompletePayoutOwnershipProofRequest"];
 
@@ -171,8 +168,7 @@ export interface VenlyClient {
   preparePayoutOwnershipProof(
     accountId: string,
     routeId: string,
-    body: PrepareOwnershipProofInput,
-  ): Promise<PrepareOwnershipProofResult>;
+  ): Promise<PayoutOwnershipProof>;
   completePayoutOwnershipProof(
     accountId: string,
     routeId: string,

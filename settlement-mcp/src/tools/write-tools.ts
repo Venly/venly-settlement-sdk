@@ -548,19 +548,17 @@ export function registerWriteTools(
       title: "Prepare route ownership proof",
       description:
         "Get the message the route's funding wallet must sign (finance POST " +
-        "/v1/accounts/{accountId}/payout-routes/{routeId}/ownership-proof/prepare). The " +
-        "signature itself is produced by the wallet owner, never by this server. " +
-        "Dry-run by default.",
+        "/v1/accounts/{accountId}/payout-routes/{routeId}/ownership-proof/prepare). Takes no " +
+        "body: the server derives the wallet and chain from the route. The signature itself " +
+        "is produced by the wallet owner, never by this server. Dry-run by default.",
       inputSchema: {
         accountId: z.string(),
         routeId: z.string(),
-        walletAddress: z.string().min(1),
-        blockchain: z.string().min(1),
         confirm: confirmField,
       },
       annotations: WRITE_ANNOTATIONS,
     },
-    async ({ accountId, routeId, confirm, ...body }) => {
+    async ({ accountId, routeId, confirm }) => {
       const gate = evaluateWriteGate(confirm, env);
       if (!gate.armed) {
         return jsonResult(
@@ -569,7 +567,7 @@ export function registerWriteTools(
             "POST",
             "finance",
             `/accounts/${accountId}/payout-routes/${routeId}/ownership-proof/prepare`,
-            body,
+            {},
             gate,
           ),
         );
@@ -577,7 +575,7 @@ export function registerWriteTools(
       try {
         return executionResult(
           gate,
-          await client.preparePayoutOwnershipProof(accountId, routeId, body),
+          await client.preparePayoutOwnershipProof(accountId, routeId),
         );
       } catch (e) {
         return errorResult((e as Error).message);
