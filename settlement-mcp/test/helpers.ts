@@ -31,6 +31,14 @@ import type {
   VirtualBankAccount,
   VenlyFee,
   Wallet,
+  Payout,
+  CreatePayoutInput,
+  PayoutRoute,
+  CreatePayoutRouteInput,
+  PayoutBankAccount,
+  RegisterPayoutBankAccountInput,
+  PayoutOwnershipProof,
+  CompleteOwnershipProofInput,
 } from "../src/types.js";
 
 /** Records which methods were called, so tests can assert no live call fired. */
@@ -94,19 +102,12 @@ export class MockVenlyClient implements VenlyClient {
     _params?: { page?: number; size?: number },
   ): Promise<Wallet[]> {
     this.track("listWallets");
+    // Contract 1.3.0: per-asset balance rows, amounts as numbers.
     return [
       {
-        id: "wallet-1",
-        chain: "BASE",
-        type: "VENLY_MANAGED",
-        address: "0xabc",
-        balances: [
-          {
-            asset: "USDC",
-            amount: { total: "1000.00", available: "900.00", reserved: "100.00" },
-          },
-        ],
-        amlStatus: "APPROVED",
+        asset: "USDC",
+        contractAddress: "0xabc",
+        amount: { total: 1000, available: 900, reserved: 100 },
       },
     ];
   }
@@ -293,6 +294,100 @@ export class MockVenlyClient implements VenlyClient {
       accountId,
       paymentUrl: "https://pay.example/x",
       status: "CREATED",
+    };
+  }
+
+  // ----- Payout surface (contract 1.3.0) -----
+
+  async listPayouts(
+    accountId: string,
+    _params?: { page?: number; size?: number; status?: string },
+  ): Promise<Payout[]> {
+    this.track("listPayouts");
+    return [
+      {
+        id: "payout-1",
+        accountId,
+        rail: "SEPA",
+        cryptoAmount: 100,
+        fundingMode: "PULL",
+        status: "COMPLETED",
+        settledFiatAmount: 100,
+      },
+    ];
+  }
+
+  async getPayout(accountId: string, payoutId: string): Promise<Payout> {
+    this.track("getPayout");
+    return { id: payoutId, accountId, status: "REQUESTED", cryptoAmount: 100 };
+  }
+
+  async requestPayout(accountId: string, body: CreatePayoutInput): Promise<Payout> {
+    this.track("requestPayout");
+    return {
+      id: "payout-live-1",
+      accountId,
+      cryptoAmount: body.cryptoAmount,
+      fundingMode: "PULL",
+      status: "REQUESTED",
+    };
+  }
+
+  async listPayoutRoutes(accountId: string): Promise<PayoutRoute[]> {
+    this.track("listPayoutRoutes");
+    void accountId;
+    return [{ id: "route-1", status: "ACTIVE", fiatCurrency: "EUR" }];
+  }
+
+  async createPayoutRoute(
+    _accountId: string,
+    body: CreatePayoutRouteInput,
+  ): Promise<PayoutRoute> {
+    this.track("createPayoutRoute");
+    return {
+      id: "route-live-1",
+      status: "AWAITING_OWNERSHIP_PROOF",
+      depositAsset: body.depositAsset,
+    };
+  }
+
+  async preparePayoutOwnershipProof(
+    _accountId: string,
+    routeId: string,
+  ): Promise<PayoutOwnershipProof> {
+    this.track("preparePayoutOwnershipProof");
+    return {
+      walletAddress: "0xabc",
+      blockchain: "BASE",
+      message: `proof:${routeId}`,
+      signedOnUtc: "2026-08-14T00:00:00Z",
+    };
+  }
+
+  async completePayoutOwnershipProof(
+    _accountId: string,
+    routeId: string,
+    _body: CompleteOwnershipProofInput,
+  ): Promise<PayoutRoute> {
+    this.track("completePayoutOwnershipProof");
+    return { id: routeId, status: "ACTIVE" };
+  }
+
+  async listPayoutBankAccounts(partyId: string): Promise<PayoutBankAccount[]> {
+    this.track("listPayoutBankAccounts");
+    return [{ id: "pba-1", partyId, rail: "SEPA", status: "ACTIVE" }];
+  }
+
+  async registerPayoutBankAccount(
+    partyId: string,
+    body: RegisterPayoutBankAccountInput,
+  ): Promise<PayoutBankAccount> {
+    this.track("registerPayoutBankAccount");
+    return {
+      id: "pba-live-1",
+      partyId,
+      rail: body.rail as PayoutBankAccount["rail"],
+      status: "PENDING",
     };
   }
 }

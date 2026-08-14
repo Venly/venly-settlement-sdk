@@ -109,8 +109,8 @@ test("SDK client: legacy normalization rejects the retired cryptocurrency field"
 test("SDK client: existing approval and payment-session writes map to SDK resources", async () => {
   const client = SdkVenlyClient.mock();
 
-  await client.approveRampRequest("ramp-001", { version: 3 });
-  await client.rejectRampRequest("ramp-002", { version: 4 });
+  await client.approveRampRequest("123e4567-e89b-12d3-a456-426614174000", { version: 0 });
+  await client.rejectRampRequest("123e4567-e89b-12d3-a456-426614174005", { version: 0 });
   await client.createPayInSession(ACCT_1, {
     inAmount: "100.00",
     inCurrency: "EUR",
@@ -121,12 +121,12 @@ test("SDK client: existing approval and payment-session writes map to SDK resour
 
   assert.ok(
     client.fundflowMockCalls.some(
-      (call) => call.method === "POST" && call.path === "/v1/ramp-requests/ramp-001/approve",
+      (call) => call.method === "POST" && call.path === "/v1/ramp-requests/123e4567-e89b-12d3-a456-426614174000/approve",
     ),
   );
   assert.ok(
     client.fundflowMockCalls.some(
-      (call) => call.method === "POST" && call.path === "/v1/ramp-requests/ramp-002/reject",
+      (call) => call.method === "POST" && call.path === "/v1/ramp-requests/123e4567-e89b-12d3-a456-426614174005/reject",
     ),
   );
   assert.ok(

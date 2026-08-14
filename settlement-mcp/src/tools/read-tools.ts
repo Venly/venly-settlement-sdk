@@ -342,4 +342,102 @@ export function registerReadTools(server: McpServer, client: VenlyClient): void 
       }
     },
   );
+  server.registerTool(
+    "list_payouts",
+    {
+      title: "List payouts",
+      description:
+        "List third-party payouts for an account (finance GET /v1/accounts/{accountId}/payouts). " +
+        "A payout moves crypto out of the account and settles fiat to a registered beneficiary " +
+        "bank account. Statuses: REQUESTED, SENDING, PROVIDER_PROCESSING, COMPLETED, REJECTED, " +
+        "FAILED, RETURNED. Read-only.",
+      inputSchema: {
+        accountId: z.string(),
+        status: z
+          .enum([
+            "REQUESTED",
+            "SENDING",
+            "PROVIDER_PROCESSING",
+            "COMPLETED",
+            "REJECTED",
+            "FAILED",
+            "RETURNED",
+          ])
+          .optional(),
+        page: z.number().int().min(1).optional(),
+        size: z.number().int().min(1).max(200).optional(),
+      },
+      annotations: READ_ONLY,
+    },
+    async ({ accountId, ...params }) => {
+      try {
+        const result = await client.listPayouts(accountId, params);
+        return jsonResult({ count: result.length, payouts: result });
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_payout",
+    {
+      title: "Get one payout",
+      description:
+        "Fetch one payout by id (finance GET /v1/accounts/{accountId}/payouts/{payoutId}). " +
+        "COMPLETED payouts carry settledFiatAmount and completedAt; REJECTED/FAILED/RETURNED " +
+        "carry a failureReason. Read-only.",
+      inputSchema: { accountId: z.string(), payoutId: z.string() },
+      annotations: READ_ONLY,
+    },
+    async ({ accountId, payoutId }) => {
+      try {
+        return jsonResult(await client.getPayout(accountId, payoutId));
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_payout_routes",
+    {
+      title: "List payout routes",
+      description:
+        "List an account's payout routes (finance GET /v1/accounts/{accountId}/payout-routes). " +
+        "A route binds a beneficiary bank account to this account and a deposit asset; only an " +
+        "ACTIVE route (ownership proof completed) can carry payouts. Read-only.",
+      inputSchema: { accountId: z.string() },
+      annotations: READ_ONLY,
+    },
+    async ({ accountId }) => {
+      try {
+        const result = await client.listPayoutRoutes(accountId);
+        return jsonResult({ count: result.length, payoutRoutes: result });
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_payout_bank_accounts",
+    {
+      title: "List beneficiary bank accounts",
+      description:
+        "List the payout (beneficiary) bank accounts registered on a party " +
+        "(finance GET /v1/parties/{partyId}/payout-bank-accounts). Rail details come back " +
+        "masked. Only ACTIVE accounts can back a payout route. Read-only.",
+      inputSchema: { partyId: z.string() },
+      annotations: READ_ONLY,
+    },
+    async ({ partyId }) => {
+      try {
+        const result = await client.listPayoutBankAccounts(partyId);
+        return jsonResult({ count: result.length, payoutBankAccounts: result });
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
 }

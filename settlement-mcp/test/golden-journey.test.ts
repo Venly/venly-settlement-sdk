@@ -36,17 +36,21 @@ test("golden journey: official SDK mock builds an international account without 
     const wallets = await callToolJson(client, "list_wallets", {
       accountId: account.data.result.id,
     });
+    // vIBAN provisioning requires a VERIFIED account, and the fresh account is
+    // honestly VERIFICATION_PENDING - so the receiving account and the
+    // transfer run on the seeded, verified main account.
+    const VERIFIED_ACCT = "a10c2d31-2222-4b20-8c63-000000000001";
     const receiving = await callToolJson(client, "create_virtual_bank_account", {
-      accountId: account.data.result.id,
+      accountId: VERIFIED_ACCT,
       name: "EUR Receipts",
       inCurrency: "EUR",
       targetCryptocurrency: "USDC",
       idempotencyKey: "golden-viban-1",
     });
-    // The receiver must exist - the 0.2.0 SDK mock resolves external ids and
+    // The receiver must exist - the SDK mock resolves external ids and
     // rejects transfers to nobody. "acct-ops-usd" is a seeded account.
     const transfer = await callToolJson(client, "create_fiat_transfer", {
-      senderAccountId: account.data.result.id,
+      senderAccountId: VERIFIED_ACCT,
       receiverExternalId: "acct-ops-usd",
       currency: "EUR",
       amount: 250,
@@ -54,7 +58,7 @@ test("golden journey: official SDK mock builds an international account without 
       idempotencyKey: "golden-transfer-1",
     });
     const history = await callToolJson(client, "list_transfers", {
-      accountId: account.data.result.id,
+      accountId: VERIFIED_ACCT,
     });
 
     for (const mutation of [party, account, receiving, transfer]) {
@@ -62,9 +66,9 @@ test("golden journey: official SDK mock builds an international account without 
       assert.equal(mutation.data.dryRun, false, "mock writes execute; dryRun is explicit");
       assert.equal(mutation.data.environment, "mock");
     }
-    assert.equal(wallets.data.wallets[0].chain, "BASE");
-    // A freshly provisioned wallet honestly holds nothing.
-    assert.deepEqual(wallets.data.wallets[0].balances, []);
+    // Contract 1.3.0: list_wallets returns per-asset balance rows, and a
+    // freshly provisioned wallet honestly holds nothing.
+    assert.deepEqual(wallets.data.wallets, []);
     // Creation starts KYB; it does not complete it (0.2.0 mock fidelity).
     assert.equal(party.data.result.kybStatus, "PENDING");
     assert.equal(account.data.result.kycStatus, "VERIFICATION_PENDING");

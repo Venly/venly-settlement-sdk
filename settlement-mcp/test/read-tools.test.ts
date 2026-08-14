@@ -36,7 +36,7 @@ test("server enumerates all read + write + x402 tools over the harness", async (
   // x402 tier
   assert.ok(names.includes("quote_x402_payment"), "missing x402 tool");
 
-  assert.equal(tools.length, 24, "expected 24 tools total");
+  assert.equal(tools.length, 33, "expected 33 tools total");
   await h.close();
 });
 
@@ -79,12 +79,13 @@ test("list_accounts returns paginated account fixtures", async () => {
   await h.close();
 });
 
-test("list_wallets exposes the account wallet", async () => {
+test("list_wallets exposes the account balance rows", async () => {
   const h = await makeHarness({});
   const { data } = await callToolJson(h.client, "list_wallets", { accountId: "acct-1" });
   assert.equal(data.count, 1);
-  assert.equal(data.wallets[0].id, "wallet-1");
-  assert.equal(data.wallets[0].chain, "BASE");
+  // Contract 1.3.0: per-asset balance rows, no wallet wrapper.
+  assert.equal(data.wallets[0].asset, "USDC");
+  assert.equal(data.wallets[0].amount.available, 900);
   await h.close();
 });
 

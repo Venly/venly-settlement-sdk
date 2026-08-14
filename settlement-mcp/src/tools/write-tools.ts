@@ -451,4 +451,224 @@ export function registerWriteTools(
       }
     },
   );
+  server.registerTool(
+    "register_payout_bank_account",
+    {
+      title: "Register a beneficiary bank account",
+      description:
+        "Register a payout (beneficiary) bank account on a party (finance POST " +
+        "/v1/parties/{partyId}/payout-bank-accounts). The account starts PENDING; an operator " +
+        "activates it before it can back a payout route. Rail details come back masked. " +
+        "Dry-run by default.",
+      inputSchema: {
+        partyId: z.string(),
+        rail: z.enum(["SEPA", "US_ACH"]),
+        fiatCurrency: z.string().min(3).max(3),
+        label: z.string().optional(),
+        accountHolderName: z.string().min(1),
+        iban: z.string().optional().describe("SEPA rail"),
+        bic: z.string().optional().describe("SEPA rail"),
+        accountNumber: z.string().optional().describe("US_ACH rail"),
+        abaRoutingNumber: z.string().optional().describe("US_ACH rail"),
+        accountType: z.enum(["CHECKING", "SAVINGS"]).optional().describe("US_ACH rail"),
+        bankName: z.string().optional(),
+        confirm: confirmField,
+      },
+      annotations: WRITE_ANNOTATIONS,
+    },
+    async ({ partyId, confirm, iban, bic, accountNumber, abaRoutingNumber, accountType, ...rest }) => {
+      const body = {
+        ...rest,
+        railDetails: { iban, bic, accountNumber, abaRoutingNumber, accountType },
+      };
+      const gate = evaluateWriteGate(confirm, env);
+      if (!gate.armed) {
+        return jsonResult(
+          buildDryRun(
+            "register_payout_bank_account",
+            "POST",
+            "finance",
+            `/parties/${partyId}/payout-bank-accounts`,
+            body,
+            gate,
+          ),
+        );
+      }
+      try {
+        return executionResult(gate, await client.registerPayoutBankAccount(partyId, body));
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_payout_route",
+    {
+      title: "Create a payout route",
+      description:
+        "Bind an ACTIVE beneficiary bank account to an account and a deposit asset (finance " +
+        "POST /v1/accounts/{accountId}/payout-routes). The route starts AWAITING_OWNERSHIP_PROOF; " +
+        "complete_payout_ownership_proof activates it. Dry-run by default.",
+      inputSchema: {
+        accountId: z.string(),
+        payoutBankAccountId: z.string(),
+        chain: z.enum(["AVALANCHE", "BASE", "ETHEREUM", "POLYGON", "SOLANA"]),
+        asset: z.string().min(1).describe("Deposit asset name, e.g. USDC"),
+        confirm: confirmField,
+      },
+      annotations: WRITE_ANNOTATIONS,
+    },
+    async ({ accountId, payoutBankAccountId, chain, asset, confirm }) => {
+      const body = { payoutBankAccountId, depositAsset: { chain, name: asset } };
+      const gate = evaluateWriteGate(confirm, env);
+      if (!gate.armed) {
+        return jsonResult(
+          buildDryRun(
+            "create_payout_route",
+            "POST",
+            "finance",
+            `/accounts/${accountId}/payout-routes`,
+            body,
+            gate,
+          ),
+        );
+      }
+      try {
+        return executionResult(gate, await client.createPayoutRoute(accountId, body));
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "prepare_payout_ownership_proof",
+    {
+      title: "Prepare route ownership proof",
+      description:
+        "Get the message the route's funding wallet must sign (finance POST " +
+        "/v1/accounts/{accountId}/payout-routes/{routeId}/ownership-proof/prepare). Takes no " +
+        "body: the server derives the wallet and chain from the route. The signature itself " +
+        "is produced by the wallet owner, never by this server. Dry-run by default.",
+      inputSchema: {
+        accountId: z.string(),
+        routeId: z.string(),
+        confirm: confirmField,
+      },
+      annotations: WRITE_ANNOTATIONS,
+    },
+    async ({ accountId, routeId, confirm }) => {
+      const gate = evaluateWriteGate(confirm, env);
+      if (!gate.armed) {
+        return jsonResult(
+          buildDryRun(
+            "prepare_payout_ownership_proof",
+            "POST",
+            "finance",
+            `/accounts/${accountId}/payout-routes/${routeId}/ownership-proof/prepare`,
+            {},
+            gate,
+          ),
+        );
+      }
+      try {
+        return executionResult(
+          gate,
+          await client.preparePayoutOwnershipProof(accountId, routeId),
+        );
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "complete_payout_ownership_proof",
+    {
+      title: "Complete route ownership proof",
+      description:
+        "Submit the signed ownership-proof message; on success the route becomes ACTIVE " +
+        "(finance POST /v1/accounts/{accountId}/payout-routes/{routeId}/ownership-proof/complete). " +
+        "Dry-run by default.",
+      inputSchema: {
+        accountId: z.string(),
+        routeId: z.string(),
+        message: z.string().min(1),
+        signature: z.string().min(1),
+        confirm: confirmField,
+      },
+      annotations: WRITE_ANNOTATIONS,
+    },
+    async ({ accountId, routeId, confirm, ...body }) => {
+      const gate = evaluateWriteGate(confirm, env);
+      if (!gate.armed) {
+        return jsonResult(
+          buildDryRun(
+            "complete_payout_ownership_proof",
+            "POST",
+            "finance",
+            `/accounts/${accountId}/payout-routes/${routeId}/ownership-proof/complete`,
+            body,
+            gate,
+          ),
+        );
+      }
+      try {
+        return executionResult(
+          gate,
+          await client.completePayoutOwnershipProof(accountId, routeId, body),
+        );
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
+
+  server.registerTool(
+    "request_payout",
+    {
+      title: "Request a payout",
+      description:
+        "Move crypto out of the account and settle fiat to the route's beneficiary bank " +
+        "account (finance POST /v1/accounts/{accountId}/payouts). Requires an ACTIVE payout " +
+        "route. This is money leaving the platform. Dry-run by default.",
+      inputSchema: {
+        accountId: z.string(),
+        payoutRouteId: z.string(),
+        cryptoAmount: z.number().positive(),
+        idempotencyKey: z
+          .string()
+          .optional()
+          .describe("UUID; generated when omitted"),
+        confirm: confirmField,
+      },
+      annotations: WRITE_ANNOTATIONS,
+    },
+    async ({ accountId, confirm, ...rest }) => {
+      const body = {
+        payoutRouteId: rest.payoutRouteId,
+        cryptoAmount: rest.cryptoAmount,
+        idempotencyKey: rest.idempotencyKey ?? crypto.randomUUID(),
+      };
+      const gate = evaluateWriteGate(confirm, env);
+      if (!gate.armed) {
+        const dryRun = buildDryRun(
+          "request_payout",
+          "POST",
+          "finance",
+          `/accounts/${accountId}/payouts`,
+          body,
+          gate,
+        );
+        dryRun.note += " Payouts are outbound money movement; the route must be ACTIVE.";
+        return jsonResult(dryRun);
+      }
+      try {
+        return executionResult(gate, await client.requestPayout(accountId, body));
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
 }

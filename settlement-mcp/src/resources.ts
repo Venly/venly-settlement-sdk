@@ -25,14 +25,16 @@ Venly Finance provides financial infrastructure through several regulated partne
 - fiat-to-crypto payment sessions;
 - account-to-account fiat-denominated and crypto-denominated transfers;
 - payment-request authorization, settlement and reversal primitives;
+- third-party payouts (contract 1.3.0): beneficiary bank accounts registered per party (SEPA and US ACH, masked details), payout routes activated by wallet-ownership proof, and payouts with a full lifecycle (REQUESTED through COMPLETED, REJECTED, FAILED or RETURNED, failures carrying a reason);
 - Fundflow on/off-ramp workflows with four-eyes approval.
 
 Current boundaries:
 
-- EUR is the currently documented virtual-bank-account currency. Do not infer global bank-account coverage.
+- EUR SEPA and USD ACH are the documented virtual-bank-account types. Do not infer global bank-account coverage.
 - Creating a party does not complete KYC/KYB. Live virtual-bank-account provisioning requires a VERIFIED account.
+- The payout surface is on the QA contract (Finance API 1.3.0); production may trail it. Verify against the environment you target.
 - Card issuing is not exposed by the current Finance OpenAPI contract.
-- A bank charter, deposit insurance and external-bank payout coverage are not supplied or implied by this MCP.
+- A bank charter and deposit insurance are not supplied or implied by this MCP.
 - Production x402 settlement is not implemented; the x402 tool is a quote-only stub.
 `,
   },
@@ -43,7 +45,7 @@ Current boundaries:
     description: "Environment, write, compliance and secret-handling rules.",
     text: `# Venly Finance MCP safety
 
-- Set VENLY_ENV explicitly to mock, staging or production. An absent value defaults to mock (since 0.3.0), so an unconfigured server never points at real infrastructure.
+- Set VENLY_ENV explicitly to mock, qa, staging or production. An absent value defaults to mock (since 0.3.0), so an unconfigured server never points at real infrastructure.
 - Mock mode uses synthetic SDK fixtures, no credentials and no network. Every mutation result is labelled mode=mock.
 - Staging writes require confirm=true, VENLY_MCP_LIVE=1 and VENLY_CLIENT_ID/VENLY_CLIENT_SECRET.
 - Production requires every staging gate plus VENLY_MCP_PRODUCTION=1.

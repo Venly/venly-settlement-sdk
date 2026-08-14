@@ -22,6 +22,14 @@ import type {
   OptimisticLockingBody,
   Party,
   PaymentSession,
+  Payout,
+  PayoutBankAccount,
+  PayoutRoute,
+  CreatePayoutInput,
+  CreatePayoutRouteInput,
+  RegisterPayoutBankAccountInput,
+  PayoutOwnershipProof,
+  CompleteOwnershipProofInput,
   RampRequestDto,
   RampRequestListItem,
   SupportedChains,
@@ -286,5 +294,73 @@ export class SdkVenlyClient implements VenlyClient {
   ): Promise<PaymentSession> {
     this.assertReady();
     return this.finance.paymentSessions.create(accountId, body);
+  }
+
+  // ----- Payout surface (contract 1.3.0) -----
+
+  async listPayouts(
+    accountId: string,
+    params?: { page?: number; size?: number; status?: string },
+  ): Promise<Payout[]> {
+    this.assertReady();
+    const page = await this.finance.payouts.list(
+      accountId,
+      params as Parameters<typeof this.finance.payouts.list>[1],
+    );
+    return page.items;
+  }
+
+  async getPayout(accountId: string, payoutId: string): Promise<Payout> {
+    this.assertReady();
+    return this.finance.payouts.get(accountId, payoutId);
+  }
+
+  async requestPayout(accountId: string, body: CreatePayoutInput): Promise<Payout> {
+    this.assertReady();
+    return this.finance.payouts.request(accountId, body);
+  }
+
+  async listPayoutRoutes(accountId: string): Promise<PayoutRoute[]> {
+    this.assertReady();
+    return this.finance.payoutRoutes.list(accountId);
+  }
+
+  async createPayoutRoute(
+    accountId: string,
+    body: CreatePayoutRouteInput,
+  ): Promise<PayoutRoute> {
+    this.assertReady();
+    return this.finance.payoutRoutes.create(accountId, body);
+  }
+
+  async preparePayoutOwnershipProof(
+    accountId: string,
+    routeId: string,
+  ): Promise<PayoutOwnershipProof> {
+    this.assertReady();
+    return this.finance.payoutRoutes.prepareOwnershipProof(accountId, routeId);
+  }
+
+  async completePayoutOwnershipProof(
+    accountId: string,
+    routeId: string,
+    body: CompleteOwnershipProofInput,
+  ): Promise<PayoutRoute> {
+    this.assertReady();
+    return this.finance.payoutRoutes.completeOwnershipProof(accountId, routeId, body);
+  }
+
+  async listPayoutBankAccounts(partyId: string): Promise<PayoutBankAccount[]> {
+    this.assertReady();
+    const page = await this.finance.payoutBankAccounts.list(partyId);
+    return page.items;
+  }
+
+  async registerPayoutBankAccount(
+    partyId: string,
+    body: RegisterPayoutBankAccountInput,
+  ): Promise<PayoutBankAccount> {
+    this.assertReady();
+    return this.finance.payoutBankAccounts.register(partyId, body);
   }
 }
