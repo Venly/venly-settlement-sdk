@@ -5,6 +5,7 @@ import {
   type CSSProperties,
   type ReactElement,
 } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { VirtualBankAccount } from "@venlyfinance/sdk";
 import { useVenlyMock, useVirtualBankAccounts } from "@venlyfinance/react";
 import {
@@ -1273,10 +1274,16 @@ export function ReconciliationBlock({
   const vbaQuery = useVirtualBankAccounts(accountId);
   const { finance } = useVenlyMock();
 
-  // Read the mock feed on every render, not once: simulated credits arrive
-  // between renders (driver panels, walkthrough scripts), and a memoized
-  // snapshot would hide them until a remount.
-  const feed: InboundCredit[] = credits ?? (finance ? finance.listInboundCredits() : []);
+  // The mock feed lives behind a query so simulated credits that arrive
+  // after mount (driver panels, walkthrough scripts) reach the queue on the
+  // same invalidation the rest of the app already uses. A plain read would
+  // go stale: nothing re-renders this block when the mock store changes.
+  const mockFeed = useQuery({
+    queryKey: ["venly", "mock-inbound-credits", accountId],
+    queryFn: () => (finance ? finance.listInboundCredits() : []),
+    enabled: credits === undefined && finance !== undefined,
+  });
+  const feed: InboundCredit[] = credits ?? mockFeed.data ?? [];
 
   if (vbaQuery.isPending) {
     return (
