@@ -187,41 +187,26 @@ import {
   stepSelection,
 } from "../registry/blocks/activity.js";
 
+// Contract 1.3.0: listWallets returns per-asset balance rows (numbers, no
+// wallet wrapper). Two USDC rows model the multi-wallet aggregation case.
 const wallets = [
-  {
-    id: "w1",
-    chain: "BASE" as const,
-    type: "VENLY_MANAGED" as const,
-    address: "0x1",
-    amlStatus: "APPROVED" as const,
-    balances: [
-      { asset: "USDC", amount: { total: "15230.500000", available: "15100.500000", reserved: "130.000000" } },
-      { asset: "EURC", amount: { total: "8020.000000", available: "8020.000000", reserved: "0.000000" } },
-    ],
-  },
-  {
-    id: "w2",
-    chain: "AVALANCHE" as const,
-    type: "VENLY_MANAGED" as const,
-    address: "0x2",
-    amlStatus: "APPROVED" as const,
-    balances: [
-      { asset: "USDC", amount: { total: "100.000000", available: "100.000000", reserved: "0.000000" } },
-    ],
-  },
+  { asset: "USDC", contractAddress: "0x1", amount: { total: 15230.5, available: 15100.5, reserved: 130 } },
+  { asset: "EURC", contractAddress: "0x2", amount: { total: 8020, available: 8020, reserved: 0 } },
+  { asset: "USDC", contractAddress: "0x1", amount: { total: 100, available: 100, reserved: 0 } },
 ];
 
-test("balances: rows aggregate per asset across wallets, sorted by available descending", () => {
+test("balances: rows aggregate per asset across balance rows, sorted by available descending", () => {
   const rows = assetBalanceRows(wallets);
   assert.deepEqual(
     rows.map((r) => r.asset),
     ["USDC", "EURC"],
   );
   const usdc = rows[0]!;
-  assert.equal(usdc.total, 15330.5, "totals sum across wallets");
+  assert.equal(usdc.total, 15330.5, "totals sum across rows of the same asset");
   assert.equal(usdc.available, 15200.5);
   assert.equal(usdc.reserved, 130);
-  assert.deepEqual(usdc.chains, ["BASE", "AVALANCHE"]);
+  // Contract 1.3.0 names no chain on a balance row; the UI must not invent one.
+  assert.deepEqual(usdc.chains, []);
 });
 
 test("balances: the segmented bar needs two non-zero buckets - a single band implies a split that isn't there", () => {
