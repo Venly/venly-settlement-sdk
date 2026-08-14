@@ -149,6 +149,9 @@ const beneficiary = await venly.payoutBankAccounts.register(party.id!, {
   railDetails: { iban: "DE89...", bic: "DEUTDEDBFRA" },
 }); // starts PENDING; an operator activates it
 
+// Mock mode: play the operator, same pattern as verification/transfer advances.
+venly.mock?.advancePayoutBankAccount(beneficiary.id!, "ACTIVE");
+
 const route = await venly.payoutRoutes.create(account.id!, {
   payoutBankAccountId: beneficiary.id!,
   depositAsset: { chain: "BASE", name: "USDC" },
