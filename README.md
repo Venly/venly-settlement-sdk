@@ -111,6 +111,8 @@ const account = await venly.accounts.create({
 
 const wallets = await venly.wallets.list(account.id!);
 
+// vIBANs require a KYC-VERIFIED account. Live, a Venly admin verifies it;
+// in mock mode play the operator: venly.mock?.advanceVerification(account.id!)
 const iban = await venly.virtualBankAccounts.create(account.id!, {
   name: "EUR Payouts",
   inCurrency: "EUR",
