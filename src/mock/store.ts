@@ -673,7 +673,7 @@ export class FinanceMockStore {
   // request payouts against the ACTIVE route. Where the contract is silent on
   // transition semantics (who activates a bank account, when a route needs
   // proof), the mock takes the least-opinionated reading and leaves the rest
-  // to explicit drivers – documented as MG-12 in the program's mock-gap ledger.
+  // to explicit drivers – documented as MG-14 in the program's mock-gap ledger.
 
   listPayoutBankAccounts(ctx: HandlerContext): PayoutBankAccount[] {
     this.getParty(ctx);
