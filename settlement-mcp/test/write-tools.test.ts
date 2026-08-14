@@ -17,7 +17,7 @@ test("builder write tools enumerate on the existing MCP server", async () => {
   ]) {
     assert.ok(names.includes(name), `missing builder write tool ${name}`);
   }
-  assert.equal(tools.length, 24);
+  assert.equal(tools.length, 33);
   await h.close();
 });
 
@@ -156,3 +156,88 @@ test("create_payment_session dry-run shape", async () => {
 // Positive control: only when ALL THREE legs hold does the tool go live.
 // This proves the gate opens correctly, so the fail-closed tests above are
 // meaningful (not just a tool that never calls the client).
+// ── Payout surface (contract 1.3.0) ────────────────────────────────────────
+
+test("payout write tools enumerate", async () => {
+  const h = await makeHarness({});
+  const { tools } = await h.client.listTools();
+  const names = tools.map((tool) => tool.name);
+  for (const name of [
+    "register_payout_bank_account",
+    "create_payout_route",
+    "prepare_payout_ownership_proof",
+    "complete_payout_ownership_proof",
+    "request_payout",
+  ]) {
+    assert.ok(names.includes(name), `missing payout write tool ${name}`);
+  }
+  await h.close();
+});
+
+test("request_payout: unarmed => dry-run with the exact wire body, no client call", async () => {
+  const h = await makeHarness({ VENLY_ENV: "staging", VENLY_MCP_LIVE: "1" }); // creds missing
+  const { data } = await callToolJson(h.client, "request_payout", {
+    accountId: "acct-1",
+    payoutRouteId: "route-1",
+    cryptoAmount: 250.5,
+    idempotencyKey: "key-1",
+    confirm: true,
+  });
+  assert.equal(data.mode, "dry-run");
+  assert.equal(data.gate.armed, false);
+  assert.equal(data.path, "/accounts/acct-1/payouts");
+  assert.equal(data.body.cryptoAmount, 250.5);
+  assert.equal(data.body.idempotencyKey, "key-1");
+  assert.ok(data.note.includes("ACTIVE"), "the dry-run names the route precondition");
+  assert.equal(h.mock.called("requestPayout"), false);
+  await h.close();
+});
+
+test("request_payout executes in explicit mock mode", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const { data } = await callToolJson(h.client, "request_payout", {
+    accountId: "acct-1",
+    payoutRouteId: "route-1",
+    cryptoAmount: 100,
+    confirm: true,
+  });
+  assert.equal(data.mode, "mock");
+  assert.equal(data.dryRun, false);
+  assert.equal(data.result.status, "REQUESTED");
+  assert.equal(h.mock.called("requestPayout"), true);
+  await h.close();
+});
+
+test("register_payout_bank_account nests rail details into the wire body", async () => {
+  const h = await makeHarness({ VENLY_ENV: "staging" }); // unarmed: no flag, no creds => dry-run
+  const { data } = await callToolJson(h.client, "register_payout_bank_account", {
+    partyId: "party-1",
+    rail: "SEPA",
+    fiatCurrency: "EUR",
+    accountHolderName: "Supplier GmbH",
+    iban: "DE89370400440532013999",
+    bic: "DEUTDEDBFRA",
+    confirm: false,
+  });
+  assert.equal(data.mode, "dry-run");
+  assert.equal(data.path, "/parties/party-1/payout-bank-accounts");
+  assert.equal(data.body.railDetails.iban, "DE89370400440532013999");
+  assert.equal(data.body.rail, "SEPA");
+  assert.equal(h.mock.called("registerPayoutBankAccount"), false);
+  await h.close();
+});
+
+test("create_payout_route builds the depositAsset object from chain + asset", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const { data } = await callToolJson(h.client, "create_payout_route", {
+    accountId: "acct-1",
+    payoutBankAccountId: "pba-1",
+    chain: "BASE",
+    asset: "USDC",
+    confirm: true,
+  });
+  assert.equal(data.result.status, "AWAITING_OWNERSHIP_PROOF");
+  assert.equal(data.result.depositAsset.chain, "BASE");
+  assert.equal(h.mock.called("createPayoutRoute"), true);
+  await h.close();
+});

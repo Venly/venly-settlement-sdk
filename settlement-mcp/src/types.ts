@@ -16,23 +16,39 @@ import type { VenlyEnvironment } from "./constants.js";
 type FinanceSchemas = FinanceComponents["schemas"];
 type FundflowSchemas = FundflowComponents["schemas"];
 
-export type AddressInput = FinanceSchemas["Address"];
-export type Party = FinanceSchemas["Party"];
+// Contract 1.3.0 (QA) renamed the read schemas; the MCP keeps its established
+// names. `Wallet` is the account's per-asset balance row – the wallet wrapper
+// left the public contract.
+export type AddressInput = FinanceSchemas["AddressDto"];
+export type Party = FinanceSchemas["PartyDto"];
 export type CreatePartyInput = FinanceSchemas["CreatePartyRequest"];
-export type Account = FinanceSchemas["Account"];
+export type Account = FinanceSchemas["AccountListItemDto"];
 export type CreateAccountInput = FinanceSchemas["CreateAccountRequest"];
-export type Wallet = FinanceSchemas["Wallet"];
-export type VirtualBankAccount = FinanceSchemas["VirtualBankAccount"];
+export type Wallet = FinanceSchemas["WalletBalanceDto"];
+export type VirtualBankAccount = FinanceSchemas["VirtualBankAccountResponse"];
 export type CreateVirtualBankAccountInput =
   FinanceSchemas["CreateVirtualBankAccountRequest"];
-export type PaymentSession = FinanceSchemas["PaymentSession"];
+export type PaymentSession = FinanceSchemas["PayInSessionDto"];
 export type CreatePayInSessionRequest =
-  FinanceSchemas["CreatePayInSessionRequest"];
-export type Transfer = FinanceSchemas["Transfer"];
+  FinanceSchemas["CreatePayInSessionInput"];
+export type Transfer = FinanceSchemas["TransferRequestDto"];
 export type CurrentCreateFiatTransferInput =
   FinanceSchemas["CreateFiatTransferInput"];
 export type CreateCryptoTransferInput =
   FinanceSchemas["CreateCryptoTransferInput"];
+export type Payout = FinanceSchemas["PayoutDto"];
+export type CreatePayoutInput = FinanceSchemas["CreatePayoutRequest"];
+export type PayoutRoute = FinanceSchemas["PayoutRouteDto"];
+export type CreatePayoutRouteInput = FinanceSchemas["CreatePayoutRouteRequest"];
+export type PayoutBankAccount = FinanceSchemas["PayoutBankAccountDto"];
+export type RegisterPayoutBankAccountInput =
+  FinanceSchemas["RegisterPayoutBankAccountRequest"];
+export type PrepareOwnershipProofInput =
+  FinanceSchemas["PrepareOwnershipProofRequest"];
+export type PrepareOwnershipProofResult =
+  FinanceSchemas["PrepareOwnershipProofResponse"];
+export type CompleteOwnershipProofInput =
+  FinanceSchemas["CompletePayoutOwnershipProofRequest"];
 
 export type RampRequestDto = FundflowSchemas["RampRequestDto"];
 export type RampRequestListItem = FundflowSchemas["RampRequestListItem"];
@@ -145,4 +161,26 @@ export interface VenlyClient {
     accountId: string,
     body: CreatePayInSessionRequest,
   ): Promise<PaymentSession>;
+
+  // ----- Payout surface (contract 1.3.0) -----
+  listPayouts(accountId: string, params?: { page?: number; size?: number; status?: string }): Promise<Payout[]>;
+  getPayout(accountId: string, payoutId: string): Promise<Payout>;
+  requestPayout(accountId: string, body: CreatePayoutInput): Promise<Payout>;
+  listPayoutRoutes(accountId: string): Promise<PayoutRoute[]>;
+  createPayoutRoute(accountId: string, body: CreatePayoutRouteInput): Promise<PayoutRoute>;
+  preparePayoutOwnershipProof(
+    accountId: string,
+    routeId: string,
+    body: PrepareOwnershipProofInput,
+  ): Promise<PrepareOwnershipProofResult>;
+  completePayoutOwnershipProof(
+    accountId: string,
+    routeId: string,
+    body: CompleteOwnershipProofInput,
+  ): Promise<PayoutRoute>;
+  listPayoutBankAccounts(partyId: string): Promise<PayoutBankAccount[]>;
+  registerPayoutBankAccount(
+    partyId: string,
+    body: RegisterPayoutBankAccountInput,
+  ): Promise<PayoutBankAccount>;
 }

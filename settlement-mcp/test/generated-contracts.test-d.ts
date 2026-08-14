@@ -23,6 +23,11 @@ import type {
   VenlyFee,
   VirtualBankAccount,
   Wallet,
+  Payout,
+  CreatePayoutInput,
+  PayoutRoute,
+  PayoutBankAccount,
+  RegisterPayoutBankAccountInput,
 } from "../src/types.js";
 
 type Equal<Left, Right> =
@@ -39,21 +44,28 @@ type Finance = FinanceComponents["schemas"];
 type Fundflow = FundflowComponents["schemas"];
 
 type FinanceAliases = [
-  Assert<Equal<AddressInput, Finance["Address"]>>,
-  Assert<Equal<Party, Finance["Party"]>>,
+  Assert<Equal<AddressInput, Finance["AddressDto"]>>,
+  Assert<Equal<Party, Finance["PartyDto"]>>,
   Assert<Equal<CreatePartyInput, Finance["CreatePartyRequest"]>>,
-  Assert<Equal<Account, Finance["Account"]>>,
+  Assert<Equal<Account, Finance["AccountListItemDto"]>>,
   Assert<Equal<CreateAccountInput, Finance["CreateAccountRequest"]>>,
-  Assert<Equal<Wallet, Finance["Wallet"]>>,
-  Assert<Equal<VirtualBankAccount, Finance["VirtualBankAccount"]>>,
+  Assert<Equal<Wallet, Finance["WalletBalanceDto"]>>,
+  Assert<Equal<VirtualBankAccount, Finance["VirtualBankAccountResponse"]>>,
   Assert<
     Equal<CreateVirtualBankAccountInput, Finance["CreateVirtualBankAccountRequest"]>
   >,
-  Assert<Equal<PaymentSession, Finance["PaymentSession"]>>,
-  Assert<Equal<CreatePayInSessionRequest, Finance["CreatePayInSessionRequest"]>>,
-  Assert<Equal<Transfer, Finance["Transfer"]>>,
+  Assert<Equal<PaymentSession, Finance["PayInSessionDto"]>>,
+  Assert<Equal<CreatePayInSessionRequest, Finance["CreatePayInSessionInput"]>>,
+  Assert<Equal<Transfer, Finance["TransferRequestDto"]>>,
   Assert<Equal<CurrentCreateFiatTransferInput, Finance["CreateFiatTransferInput"]>>,
   Assert<Equal<CreateCryptoTransferInput, Finance["CreateCryptoTransferInput"]>>,
+  Assert<Equal<Payout, Finance["PayoutDto"]>>,
+  Assert<Equal<CreatePayoutInput, Finance["CreatePayoutRequest"]>>,
+  Assert<Equal<PayoutRoute, Finance["PayoutRouteDto"]>>,
+  Assert<Equal<PayoutBankAccount, Finance["PayoutBankAccountDto"]>>,
+  Assert<
+    Equal<RegisterPayoutBankAccountInput, Finance["RegisterPayoutBankAccountRequest"]>
+  >,
 ];
 
 type FundflowAliases = [

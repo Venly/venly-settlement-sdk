@@ -45,11 +45,12 @@ test("environment selection is explicit and defaults to mock (0.3.0 behavior cha
   // Since 0.3.0 an unconfigured server never points at real infrastructure.
   assert.equal(resolveVenlyEnvironment({}), "mock");
   assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "mock" }), "mock");
+  assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "qa" }), "qa");
   assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "staging" }), "staging");
   assert.equal(resolveVenlyEnvironment({ VENLY_ENV: "production" }), "production");
   assert.throws(
     () => resolveVenlyEnvironment({ VENLY_ENV: "sandbox" }),
-    /VENLY_ENV must be one of mock, staging, production/,
+    /VENLY_ENV must be one of mock, qa, staging, production/,
   );
 });
 
@@ -71,6 +72,6 @@ test("package and MCP server versions stay aligned", () => {
   const packageJson = JSON.parse(
     readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
   );
-  assert.equal(packageJson.version, "0.4.1");
+  assert.equal(packageJson.version, "0.5.0");
   assert.equal(SERVER_VERSION, packageJson.version);
 });

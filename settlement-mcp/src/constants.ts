@@ -2,10 +2,10 @@
  * never touches real infrastructure; staging/production are explicit. */
 
 export const SERVER_NAME = "venly-finance-mcp-server";
-export const SERVER_VERSION = "0.4.1";
+export const SERVER_VERSION = "0.5.0";
 
 export const ENVIRONMENT_FLAG = "VENLY_ENV";
-export type VenlyEnvironment = "mock" | "staging" | "production";
+export type VenlyEnvironment = "mock" | "qa" | "staging" | "production";
 
 export function resolveVenlyEnvironment(
   env: Record<string, string | undefined>,
@@ -14,11 +14,11 @@ export function resolveVenlyEnvironment(
   // real infrastructure when unconfigured. Set VENLY_ENV explicitly for
   // staging or production.
   const value = env[ENVIRONMENT_FLAG] ?? "mock";
-  if (value === "mock" || value === "staging" || value === "production") {
+  if (value === "mock" || value === "qa" || value === "staging" || value === "production") {
     return value;
   }
   throw new Error(
-    `${ENVIRONMENT_FLAG} must be one of mock, staging, production; received ${JSON.stringify(value)}`,
+    `${ENVIRONMENT_FLAG} must be one of mock, qa, staging, production; received ${JSON.stringify(value)}`,
   );
 }
 
