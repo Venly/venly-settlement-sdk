@@ -137,6 +137,38 @@ await venly.paymentRequests.reverse(pr.id!, {
 });
 ```
 
+### Third-party payouts (contract 1.3.0)
+
+Crypto leaves the account; fiat lands in a registered beneficiary bank
+account. Three resources deep: a bank account on the party, a route on the
+account (activated by wallet-ownership proof), payouts against the route.
+
+```ts
+const beneficiary = await venly.payoutBankAccounts.register(party.id!, {
+  rail: "SEPA", fiatCurrency: "EUR", accountHolderName: "Supplier GmbH",
+  railDetails: { iban: "DE89...", bic: "DEUTDEDBFRA" },
+}); // starts PENDING; an operator activates it
+
+const route = await venly.payoutRoutes.create(account.id!, {
+  payoutBankAccountId: beneficiary.id!,
+  depositAsset: { chain: "BASE", name: "USDC" },
+}); // AWAITING_OWNERSHIP_PROOF until the funding wallet signs
+
+const proof = await venly.payoutRoutes.prepareOwnershipProof(account.id!, route.id!, {
+  walletAddress: "0x...", blockchain: "BASE",
+});
+await venly.payoutRoutes.completeOwnershipProof(account.id!, route.id!, {
+  message: proof.message!, signature: "0x...",
+}); // route ACTIVE
+
+const payout = await venly.payouts.request(account.id!, {
+  payoutRouteId: route.id!, cryptoAmount: 250.5,
+  idempotencyKey: crypto.randomUUID(),
+}); // REQUESTED → SENDING → PROVIDER_PROCESSING → COMPLETED | REJECTED | FAILED | RETURNED
+
+// Mock drivers walk the lifecycle: venly.mock.advancePayout(payout.id!, "COMPLETED")
+```
+
 ### Pagination
 
 ```ts

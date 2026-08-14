@@ -1,2 +1,5 @@
 node_modules/
 dist/
+
+# local credentials for the staging/qa smoke
+.env

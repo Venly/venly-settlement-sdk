@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.4.0 – 2026-08-14
+
+Contract upgrade: the vendored Finance spec is now the served QA contract
+(Finance API 1.3.0-SNAPSHOT, retrieved 2026-08-14 from
+api-qa.venlyfinance.com). QA runs the leading contract; production may trail
+it. `scripts/vendor-finance-spec.mjs` makes future refreshes a reviewable diff.
+
+- **Third-party payouts.** New resources: `payoutBankAccounts` (register a
+  beneficiary bank account on a party; responses carry masked rail details),
+  `payoutRoutes` (bind an ACTIVE bank account to an account and a deposit
+  asset; activated by wallet-ownership proof), and `payouts` (request against
+  an ACTIVE route; lifecycle REQUESTED through COMPLETED, REJECTED, FAILED or
+  RETURNED, failures carrying a reason). Mock drivers: `advancePayout`,
+  `advancePayoutBankAccount`, `advancePayoutRoute`.
+- **New `qa` environment** targeting api-qa.venlyfinance.com.
+- **BREAKING: `Wallet` is now `WalletBalance`.** Contract 1.3.0 removed the
+  wallet wrapper (id/chain/address/amlStatus) from `listWallets`; only
+  per-asset balance rows remain, each `{asset, contractAddress, amount:
+  {total, available, reserved}}`.
+- **BREAKING: monetary amounts are JSON numbers**, not decimal strings,
+  matching the served contract.
+- **Mutation results unwrap the idempotent envelope.** Payment-request,
+  virtual-bank-account and payout mutations return
+  `{createdResourceId, response}` on the wire; resource methods still resolve
+  to the resource itself.
+- Read schemas renamed upstream to `*Dto`/`*Response`; the SDK's exported
+  names are unchanged apart from `Wallet`.
+
 ## 0.3.5 – 2026-08-10
 
 - **Conservative paginated responses.** List results now report whether the
