@@ -322,9 +322,10 @@ function AmountStep({
 
   const available = useMemo(() => {
     let sum = 0;
-    // Contract 1.3.0: listWallets returns per-asset balance rows directly.
-    for (const balance of wallets?.items ?? []) {
-      if (balance.asset === cryptoCode) sum += Number(balance.amount?.available ?? 0);
+    for (const wallet of wallets?.items ?? []) {
+      for (const balance of wallet.balances ?? []) {
+        if (balance.asset === cryptoCode) sum += Number(balance.amount?.available ?? 0);
+      }
     }
     return sum;
   }, [wallets, cryptoCode]);

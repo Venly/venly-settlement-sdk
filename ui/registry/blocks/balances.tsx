@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactElement } from "react";
-import type { WalletBalance } from "@venlyfinance/sdk";
+import type { Wallet } from "@venlyfinance/sdk";
 import { useWallets } from "@venlyfinance/react";
 import { Money, MASK } from "../lib/money.js";
 import { BalanceCard } from "../components/balance-card.js";
@@ -33,27 +33,28 @@ export interface AssetBalanceRow {
 }
 
 /**
- * Aggregates balance rows per asset, sorted by available descending so
- * magnitudes stack. Contract 1.3.0: listWallets returns per-asset balance
- * rows (amounts as numbers) and no longer names the wallet's chain, so the
- * chain chips render only when the API someday says which chain a balance
- * lives on - a labelled gap, never an invented value.
+ * Aggregates wallet balances per asset across every wallet on the account,
+ * sorted by available descending so magnitudes stack. Amounts arrive from
+ * the API as decimal strings; parsing here is display-only.
  */
-export function assetBalanceRows(wallets: WalletBalance[]): AssetBalanceRow[] {
+export function assetBalanceRows(wallets: Wallet[]): AssetBalanceRow[] {
   const byAsset = new Map<string, AssetBalanceRow>();
-  for (const balance of wallets) {
-    if (!balance.asset) continue;
-    const row = byAsset.get(balance.asset) ?? {
-      asset: balance.asset,
-      chains: [],
-      total: 0,
-      available: 0,
-      reserved: 0,
-    };
-    row.total += Number(balance.amount?.total ?? 0);
-    row.available += Number(balance.amount?.available ?? 0);
-    row.reserved += Number(balance.amount?.reserved ?? 0);
-    byAsset.set(balance.asset, row);
+  for (const wallet of wallets) {
+    for (const balance of wallet.balances ?? []) {
+      if (!balance.asset) continue;
+      const row = byAsset.get(balance.asset) ?? {
+        asset: balance.asset,
+        chains: [],
+        total: 0,
+        available: 0,
+        reserved: 0,
+      };
+      row.total += Number(balance.amount?.total ?? 0);
+      row.available += Number(balance.amount?.available ?? 0);
+      row.reserved += Number(balance.amount?.reserved ?? 0);
+      if (wallet.chain && !row.chains.includes(wallet.chain)) row.chains.push(wallet.chain);
+      byAsset.set(balance.asset, row);
+    }
   }
   return [...byAsset.values()].sort((a, b) => b.available - a.available);
 }
