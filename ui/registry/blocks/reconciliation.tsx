@@ -4,7 +4,6 @@ import {
   useState,
   type CSSProperties,
   type ReactElement,
-  type ReactNode,
 } from "react";
 import type { VirtualBankAccount } from "@venlyfinance/sdk";
 import { useVenlyMock, useVirtualBankAccounts } from "@venlyfinance/react";
