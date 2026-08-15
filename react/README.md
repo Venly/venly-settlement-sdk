@@ -38,7 +38,7 @@ Mock mode needs zero credentials and makes zero network calls: every hook answer
 | Export | What it does |
 |---|---|
 | `<VenlyProvider>` | Constructs the Finance + Fundflow clients for `mock`, `staging`, or `production`; brings its own QueryClient if the app has none |
-| `useParties` `useAccounts` `useWallets` `useVirtualBankAccounts` `useTransfers` `useRampRequests` `useReferenceData` `useFeeQuote` … | Read hooks, one per API resource, cache keys managed for you |
+| `useParties` `useAccounts` `useWallets` `useSupportedAssets` `useAccountSupportedAssets` `useVirtualBankAccounts` `useTransfers` `useRampRequests` `useReferenceData` `useFeeQuote` … | Read hooks, one per API resource, cache keys managed for you |
 | `useCreateParty` `useCreateAccount` `useCreateVirtualBankAccount` `useCreatePaymentSession` `useCreateRampRequest` | Write hooks with cache invalidation wired |
 | `useStagedTransfer` | Stage-then-confirm machine: validate → freeze the exact request with a pinned idempotency key → execute once → poll to terminal |
 | `useFourEyesApproval` | Approve/reject/cancel with the optimistic-locking `version` carried through; 409 surfaces as `"stale-version"` (refetch and re-decide, never auto-retry) |

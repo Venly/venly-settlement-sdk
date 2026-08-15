@@ -58,6 +58,18 @@ export const venlyQueries = {
     queryFn: () => clients.finance.wallets.list(accountId, query),
   }),
 
+  /** Tenant-wide supported assets, each with its on-chain `decimals`. */
+  supportedAssets: (clients: VenlyClients) => ({
+    queryKey: venlyKeys.supportedAssets(),
+    queryFn: () => clients.finance.supportedAssets.list(),
+  }),
+
+  /** Account-scoped rows: the same assets plus per-asset `permitStatus`. */
+  accountSupportedAssets: (clients: VenlyClients, accountId: string) => ({
+    queryKey: venlyKeys.accountSupportedAssets(accountId),
+    queryFn: () => clients.finance.supportedAssets.listForAccount(accountId),
+  }),
+
   virtualBankAccounts: (
     clients: VenlyClients,
     accountId: string,

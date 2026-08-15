@@ -64,6 +64,41 @@ export function useWallets(
 }
 type WalletsPage = Awaited<ReturnType<ReturnType<typeof venlyQueries.wallets>["queryFn"]>>;
 
+/**
+ * Tenant-wide supported assets. `decimals` per asset is the render contract
+ * for amounts; cached hard (the asset set changes on deploys, not minutes).
+ */
+export function useSupportedAssets(options?: Tune<SupportedAssetsPage>) {
+  const clients = useVenly();
+  return useQuery({
+    ...venlyQueries.supportedAssets(clients),
+    staleTime: Infinity,
+    ...options,
+  });
+}
+type SupportedAssetsPage = Awaited<
+  ReturnType<ReturnType<typeof venlyQueries.supportedAssets>["queryFn"]>
+>;
+
+/**
+ * Account-scoped supported assets (adds `permitStatus`). Not frozen:
+ * permit status moves while an asset activates.
+ */
+export function useAccountSupportedAssets(
+  accountId: string | undefined,
+  options?: Tune<AccountSupportedAssetsPage>,
+) {
+  const clients = useVenly();
+  return useQuery({
+    ...venlyQueries.accountSupportedAssets(clients, accountId ?? ""),
+    enabled: Boolean(accountId) && (options?.enabled ?? true),
+    ...options,
+  });
+}
+type AccountSupportedAssetsPage = Awaited<
+  ReturnType<ReturnType<typeof venlyQueries.accountSupportedAssets>["queryFn"]>
+>;
+
 export function useVirtualBankAccounts(
   accountId: string | undefined,
   query?: VirtualBankAccountsQuery,

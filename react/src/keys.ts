@@ -14,6 +14,10 @@ export const venlyKeys = {
   wallets: (accountId: string, query?: unknown) =>
     ["venly", "account", accountId, "wallets", query ?? null] as const,
 
+  supportedAssets: () => ["venly", "supported-assets"] as const,
+  accountSupportedAssets: (accountId: string) =>
+    ["venly", "account", accountId, "supported-assets"] as const,
+
   virtualBankAccounts: (accountId: string, query?: unknown) =>
     ["venly", "account", accountId, "virtual-bank-accounts", query ?? null] as const,
 
