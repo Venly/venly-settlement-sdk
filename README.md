@@ -177,6 +177,21 @@ const payout = await venly.payouts.request(account.id!, {
 // Mock drivers walk the lifecycle: venly.mock.advancePayout(payout.id!, "COMPLETED")
 ```
 
+### Supported assets and decimals
+
+Every asset carries its on-chain `decimals` – the render contract for
+amounts. A UI that assumes two decimals shows a 6-decimal asset's sub-cent
+balance as `0.00`, and its totals stop reconciling with the rows.
+
+```ts
+const assets = await venly.supportedAssets.list(); // tenant-wide, with decimals
+const decimals = new Map(assets.items.map((a) => [a.contractAddress, a.decimals]));
+
+// Per account: the same rows plus permitStatus (READY, ACTIVATING,
+// ACTION_REQUIRED, PENDING, FAILED, NO_WALLET).
+const mine = await venly.supportedAssets.listForAccount(account.id!);
+```
+
 ### Pagination
 
 ```ts

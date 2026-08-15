@@ -166,7 +166,9 @@ export const wallet = [
   {
     asset: "EURC",
     contractAddress: "0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42",
-    amount: { total: 8020, available: 8020, reserved: 0 },
+    // Sub-cent dust on a 6-decimal asset: a render that assumes two decimals
+    // shows this as 8,020.00 and the row stops reconciling with the total.
+    amount: { total: 8020.000875, available: 8020.000875, reserved: 0 },
   },
 ] satisfies schemas["WalletBalanceDto"][];
 
@@ -459,6 +461,74 @@ export const transfers = [
   },
 ] satisfies schemas["TransferRequestDto"][];
 
+// ── Supported assets (contract 1.3.0) ────────────────────────────────────
+// `decimals` values are each asset's REAL on-chain precision (USDC, EURC and
+// USDT mint with 6 decimals on every chain below; DAI mints with 18). A
+// wrong-decimals fixture teaches integrators a falsehood about how to render
+// money, so these values are load-bearing – verify against the token
+// contract before ever changing one.
+export const supportedAssets = [
+  {
+    chain: "BASE",
+    cryptoCurrency: "USDC",
+    decimals: 6,
+    contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+  },
+  {
+    chain: "BASE",
+    cryptoCurrency: "EURC",
+    decimals: 6,
+    contractAddress: "0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42",
+  },
+  {
+    chain: "BASE",
+    cryptoCurrency: "USDT",
+    decimals: 6,
+    contractAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
+  },
+  {
+    chain: "ETHEREUM",
+    cryptoCurrency: "USDC",
+    decimals: 6,
+    contractAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+  },
+  {
+    // The one non-6-decimals row: proves consumers read `decimals` per asset
+    // instead of hard-coding a constant that happens to fit stablecoins.
+    chain: "ETHEREUM",
+    cryptoCurrency: "DAI",
+    decimals: 18,
+    contractAddress: "0x6b175474e89094c44da98b954eedeac495271d0f",
+  },
+  {
+    chain: "SOLANA",
+    cryptoCurrency: "USDC",
+    decimals: 6,
+    contractAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  },
+] satisfies schemas["SupportedAssetView"][];
+
+/**
+ * Account-scoped rows add `permitStatus`. The main account is fully READY on
+ * the assets it holds and ACTION_REQUIRED on one it doesn't – the state a
+ * permit surface must render as "you have something to do", not hide.
+ * Unseeded accounts fall back to the store's derived default (NO_WALLET /
+ * PENDING by wallet presence).
+ */
+export const accountSupportedAssets: Record<string, schemas["AccountSupportedAssetView"][]> = {
+  [accounts[0].id]: [
+    { ...supportedAssets[0], permitStatus: "READY" },
+    { ...supportedAssets[1], permitStatus: "READY" },
+    { ...supportedAssets[2], permitStatus: "ACTION_REQUIRED" },
+  ],
+  [accounts[4].id]: [
+    { ...supportedAssets[2], permitStatus: "READY" },
+    { ...supportedAssets[0], permitStatus: "ACTIVATING" },
+  ],
+  // Suspended account, no wallet provisioned.
+  [accounts[3].id]: [{ ...supportedAssets[0], permitStatus: "NO_WALLET" }],
+};
+
 export const permitMessages = [
   {
     supportedAssetId: "sa1b4e77-9999-4c90-bdd0-000000000001",
@@ -629,6 +699,8 @@ export const financeSeeds: FinanceSeeds = {
   payoutBankAccounts,
   payoutRoutes: payoutRouteSeeds,
   payouts,
+  supportedAssets,
+  accountSupportedAssets,
 };
 
 /** Route table over a stateful store: creates persist, gets read back. */
@@ -730,6 +802,16 @@ export function createFinanceRoutes(store: FinanceMockStore): RouteTable {
     "GET /accounts/{accountId}/transfers/{transferId}": {
       kind: "handler",
       handle: (ctx) => itemEnvelope(store.getTransfer(ctx)),
+    },
+    // Supported assets. The wire shape is a bare array envelope – no
+    // pagination – so these answer through itemEnvelope, not listEnvelope.
+    "GET /supported-assets": {
+      kind: "handler",
+      handle: () => itemEnvelope(store.listSupportedAssets()),
+    },
+    "GET /accounts/{accountId}/supported-assets": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.listAccountSupportedAssets(ctx)),
     },
     // Permits + allowances
     "GET /accounts/{accountId}/wallets/{walletId}/permits": { kind: "array", items: permitMessages },

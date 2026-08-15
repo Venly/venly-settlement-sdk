@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.5.0 – 2026-08-15
+
+- **Supported assets.** New `supportedAssets` resource wrapping both contract
+  operations: `list()` (tenant-wide rows with each asset's on-chain
+  `decimals`) and `listForAccount(accountId)` (the same rows plus
+  `permitStatus`). Both resolve to `Page` for its `resultPresent`
+  malformed-envelope signal; the wire shape carries no pagination.
+- **Mock seeds for supported assets** with real on-chain decimals per asset
+  (USDC/EURC/USDT at 6, DAI at 18) so a consumer that reads `decimals` renders
+  truthfully in mock mode. Account-scoped seeds cover READY, ACTIVATING,
+  ACTION_REQUIRED and NO_WALLET permit states; unseeded accounts derive
+  NO_WALLET/PENDING from wallet presence.
+- **Sub-cent wallet seed.** The main account's EURC balance now carries
+  6-decimal dust (`8020.000875`) so a 2dp render defect is visible in mock
+  mode instead of hiding behind round seed values.
+- New exported type: `AccountSupportedAsset`.
+
 ## 0.4.0 – 2026-08-14
 
 Contract upgrade: the vendored Finance spec is now the served QA contract

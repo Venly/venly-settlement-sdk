@@ -76,6 +76,8 @@ export type Payout = _fs["PayoutDto"];
 export type PayoutRoute = _fs["PayoutRouteDto"];
 export type PayoutBankAccount = _fs["PayoutBankAccountDto"];
 export type SupportedAsset = _fs["SupportedAssetView"];
+/** Account-scoped supported asset: the tenant row plus `permitStatus`. */
+export type AccountSupportedAsset = _fs["AccountSupportedAssetView"];
 export type Webhook = _fs["WebhookDto"];
 export type PartyIvVerification = _fs["PartyIvVerificationDto"];
 export type PartyVerificationLink = _fs["PartyVerificationLinkDto"];
