@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactElement } from "react";
 import type { FundflowComponents, Transfer } from "@venlyfinance/sdk";
 import { describeRampStatus, useRampRequests, useTransfers } from "@venlyfinance/react";
+import { ListLoadError } from "../components/list-error.js";
 import { Money, formatAmount } from "../lib/money.js";
 import { DataTable, RowText, type DataTableColumn, type DataTableGroup } from "../components/data-table.js";
 import { StatusPill, type StatusIntent } from "../components/status-pill.js";
@@ -704,8 +705,10 @@ export function UnifiedActivityBlock({
   style?: CSSProperties;
   className?: string;
 }): ReactElement {
-  const { data: transferData, isPending: transfersPending } = useTransfers(accountId);
-  const { data: rampData, isPending: rampsPending } = useRampRequests();
+  const transfersQuery = useTransfers(accountId);
+  const rampsQuery = useRampRequests();
+  const { data: transferData, isPending: transfersPending } = transfersQuery;
+  const { data: rampData, isPending: rampsPending } = rampsQuery;
   const [scope, setScope] = useState<ActivityScope>(initialScope);
   const [typeFilter, setTypeFilter] = useState<UnifiedTypeFilter>("all");
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
@@ -767,6 +770,30 @@ export function UnifiedActivityBlock({
     return (
       <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
         <p style={{ color: "var(--text-tertiary)" }}>Loading activity…</p>
+      </section>
+    );
+  }
+
+  // Either feed failing – transport error OR malformed envelope
+  // (resultPresent === false) – fails the whole surface: a unified feed
+  // missing one of its ledgers would still read as "all your activity".
+  if (
+    transfersQuery.isError ||
+    rampsQuery.isError ||
+    !transferData ||
+    transferData.resultPresent === false ||
+    !rampData ||
+    rampData.resultPresent === false
+  ) {
+    return (
+      <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
+        <ListLoadError
+          what="your activity"
+          onRetry={() => {
+            void transfersQuery.refetch();
+            void rampsQuery.refetch();
+          }}
+        />
       </section>
     );
   }
@@ -938,7 +965,8 @@ export function ActivityBlock({
   style?: CSSProperties;
   className?: string;
 }): ReactElement {
-  const { data, isPending } = useTransfers(accountId);
+  const transfersQuery = useTransfers(accountId);
+  const { data, isPending } = transfersQuery;
   const [scope, setScope] = useState<ActivityScope>(initialScope);
   const [assetFilter, setAssetFilter] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -1011,6 +1039,16 @@ export function ActivityBlock({
   const toggleScope = (next: ActivityScope) => {
     setScope((current) => (current === next ? "all" : next));
   };
+
+  // A failed or malformed transfer list (resultPresent === false) is an
+  // error state, never an empty ledger claiming "no activity".
+  if (!isPending && (transfersQuery.isError || !data || data.resultPresent === false)) {
+    return (
+      <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
+        <ListLoadError what="your activity" onRetry={() => void transfersQuery.refetch()} />
+      </section>
+    );
+  }
 
   return (
     <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>

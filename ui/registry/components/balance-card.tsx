@@ -35,6 +35,12 @@ export interface BalanceCardProps {
   label?: string;
   available: number | null | undefined;
   currency?: string;
+  /**
+   * The asset's on-chain decimals (from supported-assets). Applied to the
+   * hero AND every bucket: sub-cent amounts must render on all of them or
+   * the card's own arithmetic stops adding up on screen.
+   */
+  decimals?: number;
   /** Demoted figures below the rule: Total first, then reserved buckets. */
   buckets?: BalanceBucket[];
   /** Secondary line under the hero: a qualifier naming the figure. */
@@ -51,6 +57,7 @@ export function BalanceCard({
   label = "Available",
   available,
   currency,
+  decimals,
   buckets = [],
   qualifier,
   masked = false,
@@ -103,7 +110,13 @@ export function BalanceCard({
         ) : null}
       </div>
       <div>
-        <Money amount={available} currency={currency} emphasis="hero" masked={masked} />
+        <Money
+          amount={available}
+          currency={currency}
+          emphasis="hero"
+          maxFractionDigits={decimals}
+          masked={masked}
+        />
       </div>
       {qualifier !== undefined ? (
         <div
@@ -147,6 +160,7 @@ export function BalanceCard({
                 <Money
                   amount={bucket.amount}
                   fractionDigits={2}
+                  maxFractionDigits={decimals}
                   masked={masked}
                   style={{ fontSize: "var(--font-size-label)", fontWeight: 400 }}
                 />

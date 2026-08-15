@@ -7,6 +7,7 @@ import {
 } from "@venlyfinance/react";
 import { DataTable, RowText, type DataTableColumn } from "../components/data-table.js";
 import { StatusPill, type StatusIntent } from "../components/status-pill.js";
+import { ListLoadError } from "../components/list-error.js";
 
 /**
  * Bank accounts block – the whitelisting surface withdrawals depend on.
@@ -492,7 +493,8 @@ export function BankAccountsView({ accounts, onAdd, style, className }: BankAcco
 
 /** Connected block: list + add-form toggle over the live whitelist. */
 export function BankAccountsBlock({ style, className }: { style?: CSSProperties; className?: string }): ReactElement {
-  const { data, isPending } = useCompanyBankAccounts();
+  const query = useCompanyBankAccounts();
+  const { data, isPending } = query;
   const [adding, setAdding] = useState(false);
   const [announce, setAnnounce] = useState<string | null>(null);
 
@@ -500,6 +502,17 @@ export function BankAccountsBlock({ style, className }: { style?: CSSProperties;
     return (
       <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
         <p style={{ color: "var(--text-tertiary)", fontSize: "var(--font-size-body)" }}>Loading bank accounts…</p>
+      </section>
+    );
+  }
+
+  // A failed or malformed whitelist (resultPresent === false) is an error,
+  // never an empty list: an empty whitelist invites re-adding accounts that
+  // may already exist and be verified.
+  if (query.isError || !data || data.resultPresent === false) {
+    return (
+      <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
+        <ListLoadError what="your bank accounts" onRetry={() => void query.refetch()} />
       </section>
     );
   }

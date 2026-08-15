@@ -16,10 +16,21 @@ import type { CSSProperties, ReactElement } from "react";
  *   never just the hero.
  */
 
-export function formatAmount(amount: number, fractionDigits = 2): string {
+/**
+ * `fractionDigits` is the minimum shown; `maxFractionDigits` (default: the
+ * minimum) lets an asset's on-chain precision through. Pass the asset's
+ * `decimals` from supported-assets as `maxFractionDigits`: a fixed 2dp
+ * render shows a 6-decimal asset's sub-cent balance as 0.00 and the total
+ * stops reconciling with its rows.
+ */
+export function formatAmount(
+  amount: number,
+  fractionDigits = 2,
+  maxFractionDigits = fractionDigits,
+): string {
   const formatted = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
+    maximumFractionDigits: Math.max(fractionDigits, maxFractionDigits),
   }).format(Math.abs(amount));
   return amount < 0 ? `−${formatted}` : formatted;
 }
@@ -38,7 +49,14 @@ export interface MoneyProps {
    * - "hero": the one emphasised figure on a card (28px; 2-2.5x its caption)
    */
   emphasis?: "row" | "value" | "hero";
+  /** Minimum fraction digits shown (default 2). */
   fractionDigits?: number;
+  /**
+   * Maximum fraction digits (default: `fractionDigits`). Pass the asset's
+   * on-chain `decimals` so sub-cent amounts render instead of rounding to
+   * 0.00 – trailing zeros beyond the minimum are not padded.
+   */
+  maxFractionDigits?: number;
   /**
    * Replaces the digits with a fixed-length mask that leaks no magnitude.
    * The currency code stays visible; the amount does not. Masking is a
@@ -64,6 +82,7 @@ export function Money({
   currency,
   emphasis = "row",
   fractionDigits = 2,
+  maxFractionDigits,
   masked = false,
   style,
   className,
@@ -86,7 +105,7 @@ export function Money({
 
   return (
     <span className={className} style={base} aria-label={masked ? "amount hidden" : undefined}>
-      {masked ? MASK : formatAmount(amount, fractionDigits)}
+      {masked ? MASK : formatAmount(amount, fractionDigits, maxFractionDigits ?? fractionDigits)}
       {currency ? (
         <span
           style={{

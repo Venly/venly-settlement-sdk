@@ -114,21 +114,21 @@ test("restricted banner: unverified variant states the gates, not a lockout", ()
 // ── Balances retro fixes ───────────────────────────────────────────────
 
 const rows: AssetBalanceRow[] = [
-  { asset: "USDC", chains: ["BASE"], total: 15230.5, available: 15100.5, reserved: 130 },
+  { asset: "USDC", chains: ["BASE"], total: 15230.5, available: 15100.5, reserved: 130, decimals: 6, decimalsSource: "supported-assets" },
 ];
 
 test("reserved ownership copy renders with a reservation, and only then", () => {
   const withReserve = renderToStaticMarkup(<BalancesView rows={rows} />);
   assert.match(withReserve, /Reserved funds are still yours/);
   const noReserve = renderToStaticMarkup(
-    <BalancesView rows={[{ asset: "EURC", chains: ["BASE"], total: 100, available: 100, reserved: 0 }]} />,
+    <BalancesView rows={[{ asset: "EURC", chains: ["BASE"], total: 100, available: 100, reserved: 0, decimals: 6, decimalsSource: "supported-assets" }]} />,
   );
   assert.doesNotMatch(noReserve, /Reserved funds are still yours/);
 });
 
 test("arithmetic mismatch is surfaced, not corrected", () => {
   const bad: AssetBalanceRow[] = [
-    { asset: "USDT", chains: ["BASE"], total: 1000, available: 400, reserved: 100 },
+    { asset: "USDT", chains: ["BASE"], total: 1000, available: 400, reserved: 100, decimals: 6, decimalsSource: "supported-assets" },
   ];
   assert.deepEqual(arithmeticMismatches(bad), ["USDT"]);
   assert.deepEqual(arithmeticMismatches(rows), []);
@@ -140,7 +140,7 @@ test("arithmetic mismatch is surfaced, not corrected", () => {
 
 test("entirely-reserved composition renders available 0 honestly", () => {
   const escrow: AssetBalanceRow[] = [
-    { asset: "USDC", chains: ["BASE"], total: 4200, available: 0, reserved: 4200 },
+    { asset: "USDC", chains: ["BASE"], total: 4200, available: 0, reserved: 4200, decimals: 6, decimalsSource: "supported-assets" },
   ];
   const html = renderToStaticMarkup(<BalancesView rows={escrow} />);
   assert.match(html, /0\.00/, "available renders as zero, not blank");

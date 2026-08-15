@@ -154,6 +154,23 @@
     },
     {
       "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "list-error",
+      "type": "registry:component",
+      "title": "List load error",
+      "description": "Error state for list-bearing surfaces: a missing result collection (resultPresent === false) renders as an explicit alert with retry, never as an empty list claiming 'all clear'.",
+      "registryDependencies": [
+        "@venlyfinance/venly-tokens"
+      ],
+      "files": [
+        {
+          "path": "registry/components/list-error.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/components/list-error.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
       "name": "arithmetic-ladder",
       "type": "registry:component",
       "title": "Arithmetic ladder",
@@ -220,8 +237,8 @@
       "title": "Onboarding block",
       "description": "Company details in, an application status out: creates the organisation and its account through the real operations, renders the verification status verbatim with a humane waiting state, decline-with-review, and a restricted-mode banner.",
       "dependencies": [
-        "@venlyfinance/react@^0.3.0",
-        "@venlyfinance/sdk@^0.4.0",
+        "@venlyfinance/react@^0.4.0",
+        "@venlyfinance/sdk@^0.5.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -245,14 +262,15 @@
       "title": "Bank accounts block",
       "description": "The whitelisting surface withdrawals depend on: your company's own accounts (never third-party payees), seven account-type variants asking exactly the fields each requires, identifier re-entry against transcription slips, and verification status rendered verbatim.",
       "dependencies": [
-        "@venlyfinance/react@^0.3.0",
-        "@venlyfinance/sdk@^0.4.0",
+        "@venlyfinance/react@^0.4.0",
+        "@venlyfinance/sdk@^0.5.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
         "@venlyfinance/venly-tokens",
         "@venlyfinance/data-table",
-        "@venlyfinance/status-pill"
+        "@venlyfinance/status-pill",
+        "@venlyfinance/list-error"
       ],
       "files": [
         {
@@ -269,8 +287,8 @@
       "title": "Withdraw block",
       "description": "Fiat out to your own verified bank account, rendered truthfully: destination picker that disables unverified accounts with the reason, a fee quote in the unit you typed, four-eyes approval that renders the rule instead of the error, deposit instructions with the mandatory reference, and an event timeline with actors and absolute timestamps.",
       "dependencies": [
-        "@venlyfinance/react@^0.3.0",
-        "@venlyfinance/sdk@^0.4.0",
+        "@venlyfinance/react@^0.4.0",
+        "@venlyfinance/sdk@^0.5.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -281,7 +299,8 @@
         "@venlyfinance/timeline",
         "@venlyfinance/field-list",
         "@venlyfinance/arithmetic-ladder",
-        "@venlyfinance/bank-accounts"
+        "@venlyfinance/bank-accounts",
+        "@venlyfinance/list-error"
       ],
       "files": [
         {
@@ -298,14 +317,15 @@
       "title": "Receive block",
       "description": "Bank details a payer's finance team actually reads: mandatory payment-reference enforcement, warning above the fields, copy that names the field.",
       "dependencies": [
-        "@venlyfinance/react@^0.3.0",
-        "@venlyfinance/sdk@^0.4.0",
+        "@venlyfinance/react@^0.4.0",
+        "@venlyfinance/sdk@^0.5.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
         "@venlyfinance/venly-tokens",
         "@venlyfinance/money",
-        "@venlyfinance/field-list"
+        "@venlyfinance/field-list",
+        "@venlyfinance/list-error"
       ],
       "files": [
         {
@@ -322,8 +342,8 @@
       "title": "Send block",
       "description": "Stage-then-confirm rendered: form, arithmetic-ladder review, a commit button that restates the amount, single execution on a pinned idempotency key, status timeline.",
       "dependencies": [
-        "@venlyfinance/react@^0.3.0",
-        "@venlyfinance/sdk@^0.4.0",
+        "@venlyfinance/react@^0.4.0",
+        "@venlyfinance/sdk@^0.5.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -347,8 +367,8 @@
       "title": "Activity block",
       "description": "One feed over both money rails: the account's transfers interleaved with the company's withdrawals and add-money requests, a labelled Scope column, three bands (In progress / Completed / Didn't complete), live-synced detail panels, unified CSV export, and arrow-key row stepping. Mount UnifiedActivityBlock for the full feed, or ActivityBlock for a transfers-only ledger.",
       "dependencies": [
-        "@venlyfinance/react@^0.3.0",
-        "@venlyfinance/sdk@^0.4.0",
+        "@venlyfinance/react@^0.4.0",
+        "@venlyfinance/sdk@^0.5.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -359,7 +379,8 @@
         "@venlyfinance/side-panel",
         "@venlyfinance/timeline",
         "@venlyfinance/field-list",
-        "@venlyfinance/withdraw"
+        "@venlyfinance/withdraw",
+        "@venlyfinance/list-error"
       ],
       "files": [
         {
@@ -376,8 +397,8 @@
       "title": "Reconciliation block",
       "description": "Match inbound bank credits to expected payments without blurring the two feeds: the credit rows are the integrator's own bank/PSP feed (labelled so), the reference codes are Venly-issued. Sectioned exception queue with zero-counts always drawn, a judging workspace with the received evidence left of the candidates, per-signal match rationale instead of a score, a many-to-one builder with a live difference figure, four peer dispositions, and undo that reopens the expected payment.",
       "dependencies": [
-        "@venlyfinance/react@^0.3.0",
-        "@venlyfinance/sdk@^0.4.0",
+        "@venlyfinance/react@^0.4.0",
+        "@venlyfinance/sdk@^0.5.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -402,8 +423,8 @@
       "title": "Balances block",
       "description": "The home surface on the real wallet balance source: available/reserved hero per asset, segmented bar behind the two-bucket threshold, per-asset table, and masking that covers every figure including the chrome miniature.",
       "dependencies": [
-        "@venlyfinance/react@^0.3.0",
-        "@venlyfinance/sdk@^0.4.0",
+        "@venlyfinance/react@^0.4.0",
+        "@venlyfinance/sdk@^0.5.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [

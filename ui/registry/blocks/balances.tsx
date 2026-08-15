@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactElement } from "react";
-import type { WalletBalance } from "@venlyfinance/sdk";
-import { useWallets } from "@venlyfinance/react";
-import { Money, MASK } from "../lib/money.js";
+import type { SupportedAsset, WalletBalance } from "@venlyfinance/sdk";
+import { useSupportedAssets, useWallets } from "@venlyfinance/react";
+import { Money, MASK, formatAmount } from "../lib/money.js";
 import { BalanceCard } from "../components/balance-card.js";
 import { DataTable, RowText, type DataTableColumn } from "../components/data-table.js";
 
@@ -30,6 +30,31 @@ export interface AssetBalanceRow {
   total: number;
   available: number;
   reserved: number;
+  /** Render precision: the asset's on-chain decimals, or 2 when unresolved. */
+  decimals: number;
+  /** Where `decimals` came from – rendered as provenance, never implied. */
+  decimalsSource: "supported-assets" | "default";
+}
+
+/**
+ * Resolve an asset's render precision from the supported-assets rows: by
+ * contract address first (the unambiguous key), then by currency symbol.
+ * Unresolved assets fall back to 2dp – and say so via `decimalsSource`.
+ */
+export function assetDecimals(
+  balance: Pick<WalletBalance, "asset" | "contractAddress">,
+  supportedAssets: SupportedAsset[] | undefined,
+): { decimals: number; source: AssetBalanceRow["decimalsSource"] } {
+  const match =
+    supportedAssets?.find(
+      (a) =>
+        a.contractAddress != null &&
+        balance.contractAddress != null &&
+        a.contractAddress.toLowerCase() === balance.contractAddress.toLowerCase(),
+    ) ?? supportedAssets?.find((a) => a.cryptoCurrency === balance.asset);
+  return typeof match?.decimals === "number"
+    ? { decimals: match.decimals, source: "supported-assets" }
+    : { decimals: 2, source: "default" };
 }
 
 /**
@@ -38,17 +63,26 @@ export interface AssetBalanceRow {
  * rows (amounts as numbers) and no longer names the wallet's chain, so the
  * chain chips render only when the API someday says which chain a balance
  * lives on - a labelled gap, never an invented value.
+ *
+ * Each row carries the asset's on-chain `decimals` (from supported-assets)
+ * so sub-cent amounts render instead of rounding to 0.00.
  */
-export function assetBalanceRows(wallets: WalletBalance[]): AssetBalanceRow[] {
+export function assetBalanceRows(
+  wallets: WalletBalance[],
+  supportedAssets?: SupportedAsset[],
+): AssetBalanceRow[] {
   const byAsset = new Map<string, AssetBalanceRow>();
   for (const balance of wallets) {
     if (!balance.asset) continue;
+    const precision = assetDecimals(balance, supportedAssets);
     const row = byAsset.get(balance.asset) ?? {
       asset: balance.asset,
       chains: [],
       total: 0,
       available: 0,
       reserved: 0,
+      decimals: precision.decimals,
+      decimalsSource: precision.source,
     };
     row.total += Number(balance.amount?.total ?? 0);
     row.available += Number(balance.amount?.available ?? 0);
@@ -56,6 +90,26 @@ export function assetBalanceRows(wallets: WalletBalance[]): AssetBalanceRow[] {
     byAsset.set(balance.asset, row);
   }
   return [...byAsset.values()].sort((a, b) => b.available - a.available);
+}
+
+/**
+ * The provenance line under the table: where the render precision came
+ * from. Precision is a claim about money, so its source is stated rather
+ * than implied – including the fallback, which would otherwise silently
+ * reintroduce the 0.00 defect for the assets it covers.
+ */
+export function precisionProvenance(rows: AssetBalanceRow[]): string | null {
+  if (rows.length === 0) return null;
+  const fallback = rows.filter((r) => r.decimalsSource === "default").map((r) => r.asset);
+  if (fallback.length === 0) {
+    return "Amounts shown at each asset's on-chain precision (from supported-assets).";
+  }
+  if (fallback.length === rows.length) {
+    return "Shown at 2 decimals – on-chain precision is unavailable right now. Sub-cent amounts may display as 0.00.";
+  }
+  return `Amounts shown at each asset's on-chain precision (from supported-assets), except ${fallback.join(
+    ", ",
+  )} at 2 decimals – precision unavailable. Sub-cent amounts there may display as 0.00.`;
 }
 
 /**
@@ -90,7 +144,7 @@ function SegmentedBar({ row, masked }: { row: AssetBalanceRow; masked: boolean }
       aria-label={
         masked
           ? "Available and reserved split (amounts hidden)"
-          : buckets.map((b) => `${b.label} ${b.amount.toFixed(2)}`).join(", ")
+          : buckets.map((b) => `${b.label} ${formatAmount(b.amount, 2, row.decimals)}`).join(", ")
       }
       style={{
         display: "flex",
@@ -167,7 +221,12 @@ export function BalancesView({
       header: "Total",
       money: true,
       cell: (r) => (
-        <Money amount={r.total} masked={masked} style={{ fontWeight: 400, color: "var(--text-secondary)" }} />
+        <Money
+          amount={r.total}
+          maxFractionDigits={r.decimals}
+          masked={masked}
+          style={{ fontWeight: 400, color: "var(--text-secondary)" }}
+        />
       ),
     },
     {
@@ -176,13 +235,22 @@ export function BalancesView({
       money: true,
       // Zero reserves render the em-dash: an empty column of 0.00 buries
       // the one row that actually has money locked up.
-      cell: (r) => <Money amount={r.reserved > 0 ? r.reserved : null} masked={masked} style={{ fontWeight: 400 }} />,
+      cell: (r) => (
+        <Money
+          amount={r.reserved > 0 ? r.reserved : null}
+          maxFractionDigits={r.decimals}
+          masked={masked}
+          style={{ fontWeight: 400 }}
+        />
+      ),
     },
     {
       key: "available",
       header: "Available",
       money: true,
-      cell: (r) => <Money amount={r.available} currency={r.asset} masked={masked} />,
+      cell: (r) => (
+        <Money amount={r.available} currency={r.asset} maxFractionDigits={r.decimals} masked={masked} />
+      ),
     },
   ];
 
@@ -191,6 +259,7 @@ export function BalancesView({
       <BalanceCard
         available={primary.available}
         currency={primary.asset}
+        decimals={primary.decimals}
         qualifier={qualifier}
         masked={masked}
         onToggleMasked={onToggleMasked}
@@ -245,6 +314,18 @@ export function BalancesView({
           <DataTable columns={columns} rows={rows} rowKey={(r) => r.asset} />
         </div>
       ) : null}
+      {precisionProvenance(rows) ? (
+        <p
+          style={{
+            margin: "var(--space-sm) 0 0",
+            maxWidth: "var(--card-max-width)",
+            fontSize: "var(--font-size-micro)",
+            color: "var(--text-tertiary)",
+          }}
+        >
+          {precisionProvenance(rows)}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -261,6 +342,9 @@ export function BalancesBlock({
   className,
 }: Omit<BalancesViewProps, "rows"> & { accountId: string }): ReactElement {
   const { data, isPending, isError, refetch } = useWallets(accountId);
+  // Render precision. Its failure must not take the balance surface down:
+  // rows fall back to 2dp and the provenance line says so.
+  const assetsQuery = useSupportedAssets();
 
   if (isPending) {
     return (
@@ -270,9 +354,10 @@ export function BalancesBlock({
     );
   }
 
-  if (isError) {
-    // Local degrade: this surface reports its own failure and offers a
-    // retry; it never takes the rest of the app down with it.
+  // A transport failure and a malformed envelope (resultPresent === false)
+  // land in the same place: an empty balance list is a claim – "you hold
+  // nothing" – that neither state can support.
+  if (isError || !data || data.resultPresent === false) {
     return (
       <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
         <p style={{ color: "var(--text-secondary)", fontSize: "var(--font-size-body)", margin: 0 }}>
@@ -300,9 +385,12 @@ export function BalancesBlock({
     );
   }
 
+  const supportedAssets =
+    assetsQuery.data?.resultPresent === false ? undefined : assetsQuery.data?.items;
+
   return (
     <BalancesView
-      rows={assetBalanceRows(data?.items ?? [])}
+      rows={assetBalanceRows(data.items ?? [], supportedAssets)}
       primaryAsset={primaryAsset}
       qualifier={qualifier}
       masked={masked}
@@ -333,7 +421,10 @@ export function BalanceMiniature({
   className?: string;
 }): ReactElement | null {
   const { data } = useWallets(accountId);
-  const rows = assetBalanceRows(data?.items ?? []);
+  const assetsQuery = useSupportedAssets();
+  const supportedAssets =
+    assetsQuery.data?.resultPresent === false ? undefined : assetsQuery.data?.items;
+  const rows = assetBalanceRows(data?.items ?? [], supportedAssets);
   const primary = rows.find((r) => r.asset === primaryAsset) ?? rows[0];
   if (!primary) return null;
 
@@ -352,7 +443,7 @@ export function BalanceMiniature({
     >
       <span style={{ color: "var(--text-tertiary)" }}>Available</span>
       <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 500, color: "var(--text-primary)" }}>
-        {masked ? MASK : primary.available.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+        {masked ? MASK : formatAmount(primary.available, 2, primary.decimals)}{" "}
         <span style={{ color: "var(--text-secondary)", fontWeight: 400 }}>{primary.asset}</span>
       </span>
     </div>
