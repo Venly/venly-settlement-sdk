@@ -6,6 +6,8 @@ Headless React layer for the [Venly Finance and Fundflow APIs](https://github.co
 
 No components, no CSS. This package owns data and state; your UI (or the one your coding agent assembles) owns the pixels. The full behaviour is covered by a node:test suite that runs with zero network.
 
+Building with a coding agent? Start from [AGENTS.md](AGENTS.md).
+
 ## Try it in 0 minutes (mock mode)
 
 ```bash

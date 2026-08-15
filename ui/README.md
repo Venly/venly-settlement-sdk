@@ -14,6 +14,8 @@ npx shadcn@latest add @venlyfinance/receive @venlyfinance/send @venlyfinance/act
 
 Each block pulls its components, the `venly-tokens` file and the `@venlyfinance/react` data layer transitively. The registry JSON under [`r/`](r/) is generated from [`registry/`](registry/) by `npm run build:registry` and CI fails on drift; copying files straight from `registry/` also works.
 
+Building with a coding agent? Run `npx shadcn add @venlyfinance/agents` to land AGENTS.md in your own repo root.
+
 ## The white-label contract
 
 [`registry/styles/tokens.css`](registry/styles/tokens.css) is the reskin surface – **a reskin must be that file and nothing else**. Every skin-relevant value – colour, radius, type scale, density, spacing rhythm, border weights, panel geometry, elevation – is a custom property read from that file. No component carries a raw colour or a raw pixel value in any box property; the only literals left at call sites are structural geometry a reskin should not change (positioning zeros, 50% circles, font weights, unitless line-heights, and em-relative proportions like the currency code at 0.6× its digits). A test enforces this – see the last case in [`test/contract.test.tsx`](test/contract.test.tsx).

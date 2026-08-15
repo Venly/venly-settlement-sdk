@@ -25,6 +25,8 @@ jobs:
             echo "::error::Found terms that must not appear in this repository."
             exit 1
           fi
+      - name: AGENTS.md copies match the canonical root file
+        run: node scripts/sync-agents-md.mjs && git diff --exit-code
 
   sdk:
     runs-on: ubuntu-latest
