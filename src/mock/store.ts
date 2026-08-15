@@ -13,6 +13,8 @@ type PaymentSession = schemas["PayInSessionDto"];
 type PayoutBankAccount = schemas["PayoutBankAccountDto"];
 type PayoutRoute = schemas["PayoutRouteDto"];
 type Payout = schemas["PayoutDto"];
+type SupportedAsset = schemas["SupportedAssetView"];
+type AccountSupportedAsset = schemas["AccountSupportedAssetView"];
 
 /**
  * A simulated inbound bank credit. The Finance API models no such resource:
@@ -42,6 +44,10 @@ export interface FinanceSeeds {
   /** Payout routes per account id (routes carry no accountId on the wire). */
   payoutRoutes: Record<string, PayoutRoute[]>;
   payouts: Payout[];
+  /** Tenant-wide supported assets; `decimals` must be each asset's real on-chain value. */
+  supportedAssets: SupportedAsset[];
+  /** Account-scoped rows (adds permitStatus) per account id. */
+  accountSupportedAssets: Record<string, AccountSupportedAsset[]>;
 }
 
 export type VerificationStatusInput =
@@ -154,6 +160,8 @@ export class FinanceMockStore {
   payoutBankAccounts: PayoutBankAccount[] = [];
   payoutRoutes = new Map<string, PayoutRoute[]>();
   payouts: Payout[] = [];
+  supportedAssets: SupportedAsset[] = [];
+  accountSupportedAssets = new Map<string, AccountSupportedAsset[]>();
   private payoutIntents = new Map<string, {
     fingerprint: string;
     outcome: "failed" | "succeeded";
@@ -187,6 +195,8 @@ export class FinanceMockStore {
     this.payoutBankAccounts = s.payoutBankAccounts;
     this.payoutRoutes = new Map(Object.entries(s.payoutRoutes));
     this.payouts = s.payouts;
+    this.supportedAssets = s.supportedAssets;
+    this.accountSupportedAssets = new Map(Object.entries(s.accountSupportedAssets));
     this.virtualBankAccountIntents.clear();
     this.payoutIntents.clear();
     this.payoutProofWallets.clear();
@@ -330,6 +340,25 @@ export class FinanceMockStore {
   listWallets(ctx: HandlerContext): Wallet[] {
     this.getAccount(ctx);
     return this.wallets.get(ctx.params.accountId) ?? [];
+  }
+
+  listSupportedAssets(): SupportedAsset[] {
+    return this.supportedAssets;
+  }
+
+  listAccountSupportedAssets(ctx: HandlerContext): AccountSupportedAsset[] {
+    this.getAccount(ctx);
+    const seeded = this.accountSupportedAssets.get(ctx.params.accountId);
+    if (seeded) return seeded;
+    // Mock assumption: an account the seeds don't cover exposes the tenant's
+    // asset list with a permit status derived from whether it holds a wallet
+    // yet – NO_WALLET before provisioning, PENDING after. The live API may
+    // scope the list differently; treat this as a fixture, not a contract.
+    const hasWallet = (this.wallets.get(ctx.params.accountId) ?? []).length > 0;
+    return this.supportedAssets.map((asset) => ({
+      ...asset,
+      permitStatus: hasWallet ? ("PENDING" as const) : ("NO_WALLET" as const),
+    }));
   }
 
   listPartyRoles(ctx: HandlerContext): PartyRole[] {

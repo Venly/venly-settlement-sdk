@@ -148,6 +148,7 @@ export class VenlyFinanceClient {
   readonly payouts: PayoutsResource;
   readonly payoutRoutes: PayoutRoutesResource;
   readonly payoutBankAccounts: PayoutBankAccountsResource;
+  readonly supportedAssets: SupportedAssetsResource;
 
   private readonly http: Transport;
 
@@ -191,6 +192,7 @@ export class VenlyFinanceClient {
     this.payouts = new PayoutsResource(this.http);
     this.payoutRoutes = new PayoutRoutesResource(this.http);
     this.payoutBankAccounts = new PayoutBankAccountsResource(this.http);
+    this.supportedAssets = new SupportedAssetsResource(this.http);
   }
 
   /**
@@ -737,6 +739,43 @@ export class PayoutRoutesResource {
         { body, ...opts },
       )
       .then(unwrap);
+  }
+}
+
+/**
+ * Asset reference data: which assets the tenant supports – each with its
+ * on-chain `decimals` – and, per account, the permit status saying whether
+ * that account's wallet can actually move the asset. `decimals` is the
+ * render contract for amounts: a UI that assumes two decimals shows
+ * sub-cent balances on a 6-decimal asset as 0.00.
+ *
+ * Both endpoints return a plain array envelope (no pagination on the wire);
+ * they still resolve to `Page` for its `resultPresent` flag – the signal
+ * that separates "empty list" from "malformed envelope". `pagination` stays
+ * undefined.
+ */
+export class SupportedAssetsResource {
+  constructor(private readonly http: Transport) {}
+
+  /** Tenant-wide supported assets, each carrying its on-chain `decimals`. */
+  list(opts?: CallOptions): Promise<Page<schemas["SupportedAssetView"]>> {
+    return this.http
+      .request<Envelope<schemas["SupportedAssetView"][]>>("GET", "/supported-assets", opts)
+      .then(unwrapPage);
+  }
+
+  /** Account-scoped view: the same asset rows plus per-asset `permitStatus`. */
+  listForAccount(
+    accountId: string,
+    opts?: CallOptions,
+  ): Promise<Page<schemas["AccountSupportedAssetView"]>> {
+    return this.http
+      .request<Envelope<schemas["AccountSupportedAssetView"][]>>(
+        "GET",
+        `/accounts/${accountId}/supported-assets`,
+        opts,
+      )
+      .then(unwrapPage);
   }
 }
 
