@@ -123,3 +123,37 @@ test("ramp write path the new mutations wrap: setAmount + initiate against the s
     (e: { status?: number }) => e.status === 409,
   );
 });
+
+test("supported-assets: keys stable and prefix-aligned, factories resolve with decimals", async () => {
+  assert.deepEqual(venlyKeys.supportedAssets(), venlyKeys.supportedAssets());
+  assert.notDeepEqual(venlyKeys.supportedAssets(), venlyKeys.accountSupportedAssets("a"));
+  // Account-scoped rows share the account prefix, so one invalidation of
+  // ["venly","account",id] reaches permit status alongside wallets.
+  assert.deepEqual(
+    venlyKeys.accountSupportedAssets("a").slice(0, 3),
+    venlyKeys.wallets("a").slice(0, 3),
+  );
+
+  const clients = mockClients();
+  const tenant = await venlyQueries.supportedAssets(clients).queryFn();
+  assert.equal(tenant.resultPresent, true);
+  assert.ok(tenant.items.every((a) => Number.isInteger(a.decimals)));
+  assert.ok(
+    tenant.items.some((a) => a.decimals !== 6),
+    "the fixture set exercises more than one decimals value",
+  );
+
+  const accounts = await venlyQueries.accounts(clients).queryFn();
+  const accountId = accounts.items[0]!.id!;
+  const scoped = await venlyQueries.accountSupportedAssets(clients, accountId).queryFn();
+  assert.equal(scoped.resultPresent, true);
+  assert.ok(scoped.items.every((a) => typeof a.permitStatus === "string"));
+});
+
+test("supported-assets: a malformed envelope reaches the hook as resultPresent false", async () => {
+  const clients = mockClients();
+  clients.finance.mock!.respondNext({ success: true }, "GET /supported-assets");
+  const page = await venlyQueries.supportedAssets(clients).queryFn();
+  assert.equal(page.resultPresent, false);
+  assert.deepEqual(page.items, []);
+});

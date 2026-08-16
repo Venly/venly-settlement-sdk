@@ -42,6 +42,8 @@ export {
   useBankAccountConfig,
   useDepositWallets,
   useRampPairs,
+  useSupportedAssets,
+  useAccountSupportedAssets,
 } from "./queries.js";
 
 // Write hooks
