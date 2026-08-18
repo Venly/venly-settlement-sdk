@@ -96,3 +96,10 @@ test("kit regression: zero error-severity findings across registry and example s
   }
   assert.deepEqual(errors, [], "a rule fired error-severity on the kit's own sources");
 });
+
+test("expandPatterns: parent-relative patterns (../) match, as CI invokes them", () => {
+  const mcpDir = fileURLToPath(new URL("..", import.meta.url));
+  const files = expandPatterns(["../ui/registry/**/*.tsx"], mcpDir);
+  assert.ok(files.length >= 15, `expected kit sources via ../, got ${files.length}`);
+  assert.ok(files.every((f) => f.startsWith("../ui/registry/")));
+});

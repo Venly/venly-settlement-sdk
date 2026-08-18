@@ -10,7 +10,7 @@
 // shell; unquoted shell-expanded literal paths work too. No dependencies.
 // (Line comments on purpose: a glob's **/ would terminate a block comment.)
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { reviewScreenSource } from "./frontend.js";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist"]);
@@ -73,10 +73,9 @@ export function expandPattern(pattern: string, cwd: string): string[] {
     walk(root, files);
     const matcher = patternToRegExp(variant);
     for (const file of files) {
-      const rel = file
-        .slice(cwd.length + (cwd.endsWith("/") ? 0 : 1))
-        .split("\\")
-        .join("/");
+      // relative(), not string slicing: a pattern like "../ui/**/*.tsx"
+      // walks outside cwd, where prefix slicing produces garbage.
+      const rel = relative(cwd, file).split("\\").join("/");
       if (matcher.test(rel)) results.push(rel);
     }
   }
