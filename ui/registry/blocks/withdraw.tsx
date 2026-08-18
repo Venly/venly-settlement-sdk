@@ -19,6 +19,7 @@ import { StatusPill, type StatusIntent } from "../components/status-pill.js";
 import { Timeline, type TimelineStep } from "../components/timeline.js";
 import { FieldList } from "../components/field-list.js";
 import { ArithmeticLadder } from "../components/arithmetic-ladder.js";
+import { ListLoadError } from "../components/list-error.js";
 import { BANK_ACCOUNT_STATUS_PILL, type CompanyBankAccountListItem } from "./bank-accounts.js";
 
 /**
@@ -625,6 +626,51 @@ export function WithdrawDetail({ request, actorId, style, className }: WithdrawD
   );
 }
 
+/**
+ * Connected list: the account's withdrawal history bound to the ramp-request
+ * source. A failed or malformed list (resultPresent === false) renders an
+ * explicit error, never an empty history claiming "no withdrawals".
+ */
+export function WithdrawalsBlock({
+  onOpen,
+  selectedId,
+  style,
+  className,
+}: {
+  onOpen?: (item: RampListItem) => void;
+  selectedId?: string | null;
+  style?: CSSProperties;
+  className?: string;
+}): ReactElement {
+  const query = useRampRequests({ rampType: "OFF_RAMP" });
+
+  if (query.isPending) {
+    return (
+      <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
+        <p style={{ color: "var(--text-tertiary)", fontSize: "var(--font-size-body)" }}>Loading withdrawals…</p>
+      </section>
+    );
+  }
+
+  if (query.isError || !query.data || query.data.resultPresent === false) {
+    return (
+      <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
+        <ListLoadError what="your withdrawals" onRetry={() => void query.refetch()} />
+      </section>
+    );
+  }
+
+  return (
+    <WithdrawalsTable
+      items={query.data.items ?? []}
+      onOpen={onOpen}
+      selectedId={selectedId ?? undefined}
+      style={style}
+      className={className}
+    />
+  );
+}
+
 /** Connected detail: fetches the record + the list row that carries createdBy. */
 export function ConnectedWithdrawDetail({ id, actorId, style, className }: { id: string; actorId?: string; style?: CSSProperties; className?: string }): ReactElement {
   const { data: request } = useRampRequest(id);
@@ -660,12 +706,28 @@ type FlowStep =
   | { step: "detail"; id: string };
 
 export function WithdrawFlow({ accountId, actorId, onGoToBankAccounts, onCreated, style, className }: WithdrawFlowProps): ReactElement {
-  const { data: accounts } = useCompanyBankAccounts();
+  const accountsQuery = useCompanyBankAccounts();
+  const { data: accounts } = accountsQuery;
   const create = useCreateRampRequest();
   const [flow, setFlow] = useState<FlowStep>({ step: "pick" });
 
   if (flow.step === "detail") {
     return <ConnectedWithdrawDetail id={flow.id} actorId={actorId} style={style} className={className} />;
+  }
+
+  // The destination picker's feed. A failed or malformed whitelist
+  // (resultPresent === false) must not render the "add a bank account"
+  // empty state – the accounts may exist and be verified already.
+  if (
+    flow.step === "pick" &&
+    !accountsQuery.isPending &&
+    (accountsQuery.isError || !accounts || accounts.resultPresent === false)
+  ) {
+    return (
+      <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
+        <ListLoadError what="your bank accounts" onRetry={() => void accountsQuery.refetch()} />
+      </section>
+    );
   }
 
   if (flow.step === "review") {

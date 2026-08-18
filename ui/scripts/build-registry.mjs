@@ -27,8 +27,8 @@ const SCHEMA_ITEM = "https://ui.shadcn.com/schema/registry-item.json";
 const SCHEMA_INDEX = "https://ui.shadcn.com/schema/registry.json";
 
 const RUNTIME_DEPENDENCIES = [
-  "@venlyfinance/react@^0.3.0",
-  "@venlyfinance/sdk@^0.4.0",
+  "@venlyfinance/react@^0.4.0",
+  "@venlyfinance/sdk@^0.5.0",
   "@tanstack/react-query@^5.0.0",
 ];
 
@@ -121,6 +121,13 @@ const COMPONENTS = [
     deps: [],
   },
   {
+    name: "list-error",
+    title: "List load error",
+    description:
+      "Error state for list-bearing surfaces: a missing result collection (resultPresent === false) renders as an explicit alert with retry, never as an empty list claiming 'all clear'.",
+    deps: [],
+  },
+  {
     name: "arithmetic-ladder",
     title: "Arithmetic ladder",
     description:
@@ -170,7 +177,7 @@ const BLOCKS = [
     title: "Bank accounts block",
     description:
       "The whitelisting surface withdrawals depend on: your company's own accounts (never third-party payees), seven account-type variants asking exactly the fields each requires, identifier re-entry against transcription slips, and verification status rendered verbatim.",
-    deps: ["data-table", "status-pill"],
+    deps: ["data-table", "status-pill", "list-error"],
     money: false,
   },
   {
@@ -178,14 +185,14 @@ const BLOCKS = [
     title: "Withdraw block",
     description:
       "Fiat out to your own verified bank account, rendered truthfully: destination picker that disables unverified accounts with the reason, a fee quote in the unit you typed, four-eyes approval that renders the rule instead of the error, deposit instructions with the mandatory reference, and an event timeline with actors and absolute timestamps.",
-    deps: ["data-table", "status-pill", "timeline", "field-list", "arithmetic-ladder", "bank-accounts"],
+    deps: ["data-table", "status-pill", "timeline", "field-list", "arithmetic-ladder", "bank-accounts", "list-error"],
   },
   {
     name: "receive",
     title: "Receive block",
     description:
       "Bank details a payer's finance team actually reads: mandatory payment-reference enforcement, warning above the fields, copy that names the field.",
-    deps: ["field-list"],
+    deps: ["field-list", "list-error"],
   },
   {
     name: "send",
@@ -199,7 +206,7 @@ const BLOCKS = [
     title: "Activity block",
     description:
       "One feed over both money rails: the account's transfers interleaved with the company's withdrawals and add-money requests, a labelled Scope column, three bands (In progress / Completed / Didn't complete), live-synced detail panels, unified CSV export, and arrow-key row stepping. Mount UnifiedActivityBlock for the full feed, or ActivityBlock for a transfers-only ledger.",
-    deps: ["data-table", "status-pill", "side-panel", "timeline", "field-list", "withdraw"],
+    deps: ["data-table", "status-pill", "side-panel", "timeline", "field-list", "withdraw", "list-error"],
   },
   {
     name: "reconciliation",

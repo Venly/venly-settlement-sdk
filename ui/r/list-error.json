@@ -1,0 +1,18 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "list-error",
+  "type": "registry:component",
+  "title": "List load error",
+  "description": "Error state for list-bearing surfaces: a missing result collection (resultPresent === false) renders as an explicit alert with retry, never as an empty list claiming 'all clear'.",
+  "registryDependencies": [
+    "@venlyfinance/venly-tokens"
+  ],
+  "files": [
+    {
+      "path": "registry/components/list-error.tsx",
+      "type": "registry:component",
+      "target": "~/components/venly/components/list-error.tsx",
+      "content": "import type { ReactElement } from \"react\";\n\n/**\n * Error state for list-bearing surfaces.\n *\n * Design contract encoded by this component:\n * - A missing result collection (`resultPresent === false`) is an ERROR,\n *   never an empty list. An empty list is a claim – \"there is nothing\" –\n *   and a malformed envelope cannot support that claim. Rendering it as\n *   empty tells the user \"all clear\" on evidence that says \"unknown\".\n * - The copy names what failed to load and admits the list may be\n *   incomplete; it never blames the user and never says \"try again later\"\n *   without offering the retry.\n * - role=\"alert\" so the failure is announced, not silently swapped in.\n * - The retry is a real control wired to the query's refetch.\n */\nexport function ListLoadError({\n  what,\n  onRetry,\n}: {\n  /** What failed to load, in the user's words: \"your balances\". */\n  what: string;\n  onRetry?: () => void;\n}): ReactElement {\n  return (\n    <section role=\"alert\" style={{ fontFamily: \"var(--font-family)\" }}>\n      <p\n        style={{\n          background: \"var(--state-pending-bg)\",\n          color: \"var(--state-pending-fg)\",\n          borderRadius: \"var(--radius-control)\",\n          padding: \"var(--space-sm) var(--space-md)\",\n          fontSize: \"var(--font-size-label)\",\n          margin: 0,\n        }}\n      >\n        <span aria-hidden=\"true\">⚠</span> We couldn't load {what} – the list may be\n        incomplete, so nothing is shown rather than a wrong \"all clear\".\n      </p>\n      {onRetry ? (\n        <button\n          type=\"button\"\n          onClick={onRetry}\n          style={{\n            marginTop: \"var(--space-sm)\",\n            border: \"var(--border-w-hairline) solid var(--border-strong)\",\n            background: \"var(--surface-raised)\",\n            color: \"var(--text-primary)\",\n            borderRadius: \"var(--radius-control)\",\n            padding: \"var(--space-2xs) var(--space-sm)\",\n            fontSize: \"var(--font-size-label)\",\n            fontFamily: \"var(--font-family)\",\n            cursor: \"pointer\",\n          }}\n        >\n          Retry\n        </button>\n      ) : null}\n    </section>\n  );\n}\n"
+    }
+  ]
+}

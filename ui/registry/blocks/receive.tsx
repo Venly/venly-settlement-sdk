@@ -10,6 +10,7 @@ import {
 } from "@venlyfinance/react";
 import { FieldList } from "../components/field-list.js";
 import { StatusPill } from "../components/status-pill.js";
+import { ListLoadError } from "../components/list-error.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -254,6 +255,17 @@ export function ReceiveBlock({
        </section>
      );
    }
+
+  // A failed or malformed list (resultPresent === false) is an error, never
+  // an empty register: rendering it empty offers "set up bank details" to an
+  // account that may already hold them.
+  if (
+    vbaQuery.isError ||
+    !vbaQuery.data ||
+    (vbaQuery.data as VbaListResponse & { resultPresent?: boolean }).resultPresent === false
+  ) {
+    return <ListLoadError what="your bank details" onRetry={() => void vbaQuery.refetch()} />;
+  }
 
    // Sparse account: no kycStatus at all
   if (!account?.kycStatus) {

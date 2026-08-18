@@ -5,8 +5,8 @@
   "title": "Onboarding block",
   "description": "Company details in, an application status out: creates the organisation and its account through the real operations, renders the verification status verbatim with a humane waiting state, decline-with-review, and a restricted-mode banner.",
   "dependencies": [
-    "@venlyfinance/react@^0.3.0",
-    "@venlyfinance/sdk@^0.4.0",
+    "@venlyfinance/react@^0.4.0",
+    "@venlyfinance/sdk@^0.5.0",
     "@tanstack/react-query@^5.0.0"
   ],
   "registryDependencies": [
