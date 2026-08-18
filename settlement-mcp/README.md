@@ -100,6 +100,15 @@ Operator writes: `approve_ramp_request`, `reject_ramp_request`. The legacy
 Each is dry-run by default and returns the exact request it would send. See the
 safety model below.
 
+### Payout tools (since 0.5.0)
+
+The payout surface of the finance contract, same tiering as above. Reads:
+`list_payouts`, `get_payout`, `list_payout_routes`, `list_payout_bank_accounts`.
+Writes (dry-run by default, fail-closed like every write): 
+`register_payout_bank_account`, `create_payout_route`,
+`prepare_payout_ownership_proof`, `complete_payout_ownership_proof`,
+`request_payout`.
+
 ### 3. x402 tool (position + stub)
 
 `quote_x402_payment` returns an HTTP-402-shaped quote (price, asset, payTo,
@@ -142,6 +151,11 @@ Exit `1` on any error-severity finding, `0` otherwise (warnings print either way
 justified exception with `venly-allow:<rule-id>` on the offending line or the line
 above – the finding is dropped silently. This repo runs the same command over its
 own registry sources in CI.
+
+Scope the glob to component source, never to token or theme files: the
+`raw-colour` rule fires on any hex/rgba literal by design, and a tokens/theme
+css file is the one legitimate home of raw colour values (theming stays a
+one-file edit). `"src/**/*.tsx"` is the right default.
 
 ## Safety model (fail closed)
 
@@ -248,8 +262,9 @@ reads, and fail-closed write gate without mutating staging:
 VENLY_CLIENT_ID=... VENLY_CLIENT_SECRET=... npm run smoke:staging
 ```
 
-The command starts the MCP with `VENLY_ENV=staging`, lists the expected 24 tools,
-five resources, and builder prompt, then reads parties, accounts, and reference data.
+The command starts the MCP with `VENLY_ENV=staging`, verifies the discovery
+surface against the exact tool/resource/prompt inventory pinned in the smoke
+script itself, then reads parties, accounts, and reference data.
 It deliberately removes `VENLY_MCP_LIVE` and `VENLY_MCP_PRODUCTION` from the child
 process before submitting one confirmed `create_party` request. Passing requires that
 request to return `mode: dry-run`, `environment: staging`, and an unarmed gate. Output

@@ -2,8 +2,7 @@
 
 ## 0.3.0 – 2026-08-04
 
-Wording-is-the-safety-surface release. An outside integrator audit (Report 1,
-2026-08-04) found the server's words disagreeing with its behavior in three
+Wording-is-the-safety-surface release. An outside integrator audit (2026-08-04) found the server's words disagreeing with its behavior in three
 places; all fixed, plus the SDK under the mock now teaches the documented
 lifecycle (see @venlyfinance/sdk 0.2.0).
 
