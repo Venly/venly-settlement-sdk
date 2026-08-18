@@ -1,11 +1,12 @@
 {
   "name": "@venlyfinance/settlement-mcp",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Venly Finance MCP: SDK-backed tools, resources and prompts for building international money products safely.",
   "type": "module",
   "bin": {
     "venly-finance-mcp": "dist/index.js",
-    "venly-settlement-mcp": "dist/index.js"
+    "venly-settlement-mcp": "dist/index.js",
+    "settlement-mcp": "dist/index.js"
   },
   "main": "dist/index.js",
   "files": [

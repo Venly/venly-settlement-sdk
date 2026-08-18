@@ -101,13 +101,84 @@ interface Finding {
   severity: "error" | "warn";
   evidence: string;
   fix: string;
+  /** 1-based line the finding fired on - lets a CLI print path:line. */
+  line?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Shared mechanics. Three cross-cutting behaviours every rule participates in:
+//
+// 1. Suppression: `venly-allow:<rule-id>` on the offending line or the line
+//    immediately above drops the finding silently - no counter, no second
+//    severity tier. A consumer's own API may legitimately return what ours
+//    does not; without this hatch the audit is uninstallable for them.
+// 2. Comment lines are not copy: rules that judge words skip lines whose
+//    trimmed form starts with `*`, `//`, `/*` or `{/*` - otherwise the rule
+//    fires on the comment that documents the rule itself.
+// 3. Findings carry the character index they fired at, so suppression can be
+//    resolved against the exact offending line.
+// ---------------------------------------------------------------------------
+
+const COMMENT_LINE = /^\s*(?:\*|\/\/|\/\*|\{\/\*)/;
+
+function lineBoundsAt(source: string, idx: number): { start: number; end: number } {
+  const at = Math.min(Math.max(idx, 0), source.length);
+  const start = source.lastIndexOf("\n", Math.max(0, at - 1)) + 1;
+  const nl = source.indexOf("\n", at);
+  return { start, end: nl === -1 ? source.length : nl };
+}
+
+function lineAt(source: string, idx: number): string {
+  const { start, end } = lineBoundsAt(source, idx);
+  return source.slice(start, end);
+}
+
+function lineAboveAt(source: string, idx: number): string {
+  const { start } = lineBoundsAt(source, idx);
+  if (start === 0) return "";
+  const prevEnd = start - 1; // the \n terminating the previous line
+  const prevStart = source.lastIndexOf("\n", prevEnd - 1) + 1;
+  return source.slice(prevStart, prevEnd);
+}
+
+function isCommentLineAt(source: string, idx: number): boolean {
+  return COMMENT_LINE.test(lineAt(source, idx));
+}
+
+function isSuppressedAt(source: string, idx: number, ruleId: string): boolean {
+  const token = `venly-allow:${ruleId}`;
+  return lineAt(source, idx).includes(token) || lineAboveAt(source, idx).includes(token);
+}
+
+function lineNumberAt(source: string, idx: number): number {
+  let line = 1;
+  for (let i = 0; i < idx && i < source.length; i++) if (source[i] === "\n") line++;
+  return line;
 }
 
 /** Deterministic design audit. Text in, findings out - no model, no taste. */
-export function reviewScreenSource(source: string): Finding[] {
+export function reviewScreenSource(source: string, journey?: JourneyKey): Finding[] {
   const findings: Finding[] = [];
-  const push = (rule: string, severity: Finding["severity"], evidence: string, fix: string) =>
-    findings.push({ rule, severity, evidence: evidence.slice(0, 120), fix });
+  // Returns whether the finding was recorded, so rules that stop after the
+  // first hit can keep scanning past a suppressed occurrence instead of
+  // letting one venly-allow blind them to a later real violation.
+  const push = (
+    rule: string,
+    severity: Finding["severity"],
+    evidence: string,
+    fix: string,
+    atIndex: number,
+  ): boolean => {
+    if (isSuppressedAt(source, atIndex, rule)) return false;
+    findings.push({
+      rule,
+      severity,
+      evidence: evidence.slice(0, 120),
+      fix,
+      line: lineNumberAt(source, atIndex),
+    });
+    return true;
+  };
 
   for (const match of source.matchAll(/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g)) {
     push(
@@ -115,6 +186,7 @@ export function reviewScreenSource(source: string): Finding[] {
       "error",
       match[0],
       "Read colours from the venly-tokens custom properties; a reskin must be tokens.css and nothing else.",
+      match.index ?? 0,
     );
   }
 
@@ -124,6 +196,7 @@ export function reviewScreenSource(source: string): Finding[] {
       "error",
       match[0],
       "Use the true minus sign − before negative amounts (the Money primitive does this).",
+      match.index ?? 0,
     );
   }
 
@@ -135,64 +208,341 @@ export function reviewScreenSource(source: string): Finding[] {
     const idx = match.index ?? 0;
     const around = source.slice(Math.max(0, idx - 150), idx + 150);
     if (/✓/.test(around)) {
-      push(
-        "success-on-cancelled",
-        "error",
-        around.trim().slice(0, 80),
-        "A cancelled or failed terminal step must never carry a success check - grey ↺ or red ✕.",
-      );
-      break;
+      if (
+        push(
+          "success-on-cancelled",
+          "error",
+          around.trim().slice(0, 80),
+          "A cancelled or failed terminal step must never carry a success check - grey ↺ or red ✕.",
+          idx,
+        )
+      )
+        break;
     }
   }
 
-  if (/review|confirm/i.test(source) && /[•*]{3,}/.test(source)) {
-    push(
-      "masked-review-value",
-      "error",
-      source.match(/[•*]{3,}/)![0],
-      "Never mask values on a review screen; its only job is legibility of what is about to happen.",
-    );
+  // The once-per-source rules below scan every occurrence and stop at the
+  // first RECORDED finding, so a venly-allow on one occurrence never hides a
+  // later unsuppressed one.
+
+  if (/review|confirm/i.test(source)) {
+    for (const masked of source.matchAll(/[•*]{3,}/g)) {
+      if (
+        push(
+          "masked-review-value",
+          "error",
+          masked[0],
+          "Never mask values on a review screen; its only job is legibility of what is about to happen.",
+          masked.index ?? 0,
+        )
+      )
+        break;
+    }
   }
 
-  if (/nth-child\(\s*(?:even|odd|2n)/.test(source)) {
-    push(
-      "zebra-striping",
-      "warn",
-      "nth-child(even/odd) background",
-      "No finance reference uses zebra striping - separate rows with hairlines and spacing.",
-    );
-  }
-
-  if (/box-shadow/.test(source) && !/var\(--shadow-overlay\)/.test(source)) {
-    push(
-      "shadow-outside-overlay",
-      "warn",
-      source.match(/box-shadow[^;"}]*/)?.[0] ?? "box-shadow",
-      "Elevation is only for overlays, and only via the --shadow-overlay token; the base layer is flat.",
-    );
-  }
-
-  if (/linear-gradient|radial-gradient/.test(source)) {
-    push(
-      "gradient-surface",
-      "warn",
-      source.match(/\w+-gradient\([^)]*\)/)?.[0] ?? "gradient",
-      "Gradient balance heroes read as template, not product; surfaces are flat neutrals with one accent.",
-    );
-  }
-
-  if (/(?:status|state)/i.test(source) && /var\(--state-/.test(source)) {
-    if (!/[✓✕↺⚠●○]|aria-hidden/.test(source)) {
+  for (const zebra of source.matchAll(/nth-child\(\s*(?:even|odd|2n)/g)) {
+    if (
       push(
-        "colour-only-state",
+        "zebra-striping",
         "warn",
-        "state colours present without any glyph",
-        "Pair every state hue with a glyph or word so status survives greyscale.",
-      );
+        "nth-child(even/odd) background",
+        "No finance reference uses zebra striping - separate rows with hairlines and spacing.",
+        zebra.index ?? 0,
+      )
+    )
+      break;
+  }
+
+  if (!/var\(--shadow-overlay\)/.test(source)) {
+    for (const shadow of source.matchAll(/box-shadow[^;"}]*/g)) {
+      if (
+        push(
+          "shadow-outside-overlay",
+          "warn",
+          shadow[0],
+          "Elevation is only for overlays, and only via the --shadow-overlay token; the base layer is flat.",
+          shadow.index ?? 0,
+        )
+      )
+        break;
     }
   }
+
+  for (const gradient of source.matchAll(/(?:linear|radial)-gradient(?:\([^)]*\))?/g)) {
+    if (
+      push(
+        "gradient-surface",
+        "warn",
+        gradient[0],
+        "Gradient balance heroes read as template, not product; surfaces are flat neutrals with one accent.",
+        gradient.index ?? 0,
+      )
+    )
+      break;
+  }
+
+  if (/(?:status|state)/i.test(source) && !/[✓✕↺⚠●○]|aria-hidden/.test(source)) {
+    for (const stateVar of source.matchAll(/var\(--state-/g)) {
+      if (
+        push(
+          "colour-only-state",
+          "warn",
+          "state colours present without any glyph",
+          "Pair every state hue with a glyph or word so status survives greyscale.",
+          stateVar.index ?? 0,
+        )
+      )
+        break;
+    }
+  }
+
+  // --- New rule classes (invented timing copy, crypto currency formatting,
+  // required-rendered-optional, blueprint state coverage, fixture honesty)
+  // are registered below. Each judges text only, honours the suppression
+  // hatch, and skips comment lines wherever it judges copy.
+
+  checkInventedTimingClaim(source, push);
+  checkIntlCurrencyCrypto(source, push);
+  checkRequiredRenderedOptional(source, push);
+  checkBlueprintStateCoverage(source, journey, push);
+  checkFixtureHonesty(source, push);
 
   return findings;
+}
+
+type PushFn = (
+  rule: string,
+  severity: Finding["severity"],
+  evidence: string,
+  fix: string,
+  atIndex: number,
+) => boolean;
+
+/**
+ * invented-timing-claim - copy that promises a duration, a settlement window
+ * or custody behaviour ("1-2 business days", "held until claimed",
+ * "estimated arrival") that no API in this stack returns. Rendering such a
+ * promise invents a guarantee the backend cannot honour; the journey
+ * contracts require a labelled omission instead. Copy rule: comment lines
+ * are not copy, so matches on them are skipped.
+ */
+function checkInventedTimingClaim(source: string, push: PushFn): void {
+  const pattern =
+    /\b(?:typically|usually|normally|generally)\s+(?:arrives?|takes?|clears?|settles?)\b|\b\d+\s*(?:-|–|to)\s*\d+\s+business\s+days?\b|\bwithin\s+\d+\s+(?:seconds?|minutes?|hours?|days?|business\s+days?)\b|\bheld\s+until\s+claimed\b|\bestimated\s+(?:arrival|delivery|completion)\b/gi;
+  for (const match of source.matchAll(pattern)) {
+    const at = match.index ?? 0;
+    if (isCommentLineAt(source, at)) continue;
+    push(
+      "invented-timing-claim",
+      "error",
+      match[0],
+      "No API in this stack returns a duration, settlement window or custody guarantee. Render the labelled omission the contract specifies, or - if your own API does return it - name the field path on the line and add venly-allow:invented-timing-claim.",
+      at,
+    );
+  }
+}
+
+// --- intl-currency-crypto -------------------------------------------------
+// Intl.NumberFormat validates `currency` against ISO 4217, so a crypto asset
+// code ("USDC", "DAI", ...) throws RangeError the moment the formatter is
+// constructed - a screen that compiles fine crashes on first render. Each
+// Intl.NumberFormat call site is judged by the 200 characters that follow it:
+// a literal crypto code next to style:"currency" is a certain crash (error);
+// a variable-fed `currency:` is a latent one (warn) - it only survives until
+// a crypto asset reaches it. Not a copy rule, so comment lines are not
+// skipped; suppression still applies via the shared venly-allow hatch.
+function checkIntlCurrencyCrypto(source: string, push: PushFn): void {
+  const currencyStyle = /style\s*:\s*["']currency["']/;
+  const cryptoCode = /["'](?:USDC|EURC|USDT|USDS|DAI|PYUSD|USDG|RLUSD)["']/;
+  // `\s*` lives inside the lookahead: with `currency\s*:\s*(?!["'])` the
+  // greedy whitespace backtracks to zero and the lookahead inspects the
+  // space instead of the quote, flagging `currency: "USD"` as a variable.
+  const variableCurrency = /currency\s*:(?!\s*["'])/;
+
+  for (const match of source.matchAll(/Intl\.NumberFormat/g)) {
+    const at = match.index ?? 0;
+    const window = source.slice(at, at + 200);
+
+    const style = currencyStyle.exec(window);
+    if (!style) continue; // plain decimal formatting (the kit's own formatAmount) is safe
+    const styleAt = style.index ?? 0;
+
+    const crypto = cryptoCode.exec(window);
+    if (crypto) {
+      const cryptoAt = crypto.index ?? 0;
+      const from = Math.min(styleAt, cryptoAt);
+      const to = Math.max(styleAt + style[0].length, cryptoAt + crypto[0].length);
+      push(
+        "intl-currency-crypto",
+        "error",
+        window.slice(from, to),
+        "Intl.NumberFormat with style:\"currency\" throws RangeError on a non-ISO-4217 code. Render crypto amounts with the Money primitive, which places the code beside the digits instead of inside the formatter.",
+        at,
+      );
+      continue; // one finding per call site; the certain crash outranks the latent one
+    }
+
+    const variable = variableCurrency.exec(window);
+    if (variable) {
+      const variableAt = variable.index ?? 0;
+      const from = Math.min(styleAt, variableAt);
+      const to = Math.min(
+        window.length,
+        Math.max(styleAt + style[0].length, variableAt) + 40,
+      );
+      push(
+        "intl-currency-crypto",
+        "warn",
+        window.slice(from, to),
+        "This formatter takes its currency from a variable. If a crypto asset can reach it, it throws at runtime. Use the Money primitive, or narrow the variable to ISO-4217 codes.",
+        at,
+      );
+    }
+  }
+}
+
+/**
+ * A required field labelled as optional. The kit deliberately ships a
+ * "(not required)" variant for genuinely optional rows, so the net is scoped
+ * tightly: only the payment reference is required-by-contract, and a payer
+ * who omits it produces an unmatched credit that someone has to reconcile by
+ * hand. The rule therefore fires only when "(not required)" appears on a real
+ * code line AND the surrounding code (comments removed) mentions the
+ * reference - a comment that merely documents this contract must not trip it.
+ */
+function checkRequiredRenderedOptional(source: string, push: PushFn): void {
+  for (const match of source.matchAll(/\(not required\)/gi)) {
+    const idx = match.index ?? 0;
+    // Copy rule: only judge rendered copy, never commentary about it.
+    if (isCommentLineAt(source, idx)) continue;
+
+    const winStart = Math.max(0, idx - 200);
+    const winEnd = Math.min(source.length, idx + match[0].length + 200);
+
+    // Rebuild the window with every comment line removed. Each line is
+    // classified on its FULL text (a fragment cut by the window edge could
+    // hide its comment marker), but only the in-window portion of surviving
+    // code lines feeds the reference test.
+    let pos = source.lastIndexOf("\n", Math.max(0, winStart - 1)) + 1;
+    let window = "";
+    while (pos < winEnd) {
+      let lineEnd = source.indexOf("\n", pos);
+      if (lineEnd === -1) lineEnd = source.length;
+      const line = source.slice(pos, lineEnd);
+      if (!COMMENT_LINE.test(line)) {
+        const from = Math.max(pos, winStart);
+        const to = Math.min(lineEnd, winEnd);
+        if (to > from) window += source.slice(from, to) + "\n";
+      }
+      pos = lineEnd + 1;
+    }
+
+    if (!/reference/i.test(window)) continue;
+
+    push(
+      "required-rendered-optional",
+      "error",
+      lineAt(source, idx).trim(),
+      'The payment reference is required - a payer who omits it produces an unmatched credit. Render the amber Required pill; never label it "(not required)".',
+      idx,
+    );
+  }
+}
+
+function checkBlueprintStateCoverage(
+  source: string,
+  journey: JourneyKey | undefined,
+  push: PushFn,
+): void {
+  // Only meaningful when the caller declared which journey this screen serves.
+  if (journey === undefined) return;
+
+  // Whole-source suppression: this finding has no single offending line (it
+  // reports blueprint states absent from the entire file), so the escape
+  // hatch is whole-source too - the venly-allow token anywhere drops it.
+  if (source.includes("venly-allow:blueprint-state-missing")) return;
+
+  const blueprint: string = JOURNEYS[journey];
+  const startMarker = "States that must exist:";
+  const startIdx = blueprint.indexOf(startMarker);
+  if (startIdx === -1) return;
+
+  let statesText = blueprint.slice(startIdx + startMarker.length);
+  const end = /^Rules that must hold/m.exec(statesText);
+  if (end) statesText = statesText.slice(0, end.index);
+  // Blueprint prose wraps across lines mid-sentence; collapse before parsing.
+  statesText = statesText.replace(/\n/g, " ");
+
+  // One state per " · " or ", " separator; its keyword is the text before the
+  // first parenthetical, normalised for a case-insensitive substring probe.
+  const keywords: string[] = [];
+  for (const part of statesText.split(/ · |, /)) {
+    const keyword = part
+      .split("(")[0]
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .replace(/\.$/, "");
+    if (keyword) keywords.push(keyword);
+  }
+
+  const lowered = source.toLowerCase();
+  const missing = keywords.filter((keyword) => !lowered.includes(keyword));
+  if (missing.length === 0) return;
+
+  // One aggregate warn, never per-keyword findings and never an empty-list
+  // finding. Warn (not error) because blueprint phrases are prose - a state
+  // can be fully implemented under different wording.
+  const list = missing.join(", ");
+  push(
+    "blueprint-state-missing",
+    "warn",
+    list,
+    `The ${journey} blueprint names ${keywords.length} states. These were not found by name in this source: ${list}. Either they are missing or they render under different wording - check each by hand.`,
+    0,
+  );
+}
+
+function checkFixtureHonesty(source: string, push: PushFn): void {
+  // Fixture honesty. A demo that seeds parity rates or round-number amounts
+  // teaches false patterns: parity hides the crypto/fiat unit distinction,
+  // and round numbers let a total look derivable when it is coincidence.
+
+  // ERROR - an explicit parity rate seeded on a rate-named field. Anchored to
+  // the three rate names so counters like `rateLimit: 1` never trip it.
+  for (const match of source.matchAll(
+    /\b(?:exchangeRate|rate|fxRate)\s*[:=]\s*1(?:\.0+)?\b/g,
+  )) {
+    push(
+      "parity-fixture",
+      "error",
+      match[0],
+      "A parity exchange rate makes the crypto/fiat unit distinction numerically invisible, which is the falsehood a real quoted rate exists to prevent. Seed a real non-parity rate.",
+      match.index ?? 0,
+    );
+  }
+
+  // WARN - three or more round-number amounts (x.00) in one source. Comment
+  // lines are skipped: this sibling judges seeded copy/fixtures, and prose
+  // like "may display as 0.00" is documentation, not a seeded amount. One
+  // finding per source, anchored at the first counted match.
+  let roundCount = 0;
+  let firstRoundIdx = -1;
+  for (const match of source.matchAll(/\b\d+\.00\b/g)) {
+    const idx = match.index ?? 0;
+    if (isCommentLineAt(source, idx)) continue;
+    if (firstRoundIdx === -1) firstRoundIdx = idx;
+    roundCount++;
+  }
+  if (roundCount >= 3) {
+    push(
+      "round-number-coincidence",
+      "warn",
+      `${roundCount} round-number (.00) amounts seeded in one source`,
+      "Round-number fixtures hide arithmetic. If a total is coincidentally equal to a part, the screen teaches a false pattern - use amounts that do not divide evenly.",
+      firstRoundIdx,
+    );
+  }
 }
 
 const AGENTS_TEXT = `# Composition rules for coding agents building on the Venly UI registry
@@ -231,8 +581,14 @@ installed venly-tokens css once at the app root.
    on "stale-version" refetch and let the operator re-decide.
 5. Theme by editing the installed venly-tokens css file and nothing else.
 6. Before declaring a screen done, run the review_screen tool on its source
-   and fix every error-severity finding. Consult get_journey_blueprint
-   before designing a screen the registry has no block for.
+   (pass the journey key so blueprint state coverage is checked too) and fix
+   every error-severity finding. Consult get_journey_blueprint before
+   designing a screen the registry has no block for.
+7. Wire the same audit into the app you generate as a CI step - it is what
+   turns the design contract into a gate:
+   \`npx @venlyfinance/settlement-mcp review "src/**/*.tsx"\`
+   (exit 1 on any error-severity finding). A deliberate, justified exception
+   carries venly-allow:<rule-id> on the offending line or the line above.
 `;
 
 export function registerFrontendTools(server: McpServer): void {
@@ -256,13 +612,19 @@ export function registerFrontendTools(server: McpServer): void {
     {
       title: "Design-audit a screen",
       description:
-        "Deterministic audit of component/markup source against the kit's design contract: raw colours, hyphen-minus amounts, success styling on cancelled steps, masked review values, zebra striping, off-token shadows, gradients, colour-only state. Returns findings, not a score.",
+        "Deterministic audit of component/markup source against the kit's design contract: raw colours, hyphen-minus amounts, success styling on cancelled steps, masked review values, invented timing/custody copy, crypto codes inside Intl currency formatting, required fields rendered optional, parity and round-number fixtures, zebra striping, off-token shadows, gradients, colour-only state. Pass the journey key to also check the source against that journey's required blueprint states. Suppress a deliberate exception with venly-allow:<rule-id> on the offending line or the line above. Returns findings, not a score.",
       inputSchema: {
         source: z.string().min(1).describe("The component/markup/CSS source to audit"),
+        journey: z
+          .enum(JOURNEY_KEYS)
+          .optional()
+          .describe(
+            "Optional: which journey this screen implements - enables the blueprint state-coverage check",
+          ),
       },
     },
-    async ({ source }) => {
-      const findings = reviewScreenSource(source);
+    async ({ source, journey }) => {
+      const findings = reviewScreenSource(source, journey);
       return {
         content: [
           {

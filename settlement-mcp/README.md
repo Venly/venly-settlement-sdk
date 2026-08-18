@@ -118,12 +118,30 @@ what a registry cannot:
 - `get_journey_blueprint` – screen inventory, required states, registry items and binding
   hooks for eight money-product journeys.
 - `review_screen` – deterministic design audit of a screen's source (raw colours,
-  hyphen-minus amounts, success styling on cancelled steps, masked review values, zebra
-  striping, off-token shadows, colour-only state). Findings, not a score.
+  hyphen-minus amounts, success styling on cancelled steps, masked review values,
+  invented timing/custody copy, crypto codes inside `Intl.NumberFormat` currency
+  formatting, required fields rendered optional, parity and round-number fixtures,
+  zebra striping, off-token shadows, colour-only state). Pass the optional `journey`
+  key to also check that every state the journey blueprint names appears in the
+  source. Findings, not a score.
 - `venly://frontend/agents` – the composition rules an agent should read before building.
 
 The `build_international_account` prompt assembles the interface from the registry and
 gates every finished screen on `review_screen`. See [`ui/`](../ui/README.md) for the kit itself.
+
+### Design-audit CLI
+
+The same audit runs as a command, so a generated app can gate itself in CI:
+
+```bash
+npx @venlyfinance/settlement-mcp review "src/**/*.tsx"
+```
+
+Exit `1` on any error-severity finding, `0` otherwise (warnings print either way),
+`2` on usage errors or a pattern that matches nothing. Suppress a deliberate,
+justified exception with `venly-allow:<rule-id>` on the offending line or the line
+above – the finding is dropped silently. This repo runs the same command over its
+own registry sources in CI.
 
 ## Safety model (fail closed)
 
