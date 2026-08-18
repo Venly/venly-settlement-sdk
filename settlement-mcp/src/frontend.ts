@@ -473,10 +473,29 @@ function checkBlueprintStateCoverage(
   // Blueprint prose wraps across lines mid-sentence; collapse before parsing.
   statesText = statesText.replace(/\n/g, " ");
 
-  // One state per " · " or ", " separator; its keyword is the text before the
-  // first parenthetical, normalised for a case-insensitive substring probe.
+  // One state per " · " or "," separator - but only at parenthesis depth 0:
+  // a comma inside a parenthetical is part of that state's description, not
+  // a state boundary. Naive splitting yields fragments like "terminal)" that
+  // no source can contain, making a journey structurally unable to pass.
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const ch of statesText) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    if (depth === 0 && (ch === "," || ch === "·")) {
+      parts.push(current);
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  parts.push(current);
+
+  // Each state's keyword is the text before the first parenthetical,
+  // normalised for a case-insensitive substring probe.
   const keywords: string[] = [];
-  for (const part of statesText.split(/ · |, /)) {
+  for (const part of parts) {
     const keyword = part
       .split("(")[0]
       .trim()

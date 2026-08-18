@@ -366,3 +366,26 @@ test("round-number-coincidence: venly-allow on the line above the first counted 
   );
   assert.equal(findings.length, 0);
 });
+
+test("blueprint-state-missing: parenthetical commas never become state keywords", () => {
+  // The send blueprint's last state is "failed (reason shown, terminal)" -
+  // a naive comma split yields the garbage keyword "terminal)" which no
+  // source can contain, making the journey structurally unable to pass.
+  const complete = `
+    type Phase = "draft" | "staged review" | "submitting" | "pending" | "completed" | "failed";
+  `;
+  const findings = reviewScreenSource(complete, "send").filter(
+    (f) => f.rule === "blueprint-state-missing",
+  );
+  assert.deepEqual(findings, [], "a source naming every send state must pass");
+});
+
+test("blueprint-state-missing: reports genuinely absent states with the journey's true count", () => {
+  const partial = `type Phase = "draft" | "submitting";`;
+  const findings = reviewScreenSource(partial, "send").filter(
+    (f) => f.rule === "blueprint-state-missing",
+  );
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].fix, /The send blueprint names 6 states/);
+  assert.ok(!findings[0].evidence.includes(")"), "no parser artifacts in the missing list");
+});
