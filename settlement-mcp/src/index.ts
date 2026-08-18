@@ -31,7 +31,23 @@ async function main(): Promise<void> {
   process.stderr.write(`venly-finance-mcp started in ${client.environment}. ${writeState}.\n`);
 }
 
-main().catch((err) => {
-  process.stderr.write(`Fatal: ${(err as Error).message}\n`);
-  process.exit(1);
-});
+const argv = process.argv.slice(2);
+if (argv[0] === "review") {
+  // Design-audit CLI mode: `... review "src/**/*.tsx"`. Dynamic import so the
+  // MCP/SDK path is never touched; MCP hosts launch with zero args, so plain
+  // startup is unchanged.
+  import("./review-cli.js")
+    .then(({ runReviewCli }) => runReviewCli(argv.slice(1)))
+    .then((code) => {
+      process.exitCode = code;
+    })
+    .catch((err) => {
+      process.stderr.write(`Fatal: ${(err as Error).message}\n`);
+      process.exit(2);
+    });
+} else {
+  main().catch((err) => {
+    process.stderr.write(`Fatal: ${(err as Error).message}\n`);
+    process.exit(1);
+  });
+}

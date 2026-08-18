@@ -9,6 +9,7 @@ You are building a financial product UI on `@venlyfinance/react`. These rules ex
 3. **Never place `clientSecret` in browser code.** The provider throws if you try. For browser apps use `proxyClientOptions()` against your own backend route.
 4. **Money movement is stage-then-confirm.** Render a review step showing `state.staged` (the exact request) before calling `confirm()`. Never wire a form submit directly to execution.
 5. **Approval UIs render the rule, not the error.** Use `capability` from `useFourEyesApproval`: when `reason` is `"actor-is-creator"`, say that a second person must approve – do not show buttons that will be refused. On failure `"stale-version"`, refetch and let the operator re-decide; never auto-retry an approval.
+6. **Gate every finished screen with the design audit, and wire it into CI.** `npx @venlyfinance/settlement-mcp review "src/**/*.tsx"` fails (exit 1) on any error-severity finding – raw colours, invented timing or custody copy, crypto codes inside `Intl.NumberFormat` currency formatting, a required field labelled optional, parity fixtures, and more. Add it as a CI step in the app you build. A deliberate, justified exception carries `venly-allow:<rule-id>` on the offending line or the line above.
 
 ## Rendering money states
 

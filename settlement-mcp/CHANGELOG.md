@@ -2,8 +2,7 @@
 
 ## 0.3.0 – 2026-08-04
 
-Wording-is-the-safety-surface release. An outside integrator audit (Report 1,
-2026-08-04) found the server's words disagreeing with its behavior in three
+Wording-is-the-safety-surface release. An outside integrator audit (2026-08-04) found the server's words disagreeing with its behavior in three
 places; all fixed, plus the SDK under the mock now teaches the documented
 lifecycle (see @venlyfinance/sdk 0.2.0).
 
@@ -104,3 +103,34 @@ Frontend toolset: the judgment layer for interface assembly.
 ## 0.4.1 – 2026-08-07
 
 - `venly://frontend/agents` now carries the full cold-start recipe, learned from a fresh-agent build run: Tailwind + path-alias prerequisites before `shadcn init`, the non-interactive `-y -b radix -p nova` flags, that blocks land under `components/venly/` at the project root (relative imports, not the `@/` alias), that `shadcn add` auto-installs the npm dependencies, and the `.js`-extension bundler note.
+
+## 0.5.0 – 2026-08-14 (backfill; published 2026-08-15)
+
+Entry added retroactively in 0.6.0 – the publish predates it.
+
+- Nine payout tools over the re-vendored finance contract (payouts, payout routes +
+  ownership proof, party payout bank accounts), fail-closed writes.
+- Corrected capabilities text; react/ui alignment with the 0.4.0 SDK line.
+
+## 0.6.0 – 2026-08-18
+
+`review_screen` grows teeth: five new rule classes, a suppression hatch, and a CI-runnable command.
+
+- New error rules: `invented-timing-claim` (copy promising durations, settlement windows
+  or custody behaviour no API in this stack returns), `intl-currency-crypto`
+  (`Intl.NumberFormat` + `style:"currency"` + a crypto code throws `RangeError` at render;
+  a variable-fed `currency:` in the same call is a warn), `required-rendered-optional`
+  (the payment reference labelled "(not required)"), `parity-fixture` (seeded 1:1
+  exchange rates).
+- New warn rules: `blueprint-state-missing` (pass the new optional `journey` argument to
+  `review_screen` and the audit lists blueprint-named states not found in the source) and
+  `round-number-coincidence` (three or more `x.00` amounts seeded in one source).
+- Suppression hatch on every rule, old and new: `venly-allow:<rule-id>` on the offending
+  line or the line above drops the finding silently.
+- Copy-judging rules skip comment lines – a comment documenting a rule must not trip it.
+- Findings now carry a 1-based `line`.
+- New `review` CLI over the same audit: `npx @venlyfinance/settlement-mcp review "src/**/*.tsx"`
+  exits 1 on any error-severity finding (0 otherwise, 2 on usage errors/no matches), with
+  self-expanded globs and zero dependencies. Added a `settlement-mcp` bin alias so the
+  npx form resolves under npm's unscoped-name rule. This repo's CI now runs the command
+  over its own registry and example sources.

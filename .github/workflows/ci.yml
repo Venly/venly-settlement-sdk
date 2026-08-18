@@ -119,3 +119,9 @@ jobs:
       - run: npm run typecheck:test
       - run: npm test   # node:test suite, mocked client, zero network
       - run: npm run build
+      # Dogfood the design-audit CLI over the kit's own screens. Scope is
+      # *.tsx only: tokens.css is the one legitimate home of raw colour
+      # values and would (correctly) fail raw-colour. Runs the local build,
+      # never npx (the published package lags this branch).
+      - name: review kit and example screens
+        run: node dist/index.js review "../ui/registry/**/*.tsx" "../examples/mock-bank/src/**/*.tsx"
