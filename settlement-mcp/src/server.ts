@@ -7,6 +7,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   ENVIRONMENT_FLAG,
+  INSTRUCTIONS,
   SERVER_NAME,
   SERVER_VERSION,
   resolveVenlyEnvironment,
@@ -47,6 +48,8 @@ export function createServer(options: CreateServerOptions): McpServer {
   const server = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
+  }, {
+    instructions: INSTRUCTIONS,
   });
 
   registerReadTools(server, options.client);
