@@ -180,6 +180,25 @@ test("verify CLI: exit 2 when a pattern matches nothing", () => {
   }
 });
 
+test("verify CLI: nested monorepo sources use the nearest package.json", () => {
+  const root = mkdtempSync(join(tmpdir(), "venly-verify-monorepo-"));
+  try {
+    writeFileSync(join(root, "package.json"), JSON.stringify({ private: true }));
+    mkdirSync(join(root, "apps/web/src/features"), { recursive: true });
+    writeFileSync(
+      join(root, "apps/web/package.json"),
+      JSON.stringify({ dependencies: { "@venlyfinance/react": "^0.4.0" } }),
+    );
+    writeFileSync(join(root, "apps/web/src/features/App.tsx"), DIRECT_GOOD);
+
+    const result = runVerify(root, ["apps/web/src/**/*.tsx"]);
+    assert.equal(result.status, 0, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+    assert.match(result.stdout, /0 error\(s\), 0 warning\(s\)/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("verify_runtime_contract MCP tool is registered and returns structured findings", async () => {
   const h = await makeHarness({ VENLY_ENV: "mock" });
   try {

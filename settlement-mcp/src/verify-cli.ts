@@ -359,12 +359,11 @@ function expandPatterns(patterns: string[], cwd: string): string[] {
 
 function findPackageJson(file: string, cwd: string): string | undefined {
   let dir = dirname(resolve(cwd, file));
-  const filesystemRoot = dirname(dir);
   while (true) {
     const candidate = join(dir, "package.json");
     if (existsSync(candidate)) return candidate;
     const parent = dirname(dir);
-    if (parent === dir || dir === filesystemRoot) return undefined;
+    if (parent === dir) return undefined;
     dir = parent;
   }
 }
