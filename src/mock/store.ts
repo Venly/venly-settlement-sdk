@@ -1,6 +1,17 @@
 import type { components } from "../generated/finance.js";
 import { financeResponseShapes } from "../generated/finance-shapes.js";
 import { mockError, type HandlerContext } from "./transport.js";
+import { Ledger, MockLedgerError, type FundsPhase, type LedgerLeg, type LedgerSnapshot } from "./ledger.js";
+import {
+  EventLog,
+  deterministicClock,
+  deterministicIds,
+  systemClock,
+  systemIds,
+  type MockClock,
+  type MockEvent,
+  type MockIdSource,
+} from "./runtime.js";
 
 type schemas = components["schemas"];
 type Party = schemas["PartyDto"];
@@ -48,6 +59,30 @@ export interface FinanceSeeds {
   supportedAssets: SupportedAsset[];
   /** Account-scoped rows (adds permitStatus) per account id. */
   accountSupportedAssets: Record<string, AccountSupportedAsset[]>;
+  /** Party IV verifications. A party with no row reads as NOT_LINKED. */
+  ivVerifications?: schemas["PartyIvVerificationDto"][];
+}
+
+/** Contract status -> what the money did. The full tables live in the spec. */
+const TRANSFER_PHASE: Record<string, FundsPhase> = {
+  PENDING: "HELD",
+  COMPLETED: "DEBITED",
+  FAILED: "RELEASED",
+};
+
+const PAYOUT_PHASE: Record<string, FundsPhase> = {
+  REQUESTED: "HELD",
+  SENDING: "DEBITED",
+  PROVIDER_PROCESSING: "DEBITED",
+  COMPLETED: "DEBITED",
+  REJECTED: "RELEASED",
+  FAILED: "RELEASED",
+  RETURNED: "RETURNED",
+};
+
+/** 402/insufficient-funds, matching the mock's own `INSUFFICIENT_FUNDS` preset. */
+function insufficientFunds(ctx: HandlerContext, message: string): never {
+  mockError({ status: 402, code: "insufficient-funds", message }, ctx.method, ctx.path);
 }
 
 export type VerificationStatusInput =
@@ -57,19 +92,13 @@ export type VerificationStatusInput =
   | "REJECTED"
   | "DENIED";
 
-function now(): string {
-  return new Date().toISOString();
-}
-
-function mintAddress(): string {
-  return "0x" + crypto.randomUUID().replace(/-/g, "").slice(0, 40);
-}
-
-function mintHash(): string {
-  return (
-    "0x" +
-    (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "").slice(0, 64)
-  );
+/** Options a caller may hand the store; every default preserves today's behaviour. */
+export interface FinanceMockStoreOptions {
+  clock?: MockClock;
+  ids?: MockIdSource;
+  /** Fixed clock + counter ids, so a scripted run replays deep-equal. */
+  deterministic?: boolean;
+  events?: EventLog;
 }
 
 /** Keep only the fields the route's response schema actually declares. */
@@ -173,12 +202,42 @@ export class FinanceMockStore {
     result?: VirtualBankAccount;
   }>();
 
+  /** Party IV verification, keyed by partyId. Absent reads as NOT_LINKED. */
+  ivVerifications = new Map<string, schemas["PartyIvVerificationDto"]>();
+
   private counter = 0;
   private readonly seeds: FinanceSeeds;
+  private clock: MockClock;
+  private ids: MockIdSource;
+  readonly ledger: Ledger;
+  events: EventLog;
+  /** Set by the transport so a mutation can replicate itself. */
+  onMutation: (() => void) | undefined;
 
-  constructor(seeds: FinanceSeeds) {
+  constructor(seeds: FinanceSeeds, options: FinanceMockStoreOptions = {}) {
     this.seeds = seeds;
+    this.clock = options.clock ?? (options.deterministic ? deterministicClock() : systemClock);
+    this.ids = options.ids ?? (options.deterministic ? deterministicIds() : systemIds);
+    this.events = options.events ?? new EventLog("local", () => this.clock);
+    this.ledger = new Ledger(() => this.wallets, () => this.supportedAssets);
     this.reset();
+  }
+
+  private now(): string {
+    return this.clock.now();
+  }
+
+  private mintAddress(): string {
+    return this.ids.next("address");
+  }
+
+  private mintHash(): string {
+    return this.ids.next("hash");
+  }
+
+  /** Emit, then replicate. Both happen only after the mutation has succeeded. */
+  private emit(input: Parameters<EventLog["emit"]>[0]): void {
+    this.events.emit(input);
   }
 
   /** Restore the seed fixtures, discarding everything created since. */
@@ -201,11 +260,60 @@ export class FinanceMockStore {
     this.payoutIntents.clear();
     this.payoutProofWallets.clear();
     this.counter = 0;
+    this.ivVerifications = new Map(
+      (s.ivVerifications ?? []).map((iv) => [iv.partyId as string, iv] as const),
+    );
+    this.ledger.reset();
+    this.hydrateLedger();
+    // A seed that cannot satisfy the invariants is a fixture teaching a
+    // falsehood, and it fails here rather than halfway through a demo.
+    this.ledger.verify();
+  }
+
+  /**
+   * Seeded balances are the *post* state, so hydration records each seeded
+   * money object at the phase its status implies and posts no delta. I5 then
+   * checks that every reserve has a hold behind it.
+   */
+  private hydrateLedger(): void {
+    for (const transfer of this.transfers) {
+      if (!transfer.id || !transfer.asset || transfer.amount === undefined) continue;
+      const phase = TRANSFER_PHASE[transfer.status ?? "PENDING"];
+      if (transfer.senderAccountId) {
+        this.ledger.hydrateHold(
+          transfer.id,
+          transfer.senderAccountId,
+          transfer.asset,
+          transfer.amount,
+          phase,
+        );
+      }
+      if (transfer.status === "COMPLETED" && transfer.receiverAccountId) {
+        this.ledger.hydrateCredit(
+          transfer.id,
+          transfer.receiverAccountId,
+          transfer.asset,
+          transfer.amount,
+        );
+      }
+    }
+    for (const payout of this.payouts) {
+      const asset = payout.payoutRoute?.depositAsset?.name;
+      if (!payout.id || !payout.accountId || !asset || payout.cryptoAmount === undefined) continue;
+      if (payout.fundingMode !== "PULL") continue;
+      this.ledger.hydrateHold(
+        payout.id,
+        payout.accountId,
+        asset,
+        payout.cryptoAmount,
+        PAYOUT_PHASE[payout.status ?? "REQUESTED"],
+      );
+    }
   }
 
   private mintId(): string {
     this.counter += 1;
-    return crypto.randomUUID();
+    return this.ids.next("id");
   }
 
   // ── Parties ──────────────────────────────────────────────────────────
@@ -239,7 +347,7 @@ export class FinanceMockStore {
         // Venly admin completes it. Advance with mock.advanceVerification(id).
         kycStatus: "VERIFICATION_PENDING",
         address: b.address,
-        createdAt: now(),
+        createdAt: this.now(),
         version: 0,
       };
     } else if (b.partyType === "ORGANISATION") {
@@ -258,7 +366,7 @@ export class FinanceMockStore {
         vatNumber: b.vatNumber,
         kybStatus: "PENDING",
         address: b.address,
-        createdAt: now(),
+        createdAt: this.now(),
         version: 0,
       };
     } else {
@@ -283,7 +391,7 @@ export class FinanceMockStore {
       (party as Record<string, unknown>)[key] = value;
     }
     party.version = (party.version ?? 0) + 1;
-    party.updatedAt = now();
+    party.updatedAt = this.now();
     return party;
   }
 
@@ -314,7 +422,7 @@ export class FinanceMockStore {
       // Venly admin approves it. Advance with mock.advanceVerification(id).
       kycStatus: "VERIFICATION_PENDING",
       status: "ACTIVE",
-      createdAt: now(),
+      createdAt: this.now(),
       version: 0,
     };
     this.accounts.push(account);
@@ -432,7 +540,7 @@ export class FinanceMockStore {
       bankName: "Example Bank N.V.",
       beneficiaryName: account.name ?? "Account holder",
       referenceCode: `REF-MOCK-${String(this.counter).padStart(3, "0")}`,
-      createdAt: now(),
+      createdAt: this.now(),
     };
     this.virtualBankAccounts.push(vba);
     this.virtualBankAccountIntents.set(intentKey, { fingerprint, outcome: "succeeded", result: vba });
@@ -501,7 +609,7 @@ export class FinanceMockStore {
       // Transfers settle asynchronously; poll get() or use
       // mock.advanceTransfer(id) to move PENDING → COMPLETED (or FAILED).
       status: "PENDING",
-      createdAt: now(),
+      createdAt: this.now(),
     };
     this.transfers.push(transfer);
     return toResponseShape(
@@ -525,7 +633,7 @@ export class FinanceMockStore {
       merchantReference: b.merchantReference,
       idempotencyKey: b.idempotencyKey,
       status: "PENDING",
-      createdAt: now(),
+      createdAt: this.now(),
     };
     this.transfers.push(transfer);
     return toResponseShape(
@@ -579,7 +687,7 @@ export class FinanceMockStore {
           ? "VERIFICATION_PENDING"
           : status) as Party["kycStatus"];
       }
-      party.updatedAt = now();
+      party.updatedAt = this.now();
       return;
     }
     const account = this.accounts.find((a) => a.id === id);
@@ -599,11 +707,11 @@ export class FinanceMockStore {
       throw new Error(`advanceTransfer: no transfer with id ${id} in the mock store.`);
     }
     transfer.status = status;
-    if (status === "COMPLETED") transfer.transactionHash = mintHash();
+    if (status === "COMPLETED") transfer.transactionHash = this.mintHash();
     if (status === "FAILED") {
       transfer.errorMessage = transfer.errorMessage ?? "Insufficient available balance";
     }
-    transfer.updatedAt = now();
+    transfer.updatedAt = this.now();
   }
 
   createPaymentSession(ctx: HandlerContext): PaymentSession {
@@ -611,8 +719,8 @@ export class FinanceMockStore {
     const id = this.mintId();
     const session: PaymentSession = {
       id,
-      createdAt: now(),
-      updatedAt: now(),
+      createdAt: this.now(),
+      updatedAt: this.now(),
       status: "CREATED",
       inAmount: Number(b.inAmount),
       inCurrency: b.inCurrency,
@@ -639,7 +747,7 @@ export class FinanceMockStore {
       throw new Error(`advancePaymentSession: no payment session with id ${id} in the mock store.`);
     }
     session.status = to;
-    session.updatedAt = now();
+    session.updatedAt = this.now();
     return session;
   }
 
@@ -678,7 +786,7 @@ export class FinanceMockStore {
         referenceCode === undefined ? (vba.referenceCode ?? null) : referenceCode,
       amount,
       currency: vba.currency,
-      receivedAt: now(),
+      receivedAt: this.now(),
     };
     this.inboundCredits.push(credit);
     return credit;
@@ -751,7 +859,7 @@ export class FinanceMockStore {
       // New beneficiary accounts start PENDING; activation is an operator
       // decision the public API does not expose. Driver: advancePayoutBankAccount.
       status: "PENDING",
-      createdAt: now(),
+      createdAt: this.now(),
     };
     this.payoutBankAccounts.push(bankAccount);
     return toResponseShape(
@@ -789,8 +897,8 @@ export class FinanceMockStore {
       status: "AWAITING_OWNERSHIP_PROOF",
       depositAsset: b.depositAsset,
       fiatCurrency: bankAccount.fiatCurrency,
-      depositAddress: mintAddress(),
-      createdAt: now(),
+      depositAddress: this.mintAddress(),
+      createdAt: this.now(),
     };
     const routes = this.payoutRoutes.get(account.id as string) ?? [];
     routes.push(route);
@@ -811,14 +919,14 @@ export class FinanceMockStore {
     // stable so a repeated prepare returns the same message.
     let walletAddress = this.payoutProofWallets.get(route.id as string);
     if (!walletAddress) {
-      walletAddress = mintAddress();
+      walletAddress = this.mintAddress();
       this.payoutProofWallets.set(route.id as string, walletAddress);
     }
     return {
       walletAddress,
       blockchain: route.depositAsset?.chain,
       message: `venly-ownership-proof:${route.id}:${walletAddress}`,
-      signedOnUtc: now(),
+      signedOnUtc: this.now(),
     };
   }
 
@@ -829,7 +937,7 @@ export class FinanceMockStore {
       badRequest(ctx, "A REJECTED route cannot be activated.");
     }
     route.status = "ACTIVE";
-    route.updatedAt = now();
+    route.updatedAt = this.now();
     return route;
   }
 
@@ -930,7 +1038,7 @@ export class FinanceMockStore {
       // integrator pushes to the route's deposit address themselves.
       fundingMode: "PULL",
       status: "REQUESTED",
-      requestedAt: now(),
+      requestedAt: this.now(),
     };
     this.payouts.push(payout);
     this.payoutIntents.set(intentKey, { fingerprint, outcome: "succeeded", result: payout });
@@ -957,10 +1065,10 @@ export class FinanceMockStore {
     }
     payout.status = to;
     if (to === "SENDING" || to === "PROVIDER_PROCESSING" || to === "COMPLETED") {
-      payout.sendTxHash = opts?.sendTxHash ?? payout.sendTxHash ?? mintHash();
+      payout.sendTxHash = opts?.sendTxHash ?? payout.sendTxHash ?? this.mintHash();
     }
     if (to === "COMPLETED") {
-      payout.completedAt = now();
+      payout.completedAt = this.now();
       payout.settledFiatAmount = opts?.settledFiatAmount ?? payout.cryptoAmount;
     }
     if (to === "REJECTED" || to === "FAILED" || to === "RETURNED") {
@@ -984,7 +1092,7 @@ export class FinanceMockStore {
       throw new Error(`advancePayoutBankAccount: no payout bank account with id ${id} in the mock store.`);
     }
     bankAccount.status = to;
-    bankAccount.updatedAt = now();
+    bankAccount.updatedAt = this.now();
     return bankAccount;
   }
 
@@ -994,7 +1102,7 @@ export class FinanceMockStore {
       const route = routes.find((r) => r.id === id);
       if (route) {
         route.status = to;
-        route.updatedAt = now();
+        route.updatedAt = this.now();
         return route;
       }
     }

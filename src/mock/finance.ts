@@ -161,7 +161,11 @@ export const wallet = [
   {
     asset: "USDC",
     contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-    amount: { total: 15230.5, available: 15100.5, reserved: 130 },
+    // reserved backs transfers[31], the seeded PENDING 420.5 USDC send. It is
+    // not a round 130 because a reserve with no hold behind it is money the
+    // fixtures cannot account for (ledger invariant I5). `available` is
+    // untouched: that is the number a UI renders as spendable.
+    amount: { total: 15521.0, available: 15100.5, reserved: 420.5 },
   },
   {
     asset: "EURC",
@@ -448,6 +452,20 @@ export const transfers = [
     status: "FAILED",
     errorMessage: "Insufficient available balance",
     createdAt: "2026-07-22T09:12:00Z",
+  },
+  {
+    // The hold behind acct-escrow's fully-reserved wallet: every unit of its
+    // 4200 USDC is committed to this send, which is why `available` is 0 and
+    // why a UI that renders `total` as spendable is lying.
+    id: "tr5e8c66-7777-4a70-9bb8-000000000006",
+    senderAccountId: accounts[5].id,
+    receiverAccountId: accounts[1].id,
+    chain: "BASE",
+    asset: "USDC",
+    amount: 4200.0,
+    description: "Escrow release",
+    status: "PENDING",
+    createdAt: "2026-08-14T09:20:00Z",
   },
   {
     id: "tr5e8c66-7777-4a70-9bb8-000000000005",
