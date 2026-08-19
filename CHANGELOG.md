@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.6.0 – 2026-08-19
+
+- **BREAKING (mock mode): mock transfers and PULL payouts now debit real balances.**
+  A newly created mock account holds nothing – fund it with
+  `mock.simulations.inbound.credit(virtualBankAccountId, amount)` – and an over-balance
+  send returns `402 insufficient-funds` instead of `PENDING`. Wallet balances move on
+  every transfer, payout and inbound credit, and `mock.simulations.ledger.verify()`
+  checks that the books balance.
+- **Shared mock state across contexts.** Two browser contexts (or tabs) can observe one
+  mock store and its event stream, so an operator surface and a consumer surface see the
+  same ledger. `mock.simulations.channelInfo()` reports what a client actually joined.
+- **Seeded demo cast.** `seedProfiles` / `demoCast` ship a six-persona fixture set whose
+  every state is contract-real, exported from the package root.
+- **Idempotency parity.** `transfers.createFiat` now replays a stored response for a
+  repeated key and rejects a key reused with a different body, matching `requestPayout`.
+- New root exports: `seedProfiles`, `demoCast`, `configureFinanceMockDefaults`,
+  `resetFinanceMockDefaults`, `MockLedgerError`, plus the `SeedProfile`,
+  `VenlyFinanceSimulations`, `LedgerSnapshot`, `LedgerRow`, `ChannelInfo` and `MockEvent`
+  types.
+
+
 ## 0.5.0 – 2026-08-15
 
 - **Supported assets.** New `supportedAssets` resource wrapping both contract

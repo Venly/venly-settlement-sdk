@@ -35,6 +35,21 @@ export type {
   ErrorSpec,
   VerificationStatusInput,
 } from "./mock/index.js";
+export {
+  seedProfiles,
+  demoCast,
+  configureFinanceMockDefaults,
+  resetFinanceMockDefaults,
+  MockLedgerError,
+} from "./mock/index.js";
+export type {
+  SeedProfile,
+  VenlyFinanceSimulations,
+  LedgerSnapshot,
+  LedgerRow,
+  ChannelInfo,
+  MockEvent,
+} from "./mock/index.js";
 export { iteratePages } from "./core/pagination.js";
 export type { Page, PagingInfo, PageParams } from "./core/pagination.js";
 

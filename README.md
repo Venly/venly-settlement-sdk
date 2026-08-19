@@ -34,7 +34,7 @@ See the [Venly Finance MCP quickstart](settlement-mcp/README.md#try-the-builder-
 | Concern | Behaviour |
 |---|---|
 | Auth | OAuth2 client credentials. Tokens expire after ~5 min; cached, refreshed 30 s early, single-flighted, transparently re-fetched on a 401. |
-| Idempotency | Every mutating request (POST/PUT/PATCH) gets an auto-generated UUID `Idempotency-Key` (pass your own to override). This is what makes retries safe. |
+| Idempotency | Every mutating request (POST/PUT/PATCH) carries an `Idempotency-Key`. **Pass your OWN key and reuse it across retries** – the auto-generated one is fresh per call, so a retry without your own key is a second operation (and, in mock mode, a second debit). |
 | Retries | Exponential backoff + jitter on 429/502/503/504 and network errors, `Retry-After` respected, 3 attempts by default. |
 | Errors | Non-2xx throws `VenlyApiError` with `status`, `errors[]` and the `traceCode` to quote at support. |
 | Envelope | `{success, errors[], result}` is unwrapped – methods return `result` directly. |
@@ -60,6 +60,11 @@ const party = await venly.parties.create({
 party.kycStatus;                                       // "VERIFICATION_PENDING" - honest
 venly.mock!.advanceVerification(party.id!);            // play the Venly admin
 (await venly.parties.get(party.id!)).kycStatus;        // "VERIFIED"
+
+// A fresh account holds nothing, exactly as in production. Money arrives the way
+// it really does: a credit lands on a vIBAN and converts to that vIBAN's target
+// asset - so fund in the asset you intend to send (EUR transfers spend EURC).
+venly.mock!.simulations.inbound.credit(eurcIban.id!, 500);   // -> 500 EURC available
 
 const transfer = await venly.transfers.createFiat(accountId, {
   receiverAccountId, currency: "EUR", amount: 25, idempotencyKey: crypto.randomUUID(),
@@ -121,6 +126,19 @@ const iban = await venly.virtualBankAccounts.create(account.id!, {
   targetCryptocurrency: "USDC",
   idempotencyKey: crypto.randomUUID(),
 });
+
+// A new mock account holds nothing, exactly as in production. Fund it the way
+// money really arrives: a credit lands on the vIBAN and converts to the
+// account's target asset.
+// The credit converts to this vIBAN's targetCryptocurrency, so it lands as USDC
+// and funds USDC-denominated sends. To fund EUR sends, create a vIBAN with
+// targetCryptocurrency: "EURC" - the asset you fund is the asset you can spend.
+venly.mock!.simulations.inbound.credit(iban.id!, 500);   // -> 500 USDC available
+
+// Transfers now debit for real: a PENDING transfer reserves against `available`,
+// settling moves it out of `total`, and an over-balance send is refused with
+// 402 insufficient-funds instead of silently succeeding.
+// simulations.ledger.verify() asserts the books balance at any point.
 ```
 
 ### Card settlement lifecycle

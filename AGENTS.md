@@ -32,4 +32,4 @@ The UI kit's auth and team blocks therefore render against two adapter interface
 ## Demo choreography (mock mode)
 
 `useVenlyMock()` exposes the store controls. A credible end-to-end demo:
-create party → `advanceVerification(id)` → create account → virtual bank account (note its `referenceCode`) → stage + confirm a transfer → `advanceTransfer(id)` → show the ledger. Inject failures with `failNext("CONFLICT")` to show the stale-version approval path – error states are part of the product.
+create party → `advanceVerification(id)` → create account → virtual bank account (note its `referenceCode`) → **fund it: `simulations.inbound.credit(vbaId, 500)`** (a new account holds nothing, as in production; an unfunded transfer is refused with `402 insufficient-funds`) → stage + confirm a transfer → `advanceTransfer(id)` → show the ledger, and `simulations.ledger.verify()` to prove it balances. Inject failures with `failNext("CONFLICT")` to show the stale-version approval path – error states are part of the product.
