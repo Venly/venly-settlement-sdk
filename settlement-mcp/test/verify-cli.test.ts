@@ -68,6 +68,28 @@ test("verify CLI: direct-sdk profile passes a package-backed provider and hook",
   }
 });
 
+test("verify CLI: qualified imports resolve after unrelated named imports", () => {
+  const p = project(
+    { "@venlyfinance/react": "^0.4.0" },
+    {
+      "src/App.tsx": `
+import { StrictMode, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { VenlyProvider, useAccounts } from "@venlyfinance/react";
+export function App() {
+  useAccounts();
+  return <VenlyProvider environment="mock"><main /></VenlyProvider>;
+}`,
+    },
+  );
+  try {
+    const result = runVerify(p.root, ["src/**/*.tsx"]);
+    assert.equal(result.status, 0, `stdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+  } finally {
+    p.cleanup();
+  }
+});
+
 test("verify CLI: zero Venly packages is an error; missing react remains a warning", () => {
   const p = project({}, { "src/App.tsx": "export const App = () => <main />;" });
   try {

@@ -80,7 +80,7 @@ function dependencies(packageJson: Record<string, unknown>): Record<string, stri
 function importsFrom(source: string, packageName: string): string[] {
   const names: string[] = [];
   const expression = new RegExp(
-    `import\\s*\\{([\\s\\S]*?)\\}\\s*from\\s*["']${packageName.replaceAll("/", "\\/")}["']`,
+    `import\\s*\\{([^}]*)\\}\\s*from\\s*["']${packageName.replaceAll("/", "\\/")}["']`,
     "g",
   );
   for (const match of source.matchAll(expression)) {
