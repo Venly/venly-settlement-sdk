@@ -596,7 +596,7 @@ export function RestrictedBanner({
         ...style,
       }}
     >
-      <span style={{ minWidth: 0, flex: 1, overflowWrap: "anywhere" }}>
+      <span style={{ minWidth: 0, flex: "1 1 100%", overflowWrap: "anywhere" }}>
         {variant === "reverification"
           ? `We need updated details for ${companyName}. Money movement pauses until this is done – everything else keeps working.`
           : `${companyName}'s application is in review. Money movement and your account details for receiving unlock once you're verified – everything else keeps working.`}
