@@ -58,6 +58,10 @@ export function broadcastChannel(sessionId: string): MockStateChannel {
     );
   }
   const bc = new BroadcastChannel(`venly-mock:${sessionId}`);
+  // Node's BroadcastChannel holds the event loop open, so a test process (or
+  // any short-lived script) would never exit. Browsers have no unref and do
+  // not need one.
+  (bc as { unref?: () => void }).unref?.();
   const seenPeers = new Set<string>();
   const handlers = new Set<(m: MockChannelMessage) => void>();
 
