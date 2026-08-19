@@ -14,7 +14,7 @@ export type { VenlyFinanceMock, VenlyFinanceSimulations, FinanceMockOptions, Cha
 export { seedProfiles, demoCast } from "./seed-profiles.js";
 export type { SeedProfile } from "./seed-profiles.js";
 export { Ledger, MockLedgerError } from "./ledger.js";
-export type { FundsPhase, LedgerSnapshot, LedgerRow } from "./ledger.js";
+export type { FundsPhase, LedgerSnapshot, LedgerRow, MockLedgerErrorKind } from "./ledger.js";
 export { EventLog, deterministicClock, deterministicIds, systemClock, systemIds } from "./runtime.js";
 export type { MockEvent, MockEventType, MockClock, MockIdSource } from "./runtime.js";
 export { memoryChannel, broadcastChannel } from "./channel.js";

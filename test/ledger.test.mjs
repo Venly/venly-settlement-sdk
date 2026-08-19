@@ -363,7 +363,19 @@ test("copy: no internal register id or rule label reaches a shipped string", asy
     const text = readFileSync(new URL(file, dir), "utf8");
     // Register ids (MG-*, D-numbers) and invariant labels (I1/I2/I5) are
     // shorthand for documents a consumer does not have.
-    for (const pattern of [/\bMG-\d+/g, /\bI[1-5]\b/g, /mock-gap ledger/g, /gap register/g]) {
+    for (const pattern of [
+      /\bMG-\d+/g,
+      /\bI[1-5]\b/g,
+      /mock-gap ledger/g,
+      /gap register/g,
+      // Bug history reads as documentation to nobody: a stranger hovering a
+      // symbol should not be told about a defect they never experienced. This
+      // class has recurred twice, so the guard covers the class. Deliberately
+      // narrow — "no longer" is ordinary present-tense English ("the receiver
+      // no longer holds it") and matching it would train people to disable
+      // this test rather than fix it.
+      /\b(used to|Before this|Previously,)\b/g,
+    ]) {
       for (const hit of text.match(pattern) ?? []) offenders.push(`${file}: ${hit}`);
     }
   }
@@ -665,24 +677,52 @@ test("ledger: zero is refused too", async () => {
   );
 });
 
-test("ledger: only a real shortfall is a 402; bad input is a 400", async () => {
+test("ledger: each failure carries the status AND the code its cause deserves", async () => {
   const f = mock();
-  // A client that branches on 402 shows a top-up screen. An over-precise
-  // amount is not a funding problem and must not land there.
+  // A client branches on these. 402 drives a top-up screen; the 400s drive
+  // three different corrections, so they cannot share one code or the handler
+  // has to regex the message - which is what a stable code exists to prevent.
   await assert.rejects(
     f.transfers.createFiat(MAIN, {
       receiverExternalId: "acct-ops-usd", currency: "USD", amount: 1.0000001, idempotencyKey: key(72),
     }),
-    (e) => e.status === 400 && e.errors[0].code === "invalid-request",
-    "too much precision is invalid input, not an empty wallet",
+    (e) => e.status === 400 && e.errors[0].code === "invalid-amount",
+    "too much precision: reformat the amount, not top up the wallet",
+  );
+  await assert.rejects(
+    f.transfers.createFiat(MAIN, {
+      receiverExternalId: "acct-ops-usd", currency: "USD", amount: -5, idempotencyKey: key(74),
+    }),
+    (e) => e.status === 400 && e.errors[0].code === "invalid-amount",
+    "bad sign: a form-field problem",
   );
   await assert.rejects(
     f.transfers.createFiat(MAIN, {
       receiverExternalId: "acct-ops-usd", currency: "USD", amount: 999999999, idempotencyKey: key(73),
     }),
     (e) => e.status === 402 && e.errors[0].code === "insufficient-funds",
-    "an actual shortfall still is",
+    "an actual shortfall is the only funding problem",
   );
+});
+
+test("copy: a pre-creation refusal does not quote an id that was never minted", async () => {
+  const f = mock();
+  const before = (await f.transfers.list(MAIN)).items.length;
+  await assert.rejects(
+    f.transfers.createFiat(MAIN, {
+      receiverExternalId: "acct-ops-usd", currency: "USD", amount: -5, idempotencyKey: key(75),
+    }),
+    (e) => {
+      // An id in an error is an invitation to look it up. Quoting one for a
+      // resource that was never created sends the reader to a 404.
+      assert.doesNotMatch(
+        e.errors[0].message, /transfer [0-9a-f]{8}-/,
+        "no dangling resource id in a validation refusal",
+      );
+      return e.status === 400;
+    },
+  );
+  assert.equal((await f.transfers.list(MAIN)).items.length, before, "and nothing was created");
 });
 
 test("ledger: verify() explains itself when the two amounts render alike", () => {
@@ -713,4 +753,69 @@ test("ledger: open holds carry an exact amount, so reserves can be reconciled", 
   for (const h of holds) {
     assert.equal(typeof h.exactAmount, "string", "every hold is reconcilable against `reserved`");
   }
+});
+
+test("ledger: a refused seed profile leaves the store exactly as it was", async () => {
+  const t = new FinanceMockTransport();
+  const before = t.simulations.ledger.snapshot();
+
+  assert.throws(
+    () =>
+      t.simulations.seed({
+        name: "bad",
+        description: "a hold with a negative amount",
+        seeds: {
+          wallets: {
+            [MAIN]: [
+              {
+                asset: "USDC",
+                contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                amount: { total: 100, available: 100, reserved: 0 },
+              },
+            ],
+          },
+          transfers: [
+            { id: "bad-1", senderAccountId: MAIN, receiverAccountId: OPS, chain: "BASE",
+              asset: "USDC", amount: -50, status: "PENDING", createdAt: "2026-01-01T00:00:00Z" },
+          ],
+          payouts: [],
+        },
+      }),
+    MockLedgerError,
+  );
+
+  // The check exists to stop a bad fixture. Assert it did not INSTALL one -
+  // asserting only that it threw is the same shape of hole as a guard test
+  // that certifies a property it never checks.
+  assert.deepEqual(t.simulations.ledger.snapshot(), before, "no partial state survived");
+  t.simulations.ledger.verify();
+
+  // And the store still works: reset, and money still moves.
+  t.simulations.reset();
+  t.simulations.ledger.verify();
+  const f = new VenlyFinanceClient({ environment: "mock" });
+  void f;
+  const wallets = await t.request("GET", `/accounts/${MAIN}/wallets`);
+  const usdcRow = (wallets.result ?? wallets.items).find((w) => w.asset === "USDC");
+  assert.equal(usdcRow.amount.total, 15521, "the public read path serves the real fixture");
+});
+
+test("ledger: a refused seed profile does not survive a later reset", () => {
+  const t = new FinanceMockTransport();
+  assert.throws(
+    () =>
+      t.simulations.seed({
+        name: "unbacked", description: "reserve with nothing behind it",
+        seeds: {
+          wallets: { [MAIN]: [{ asset: "USDC", contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", amount: { total: 10, available: 4, reserved: 6 } }] },
+          transfers: [], payouts: [],
+        },
+      }),
+    MockLedgerError,
+  );
+  // reset() used to throw forever, because the poisoned seeds were never
+  // restored and every reset re-validated them.
+  t.simulations.reset();
+  t.simulations.reset();
+  t.simulations.ledger.verify();
 });

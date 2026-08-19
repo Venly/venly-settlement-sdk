@@ -88,11 +88,12 @@ const PAYOUT_PHASE: Record<string, FundsPhase> = {
 };
 
 /**
- * Map a ledger failure onto the status it actually deserves.
+ * Map a ledger failure onto the status and code its cause deserves.
  *
- * Everything used to surface as `402 insufficient-funds`, so a mistyped asset
- * symbol or an over-precise amount rendered a top-up prompt in any client that
- * branches on 402. Only a genuine shortfall is a funding problem.
+ * `402 insufficient-funds` means exactly one thing: the account does not hold
+ * enough. A client branching on 402 shows a top-up screen, so an over-precise
+ * amount or a mistyped asset symbol must not land there — those are `400`, with
+ * their own codes so a handler can tell them apart without reading the message.
  */
 function ledgerError(ctx: HandlerContext, error: MockLedgerError): never {
   if (error.kind === "insufficient-funds") {
@@ -102,11 +103,32 @@ function ledgerError(ctx: HandlerContext, error: MockLedgerError): never {
       ctx.path,
     );
   }
-  mockError(
-    { status: 400, code: "invalid-request", message: error.message },
-    ctx.method,
-    ctx.path,
-  );
+  // Each 400 gets its own code, because each wants a different client response:
+  // reformat the amount, correct the asset symbol, or flag the form field.
+  const code = error.kind === "unsupported-asset" ? "unsupported-asset" : "invalid-amount";
+  mockError({ status: 400, code, message: error.message }, ctx.method, ctx.path);
+}
+
+/**
+ * Amounts are validated before anything is minted, so a refusal never quotes
+ * the id of a resource that was not created — an id in an error message is an
+ * invitation to look it up, and that one would 404.
+ */
+function assertPositiveAmount(ctx: HandlerContext, amount: number | undefined, field: string): void {
+  if (!(typeof amount === "number" && amount > 0)) {
+    mockError(
+      {
+        status: 400,
+        code: "invalid-amount",
+        message:
+          `${field} must be greater than zero, got ${amount}. Direction is decided by the ` +
+          `operation — a negative amount would move money backwards, taking it from the ` +
+          `counterparty instead of sending it.`,
+      },
+      ctx.method,
+      ctx.path,
+    );
+  }
 }
 
 export type VerificationStatusInput =
@@ -431,8 +453,20 @@ export class FinanceMockStore {
    * check will refuse the profile.
    */
   applyProfile(profile: Partial<FinanceSeeds>): void {
+    // Transactional: the check that refuses a bad profile must not install it.
+    // Assigning first and validating inside reset() left the poisoned seeds in
+    // place when the check fired, so the store served the bad fixture over the
+    // public wallets read and every later reset() threw on the same seed - the
+    // refusal bricked the mock instead of protecting it.
+    const previous = this.seeds;
     this.seeds = { ...this.seeds, ...structuredClone(profile) };
-    this.reset();
+    try {
+      this.reset();
+    } catch (error) {
+      this.seeds = previous;
+      this.reset();
+      throw error;
+    }
   }
 
   private mintId(): string {
@@ -849,6 +883,7 @@ export class FinanceMockStore {
   createFiatTransfer(ctx: HandlerContext): Transfer {
     const sender = this.getAccount(ctx, ctx.params.senderAccountId);
     const b = ctx.body as schemas["CreateFiatTransferInput"];
+    assertPositiveAmount(ctx, b.amount, "amount");
     const intent = this.transferIntent(ctx, sender.id as string, b);
     if (intent.replay) {
       return toResponseShape(
@@ -879,6 +914,7 @@ export class FinanceMockStore {
   createCryptoTransfer(ctx: HandlerContext): Transfer {
     const sender = this.getAccount(ctx, ctx.params.senderAccountId);
     const b = ctx.body as schemas["CreateCryptoTransferInput"];
+    assertPositiveAmount(ctx, b.amount, "amount");
     const intent = this.transferIntent(ctx, sender.id as string, b);
     if (intent.replay) {
       return toResponseShape(

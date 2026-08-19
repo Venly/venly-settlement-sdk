@@ -23,9 +23,8 @@ export type MockLedgerErrorKind =
 
 export class MockLedgerError extends Error {
   /**
-   * Why this failed, so a caller can map it to the right status. Everything
-   * used to surface as a shortfall, which turned a mistyped asset symbol into
-   * a "top up your account" prompt.
+   * Why this failed, so a caller can branch without matching on the message.
+   * `insufficient-funds` maps to HTTP 402; every other kind maps to 400.
    */
   readonly kind: MockLedgerErrorKind;
 
@@ -530,6 +529,10 @@ export class Ledger {
     init: { accountId: string; asset: string; amount: number },
     because: string,
   ): LedgerLeg[] {
+    // The one Credit constructor that no other guard covers. Nothing reaches it
+    // with a bad amount today, but "unreachable" is a property of the current
+    // call sites, not of this function.
+    if (!this.credits.has(id)) this.assertPositive(init.asset, init.amount, because);
     const existing = this.credits.get(id);
     const credit: Credit = existing ?? {
       accountId: init.accountId,
