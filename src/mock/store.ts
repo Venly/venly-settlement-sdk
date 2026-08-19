@@ -104,8 +104,16 @@ function ledgerError(ctx: HandlerContext, error: MockLedgerError): never {
     );
   }
   // Each 400 gets its own code, because each wants a different client response:
-  // reformat the amount, correct the asset symbol, or flag the form field.
-  const code = error.kind === "unsupported-asset" ? "unsupported-asset" : "invalid-amount";
+  // reformat the amount, correct the asset symbol, or flag the form field. An
+  // `invariant` failure is none of those - reporting it as an amount problem
+  // would be the same wrong-cause-to-the-client defect this mapping exists to
+  // fix - so it keeps the generic code.
+  const code =
+    error.kind === "unsupported-asset"
+      ? "unsupported-asset"
+      : error.kind === "invalid-amount"
+        ? "invalid-amount"
+        : "invalid-request";
   mockError({ status: 400, code, message: error.message }, ctx.method, ctx.path);
 }
 
