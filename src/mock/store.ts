@@ -306,8 +306,9 @@ export class FinanceMockStore {
 
   /**
    * Seeded balances are the *post* state, so hydration records each seeded
-   * money object at the phase its status implies and posts no delta. I5 then
-   * checks that every reserve has a hold behind it.
+   * money object at the phase its status implies and posts no delta. The
+   * reserve check then confirms that every reserved amount has a pending
+   * operation behind it.
    */
   private hydrateLedger(): void {
     for (const transfer of this.transfers) {
@@ -366,6 +367,11 @@ export class FinanceMockStore {
       supportedAssets: this.supportedAssets,
       accountSupportedAssets: Object.fromEntries(this.accountSupportedAssets),
       ivVerifications: [...this.ivVerifications.values()],
+      // The rendered wallet rows above cannot carry an 18-decimal balance, so
+      // the authoritative minor-unit amounts travel alongside them. Without
+      // this a peer rebuilds its ledger from the lossy view and the two
+      // replicas silently disagree about a balance while both verify() green.
+      ledgerBalances: this.ledger.exportBalances(),
     });
   }
 
@@ -392,6 +398,9 @@ export class FinanceMockStore {
     // Adopted state is a post-state, exactly like seeds, so holds are
     // re-derived at their implied phase and post no delta.
     this.ledger.reset();
+    const balances = (state as { ledgerBalances?: Record<string, { total: string; available: string; reserved: string }> })
+      .ledgerBalances;
+    if (balances) this.ledger.adoptBalances(balances);
     this.hydrateLedger();
   }
 

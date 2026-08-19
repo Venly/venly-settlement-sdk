@@ -13,6 +13,11 @@ type schemas = components["schemas"];
 export interface SeedProfile {
   name: string;
   description: string;
+  /**
+   * Fixtures for this cast. Each top-level key REPLACES the seeded one
+   * wholesale, so supplying `wallets` means also supplying the `transfers` and
+   * `payouts` that reserve against them.
+   */
   seeds: Partial<FinanceSeeds>;
   after?(simulations: VenlyFinanceSimulations): void;
 }

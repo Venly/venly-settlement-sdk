@@ -363,7 +363,7 @@ test("copy: no internal register id or rule label reaches a shipped string", asy
     const text = readFileSync(new URL(file, dir), "utf8");
     // Register ids (MG-*, D-numbers) and invariant labels (I1/I2/I5) are
     // shorthand for documents a consumer does not have.
-    for (const pattern of [/\bMG-\d+/g, /\bI[125] broken\b/g, /mock-gap ledger/g, /gap register/g]) {
+    for (const pattern of [/\bMG-\d+/g, /\bI[1-5]\b/g, /mock-gap ledger/g, /gap register/g]) {
       for (const hit of text.match(pattern) ?? []) offenders.push(`${file}: ${hit}`);
     }
   }
@@ -429,7 +429,8 @@ test("ledger: an unbacked seed is refused at construction, not at first use", ()
       }),
     (e) => {
       assert.match(e.message, /reserves 60 USDC/, "names the unexplained reserve");
-      assert.match(e.message, /only account for 0/, "and what actually backs it");
+      assert.match(e.message, /0 USDC of pending operations are outstanding/,
+        "and what actually backs it, stated directionally so it reads correctly either way");
       return e instanceof MockLedgerError;
     },
     "a reserve with no pending operation behind it must fail loudly at load",
@@ -488,16 +489,19 @@ test("ledger: a hydrated seed hold can be driven, which is why it must be backed
   const f = mock();
   const sim = f.mock.simulations;
   const ESCROW_SEND = "tr5e8c66-7777-4a70-9bb8-000000000006";
-  const before = sim.ledger.snapshot().rows.find((r) => r.accountId === ESCROW && r.asset === "USDC");
-  assert.deepEqual(before, { accountId: ESCROW, asset: "USDC", total: 4200, available: 0, reserved: 4200 });
+  const row = () => sim.ledger.snapshot().rows.find((r) => r.accountId === ESCROW && r.asset === "USDC");
+  assert.deepEqual(
+    { total: row().total, available: row().available, reserved: row().reserved },
+    { total: 4200, available: 0, reserved: 4200 },
+  );
 
   // Fail it: the seeded hold releases back to available. This is the case the
   // reserve-backing rule exists to make safe - without a real hold behind the
   // 4200, this would drive reserved negative.
   sim.transfer.advance(ESCROW_SEND, "FAILED");
   assert.deepEqual(
-    sim.ledger.snapshot().rows.find((r) => r.accountId === ESCROW && r.asset === "USDC"),
-    { accountId: ESCROW, asset: "USDC", total: 4200, available: 4200, reserved: 0 },
+    { total: row().total, available: row().available, reserved: row().reserved },
+    { total: 4200, available: 4200, reserved: 0 },
   );
   sim.ledger.verify();
 });
@@ -537,4 +541,95 @@ test("demoCast: each persona's account is held by its OWN party", async () => {
   const denied = t.$store.accounts.find((a) => a.externalId === "cast-denied");
   const assets = await t.request("GET", `/accounts/${denied.id}/supported-assets`);
   assert.ok((assets.result ?? assets.items ?? []).length > 0, "cast accounts resolve their supported assets");
+});
+
+// ── Exactness that survives the boundaries ─────────────────────────────
+
+test("ledger: an over-precise amount is refused whichever notation JS picks", () => {
+  const t = new FinanceMockTransport();
+  const L = t.$store.ledger;
+  // Plain notation was already refused. Exponential notation is what String()
+  // produces below 1e-6, and toFixed() would ROUND it - silently discarding
+  // 1e-7 USDC, and silently CREATING a wei from 1.5e-18 DAI.
+  for (const [asset, amount] of [
+    ["USDC", 1.0000001],
+    ["USDC", 1e-7],
+    ["USDC", 1.5e-7],
+    ["DAI", 1.5e-19],
+  ]) {
+    assert.throws(
+      () => L.toMinor(asset, amount),
+      MockLedgerError,
+      `${amount} exceeds ${asset}'s precision and must be refused, not rounded to fit`,
+    );
+  }
+  // Exactly at the asset's precision still works, in either notation.
+  assert.equal(L.toMinor("USDC", 0.000001), 1n);
+  assert.equal(L.toMinor("DAI", 1e-18), 1n);
+});
+
+test("ledger: exactness survives replication, not just a single context", async () => {
+  const session = `exact-${process.pid}`;
+  const A = new FinanceMockTransport({ channel: "broadcast", sessionId: session });
+  const B = new FinanceMockTransport({ channel: "broadcast", sessionId: session });
+  const wei = (n) => ({
+    accountId: OPS, asset: "DAI", deltaTotal: n, deltaAvailable: n, deltaReserved: 0n,
+    createIfMissing: true, because: "dai",
+  });
+
+  A.$store.ledger.applyAtomic([wei(A.$store.ledger.toMinor("DAI", 1000) + 10n)]);
+  A.$afterDriver(undefined);
+  await new Promise((r) => setTimeout(r, 40));
+
+  const exactOf = (t) =>
+    t.simulations.ledger.snapshot().rows.find((r) => r.accountId === OPS && r.asset === "DAI")?.exact.total;
+  assert.equal(exactOf(A), "1000.00000000000000001", "A tracks the wei");
+  assert.equal(
+    exactOf(B), exactOf(A),
+    "and so does B - a snapshot carries the authority, not the rendered double",
+  );
+
+  // The proof that matters: B can spend exactly what A funded, to the wei.
+  B.$store.ledger.applyAtomic([wei(-(B.$store.ledger.toMinor("DAI", 1000) + 10n))]);
+  assert.equal(
+    B.simulations.ledger.snapshot().rows.find((r) => r.accountId === OPS && r.asset === "DAI").exact.total,
+    "0",
+  );
+  A.$channel.close();
+  B.$channel.close();
+});
+
+test("ledger: the refusal names the shortfall when both amounts render alike", () => {
+  const t = new FinanceMockTransport();
+  const L = t.$store.ledger;
+  const one = L.toMinor("DAI", 1000) - 1n;
+  L.applyAtomic([{ accountId: OPS, asset: "DAI", deltaTotal: one, deltaAvailable: one, deltaReserved: 0n, createIfMissing: true, because: "fund" }]);
+  assert.throws(
+    () =>
+      L.applyAtomic([{
+        accountId: OPS, asset: "DAI",
+        deltaTotal: -L.toMinor("DAI", 1000), deltaAvailable: -L.toMinor("DAI", 1000),
+        deltaReserved: 0n, because: "send max",
+      }]),
+    (e) => {
+      // "has 1000 and needs 1000" reads as a broken mock. Both render as 1000
+      // because a double cannot show 18 decimals, so the message has to say so.
+      assert.match(e.message, /999\.999999999999999999/, "the exact balance");
+      assert.match(e.message, /both render as 1000/, "why the numbers look equal");
+      assert.match(e.message, /shortfall of 0\.000000000000000001/, "and the gap");
+      return e instanceof MockLedgerError;
+    },
+  );
+});
+
+test("ledger: the conservation total is accumulated exactly", () => {
+  const t = new FinanceMockTransport();
+  const L = t.$store.ledger;
+  const wei = (acct, n) => ({ accountId: acct, asset: "DAI", deltaTotal: n, deltaAvailable: n, deltaReserved: 0n, createIfMissing: true, because: "dai" });
+  L.applyAtomic([wei(MAIN, L.toMinor("DAI", 1000) + 1n)]);
+  L.applyAtomic([wei(OPS, L.toMinor("DAI", 1000) + 1n)]);
+  assert.equal(
+    L.snapshot().exactTotalsByAsset.DAI, "2000.000000000000000002",
+    "summing through a double would lose both wei, and I4 is asserted on this number",
+  );
 });

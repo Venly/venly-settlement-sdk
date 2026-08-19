@@ -193,7 +193,7 @@ export const wallet = [
     contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
     // reserved backs transfers[31], the seeded PENDING 420.5 USDC send. It is
     // not a round 130 because a reserve with no hold behind it is money the
-    // fixtures cannot account for (ledger invariant I5). `available` is
+    // fixtures cannot account for. `available` is
     // untouched: that is the number a UI renders as spendable.
     amount: { total: 15521.0, available: 15100.5, reserved: 420.5 },
   },
@@ -991,6 +991,14 @@ export interface ChannelInfo {
  */
 export interface VenlyFinanceSimulations {
   reset(): void;
+  /**
+   * Load a profile over the seeds and check every balance rule.
+   *
+   * Each top-level key in `profile.seeds` REPLACES the seeded one wholesale
+   * rather than merging, so a profile supplying `wallets` must also supply the
+   * `transfers` and `payouts` that reserve against them — otherwise those
+   * reserves have nothing behind them and the profile is refused.
+   */
   seed(profile: SeedProfile): void;
   channelInfo(): ChannelInfo;
   events: {

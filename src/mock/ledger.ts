@@ -52,13 +52,27 @@ export interface LedgerRow {
   total: number;
   available: number;
   reserved: number;
+  /**
+   * The same three amounts as exact decimal strings.
+   *
+   * The numbers above are JS doubles, which cannot represent an asset with more
+   * precision than about 15 significant digits: 1000 DAI plus 1 wei renders as
+   * `1000`, identical to 1000 DAI. These strings are the authority the ledger
+   * actually operates on, so compare them whenever exactness matters.
+   */
+  exact: { total: string; available: string; reserved: string };
 }
 
 export interface LedgerSnapshot {
   rows: LedgerRow[];
-  /** Sum of `total` per asset across every in-mock account — the I4 quantity. */
+  /** Sum of `total` per asset across every account in the mock. */
   totalsByAsset: Record<string, number>;
-  /** Open holds (phase HELD), so a reader can check I5 without internals. */
+  /** The same sums as exact decimal strings, for high-precision assets. */
+  exactTotalsByAsset: Record<string, string>;
+  /**
+   * Money committed to a pending operation. Every reserved amount must have
+   * one of these behind it.
+   */
   holds: { id: string; accountId: string; asset: string; amount: number }[];
 }
 
@@ -82,6 +96,26 @@ interface Credit {
 }
 
 const SCALE_CACHE = new Map<string, number>();
+
+/**
+ * Expand `1.5e-7` to `0.00000015` without rounding.
+ *
+ * `String(n)` switches to exponential notation below 1e-6, and `toFixed` ROUNDS
+ * — it turns 1e-7 USDC into 0 and 1.5e-18 DAI into 1 wei, accepting amounts the
+ * precision rule exists to refuse and, in the second case, creating money. Which
+ * of those happens depended on JavaScript's choice of notation rather than on
+ * the value, so the expansion has to be exact and the refusal has to come after.
+ */
+function expandExponential(text: string): string {
+  const match = /^(-?)(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/.exec(text);
+  if (!match) return text;
+  const [, sign, whole, frac = "", exponent] = match;
+  const digits = whole + frac;
+  const point = whole.length + Number.parseInt(exponent, 10);
+  if (point <= 0) return `${sign}0.${"0".repeat(-point)}${digits}`;
+  if (point >= digits.length) return `${sign}${digits}${"0".repeat(point - digits.length)}`;
+  return `${sign}${digits.slice(0, point)}.${digits.slice(point)}`;
+}
 
 /**
  * Money is held as `BigInt` minor units. The seeds already carry 6-decimal
@@ -162,23 +196,45 @@ export class Ledger {
     // the value the author wrote. `toFixed(20)` does NOT: it exposes the float
     // artifact (8020.000875 -> "8020.00087499999972351361"), so a legal
     // 6-decimal seed would look like a 20-decimal one and be rejected.
-    let text = String(amount);
-    if (text.includes("e") || text.includes("E")) {
-      // Exponential form (very small or very large): expand it losslessly
-      // enough for the asset's own precision.
-      text = amount.toFixed(decimals);
-    }
+    // Exponential form is expanded exactly, so the precision check sees the
+    // real number of decimals rather than a rounded stand-in.
+    return this.parseExact(asset, expandExponential(String(amount)), amount);
+  }
+
+  /**
+   * Exact decimal string -> minor units, with no float anywhere in the path.
+   * `toMinor` goes through here after expanding notation; replication uses it
+   * directly, so an adopted balance never passes through a double.
+   */
+  parseExact(asset: string, text: string, reportAs: unknown = text): bigint {
+    const decimals = this.decimals(asset);
     const [whole, frac = ""] = text.split(".");
     const trimmed = frac.replace(/0+$/, "");
     if (trimmed.length > decimals) {
       throw new MockLedgerError(
-        `Amount ${amount} has more precision than ${asset} allows (${decimals} decimals).`,
+        `Amount ${String(reportAs)} has more precision than ${asset} allows ` +
+          `(${decimals} decimals). Amounts are never rounded to fit — that is how a ledger ` +
+          `loses money — so pass an amount ${asset} can actually represent.`,
       );
     }
     const padded = trimmed.padEnd(decimals, "0");
     const sign = whole.startsWith("-") ? -1n : 1n;
-    const wholeAbs = whole.replace("-", "");
+    const wholeAbs = whole.replace("-", "") || "0";
     return sign * (BigInt(wholeAbs) * 10n ** BigInt(decimals) + BigInt(padded || "0"));
+  }
+
+  /**
+   * Exact decimal string. `toDecimal` returns a JS number and so cannot render
+   * an 18-decimal asset faithfully; this can, and is what the snapshot and the
+   * refusal messages use when the rendered numbers would mislead.
+   */
+  toExact(asset: string, minor: bigint): string {
+    const decimals = this.decimals(asset);
+    const scale = 10n ** BigInt(decimals);
+    const sign = minor < 0n ? "-" : "";
+    const abs = minor < 0n ? -minor : minor;
+    const frac = (abs % scale).toString().padStart(decimals, "0").replace(/0+$/, "");
+    return frac ? `${sign}${abs / scale}.${frac}` : `${sign}${abs / scale}`;
   }
 
   toDecimal(asset: string, minor: bigint): number {
@@ -231,7 +287,8 @@ export class Ledger {
   // ── Atomic application ───────────────────────────────────────────────
 
   /**
-   * Validate every leg against I1/I2 and only then write any of them. A
+   * Validate every leg against the balance rules and only then write any of
+   * them. A
    * transfer moves two rows; if the second leg is illegal and the first has
    * already landed, `sum(total)` drifts by the transfer amount — a conservation
    * breach manufactured by the rule meant to protect non-negativity. So: all
@@ -248,16 +305,25 @@ export class Ledger {
         reserved: base.reserved + leg.deltaReserved,
       };
       if (next.available < 0n) {
-        // Report what the account HAS and what the operation NEEDS. The
-        // projected negative is an internal number; the caller can only act on
-        // the shortfall.
+        // Report what the account HAS and what the operation NEEDS. On a
+        // high-precision asset those two can RENDER identically while still
+        // differing - 1000 DAI and 1000 DAI minus one wei are both "1000" to a
+        // double - and "has 1000 and needs 1000" reads as a broken mock. When
+        // the rendered numbers collide, give the exact figures and the shortfall.
+        const has = this.toDecimal(leg.asset, base.available);
+        const needs = this.toDecimal(leg.asset, -leg.deltaAvailable);
+        const collides = has === needs;
+        const detail = collides
+          ? `has ${this.toExact(leg.asset, base.available)} ${leg.asset} available (both ` +
+            `render as ${has}, because ${leg.asset} carries more decimals than a JavaScript ` +
+            `number can show) and this operation needs ` +
+            `${this.toExact(leg.asset, -leg.deltaAvailable)}, a shortfall of ` +
+            `${this.toExact(leg.asset, -next.available)}`
+          : `has ${has} ${leg.asset} available and this operation needs ${needs}`;
         throw new MockLedgerError(
-          `${leg.because}: account ${leg.accountId} has ` +
-            `${this.toDecimal(leg.asset, base.available)} ${leg.asset} available and this ` +
-            `operation needs ${this.toDecimal(leg.asset, -leg.deltaAvailable)}. Fund the ` +
-            `account first — in mock mode, simulations.inbound.credit(virtualBankAccountId, ` +
-            `amount) lands money the way a bank transfer does. No part of this operation was ` +
-            `applied.`,
+          `${leg.because}: account ${leg.accountId} ${detail}. Fund the account first — in ` +
+            `mock mode, simulations.inbound.credit(virtualBankAccountId, amount) lands money ` +
+            `the way a bank transfer does. No part of this operation was applied.`,
         );
       }
       if (next.total < 0n || next.reserved < 0n) {
@@ -384,7 +450,7 @@ export class Ledger {
     const legs = this.phaseLegs(hold.phase, to, hold, because);
     // Seeded objects post no delta on their first move only when that move is
     // the hydration itself; a real transition on a hydrated hold is backed by
-    // I5, which the seed check guarantees.
+    // the reserve check, which the seed check guarantees.
     this.applyAtomic([...legs, ...extraLegs]);
     hold.phase = to;
     this.holds.set(id, hold);
@@ -499,9 +565,10 @@ export class Ledger {
       const held = open.get(key) ?? 0n;
       if (reserved !== held) {
         throw new MockLedgerError(
-          `Account ${accountId} reserves ${this.toDecimal(asset, reserved)} ${asset}, but the ` +
-            `pending operations against it only account for ${this.toDecimal(asset, held)}. ` +
-            `Reserved money must always be committed to something: every reserve needs a ` +
+          `Account ${accountId} reserves ${this.toDecimal(asset, reserved)} ${asset}, but ` +
+            `${this.toDecimal(asset, held)} ${asset} of pending operations are outstanding ` +
+            `against it — the two must match. Reserved money is money committed to ` +
+            `something: every reserve needs a ` +
             `PENDING transfer or a REQUESTED payout behind it. If you supplied your own ` +
             `fixtures, supply the transfers and payouts alongside the balances they reserve ` +
             `against — replacing one without the other leaves the reserve unexplained.`,
@@ -512,7 +579,7 @@ export class Ledger {
 
   snapshot(): LedgerSnapshot {
     const rows: LedgerRow[] = [];
-    const totalsByAsset: Record<string, number> = {};
+    const totalsMinor = new Map<string, bigint>();
     // Sorted so two snapshots compare deep-equal regardless of Map insertion
     // order, which the determinism contract depends on.
     for (const accountId of [...this.wallets.keys()].sort()) {
@@ -528,16 +595,60 @@ export class Ledger {
           total: this.toDecimal(asset, total),
           available: this.toDecimal(asset, available),
           reserved: this.toDecimal(asset, reserved),
+          exact: {
+            total: this.toExact(asset, total),
+            available: this.toExact(asset, available),
+            reserved: this.toExact(asset, reserved),
+          },
         });
-        const prior = totalsByAsset[asset] ?? 0;
-        totalsByAsset[asset] = this.toDecimal(asset, this.toMinor(asset, prior) + total);
+        // Accumulated in minor units: routing each running total back through a
+        // double would make the conservation quantity itself lossy.
+        totalsMinor.set(asset, (totalsMinor.get(asset) ?? 0n) + total);
       }
+    }
+    const totalsByAsset: Record<string, number> = {};
+    const exactTotalsByAsset: Record<string, string> = {};
+    for (const [asset, minor] of [...totalsMinor].sort(([a], [b]) => a.localeCompare(b))) {
+      totalsByAsset[asset] = this.toDecimal(asset, minor);
+      exactTotalsByAsset[asset] = this.toExact(asset, minor);
     }
     const holds = [...this.holds.entries()]
       .filter(([, h]) => h.phase === "HELD")
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([id, h]) => ({ id, accountId: h.accountId, asset: h.asset, amount: this.toDecimal(h.asset, h.amount) }));
-    return { rows, totalsByAsset, holds };
+    return { rows, totalsByAsset, exactTotalsByAsset, holds };
+  }
+
+  /** The authoritative balances as exact strings, for replication. */
+  exportBalances(): Record<string, { total: string; available: string; reserved: string }> {
+    const out: Record<string, { total: string; available: string; reserved: string }> = {};
+    for (const [key, amount] of [...this.balances].sort(([a], [b]) => a.localeCompare(b))) {
+      const asset = key.slice(key.indexOf("\u0000") + 1);
+      out[key] = {
+        total: this.toExact(asset, amount.total),
+        available: this.toExact(asset, amount.available),
+        reserved: this.toExact(asset, amount.reserved),
+      };
+    }
+    return out;
+  }
+
+  /**
+   * Adopt a peer's authoritative balances. Without this, replication would
+   * round-trip the ledger through the rendered doubles it exists to avoid, and
+   * two replicas in one session would quietly disagree about a high-precision
+   * balance while both passed `verify()`.
+   */
+  adoptBalances(state: Record<string, { total: string; available: string; reserved: string }>): void {
+    this.balances.clear();
+    for (const [key, amount] of Object.entries(state)) {
+      const asset = key.slice(key.indexOf("\u0000") + 1);
+      this.balances.set(key, {
+        total: this.parseExact(asset, amount.total),
+        available: this.parseExact(asset, amount.available),
+        reserved: this.parseExact(asset, amount.reserved),
+      });
+    }
   }
 
   reset(): void {
