@@ -90,7 +90,7 @@ export function SendForm({
           onChange={(e) => onChange({ ...values, receiverAccountId: e.target.value })}
         />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "var(--space-md)" }}>
+      <div className="venly-send-split">
         <div>
           <label style={labelStyle} htmlFor="vf-send-currency">
             Currency

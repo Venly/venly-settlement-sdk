@@ -183,7 +183,8 @@ export function WithdrawalsTable({ items, onOpen, selectedId, style, className }
   ];
 
   return (
-    <DataTable
+    <div className="venly-table-scroll">
+      <DataTable
       className={className}
       style={style}
       columns={columns}
@@ -194,6 +195,7 @@ export function WithdrawalsTable({ items, onOpen, selectedId, style, className }
       selectedKey={selectedId}
       emptyMessage="No withdrawals yet."
     />
+    </div>
   );
 }
 
@@ -408,7 +410,7 @@ function AmountStep({
         </p>
       ) : null}
 
-      <div style={{ display: "flex", gap: "var(--space-sm)" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-sm)" }}>
         <button type="submit" disabled={!ready} style={primaryButton}>
           Review withdrawal
         </button>
@@ -461,7 +463,7 @@ export function WithdrawReview({
       {/* The bank-receives figure is not known before creation: the created
           request carries the fiat amounts and rate, and the detail opens on
           them. Nothing is rendered in its place. */}
-      <div style={{ display: "flex", gap: "var(--space-sm)" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-sm)" }}>
         <button type="button" disabled={submitting} style={primaryButton} onClick={onConfirm}>
           {submitting ? "Requesting…" : `Request withdrawal of ${formatAmount(staged.amount)} ${staged.cryptoCurrency}`}
         </button>
@@ -559,7 +561,7 @@ export function WithdrawDetail({ request, actorId, style, className }: WithdrawD
               That decision was refused. Refresh and try from the current state.
             </p>
           ) : null}
-          <div style={{ display: "flex", gap: "var(--space-sm)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-sm)" }}>
             {approval.capability.canApprove ? (
               <button type="button" style={primaryButton} disabled={approval.state.phase === "submitting"} onClick={approval.approve}>
                 Approve

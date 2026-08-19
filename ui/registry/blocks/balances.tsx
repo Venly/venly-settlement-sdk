@@ -308,8 +308,9 @@ export function BalancesView({
             background: "var(--surface-raised)",
             border: "var(--border-w-hairline) solid var(--border-hairline)",
             borderRadius: "var(--radius-card)",
-            overflow: "hidden",
+            overflowX: "auto",
           }}
+          className="venly-table-scroll"
         >
           <DataTable columns={columns} rows={rows} rowKey={(r) => r.asset} />
         </div>

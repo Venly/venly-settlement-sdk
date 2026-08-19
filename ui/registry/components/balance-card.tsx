@@ -136,6 +136,7 @@ export function BalanceCard({
             marginTop: "var(--space-md)",
             paddingTop: "var(--space-sm)",
             display: "flex",
+            flexWrap: "wrap",
             gap: "var(--space-2xl)",
           }}
         >

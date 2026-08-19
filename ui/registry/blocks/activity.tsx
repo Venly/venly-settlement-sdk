@@ -228,14 +228,16 @@ export function ActivityTable({
   accountId?: string;
 }): ReactElement {
   return (
-    <DataTable
-      columns={transferColumns(accountId)}
-      rows={transfers}
-      rowKey={(t) => t.id ?? ""}
-      selectedKey={selectedId}
-      onRowClick={onSelect}
-      emptyMessage="No transfers yet"
-    />
+    <div className="venly-table-scroll">
+      <DataTable
+        columns={transferColumns(accountId)}
+        rows={transfers}
+        rowKey={(t) => t.id ?? ""}
+        selectedKey={selectedId}
+        onRowClick={onSelect}
+        emptyMessage="No transfers yet"
+      />
+    </div>
   );
 }
 
@@ -270,16 +272,18 @@ export function GroupedActivityTable({
     },
   ];
   return (
-    <DataTable
-      columns={transferColumns(accountId)}
-      rows={[]}
-      groups={groups}
-      collapsedGroups={collapsedGroups}
-      onGroupToggle={onGroupToggle}
-      rowKey={(t) => t.id ?? ""}
-      selectedKey={selectedId}
-      onRowClick={onSelect}
-    />
+    <div className="venly-table-scroll">
+      <DataTable
+        columns={transferColumns(accountId)}
+        rows={[]}
+        groups={groups}
+        collapsedGroups={collapsedGroups}
+        onGroupToggle={onGroupToggle}
+        rowKey={(t) => t.id ?? ""}
+        selectedKey={selectedId}
+        onRowClick={onSelect}
+      />
+    </div>
   );
 }
 
@@ -800,12 +804,12 @@ export function UnifiedActivityBlock({
 
   return (
     <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-2xl)", marginBottom: "var(--space-lg)" }}>
+      <div className="venly-toolbar" style={{ marginBottom: "var(--space-lg)" }}>
         <StatFigure label="Activity" value={summary.all} selected={scope === "all"} onClick={() => setScope("all")} />
         <StatFigure label="In progress" value={summary.pending} selected={scope === "pending"} onClick={() => toggleScope("pending")} />
         <StatFigure label="Failed" value={summary.failed} selected={scope === "failed"} onClick={() => toggleScope("failed")} />
 
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
+        <div className="venly-toolbar-end">
           <select
             aria-label="Filter by type"
             value={typeFilter}
@@ -922,7 +926,8 @@ export function UnifiedActivityBlock({
           </button>
         </p>
       ) : (
-        <DataTable
+        <div className="venly-table-scroll">
+          <DataTable
           columns={unifiedColumns(accountId, accountName)}
           rows={[]}
           groups={groups}
@@ -932,6 +937,7 @@ export function UnifiedActivityBlock({
           selectedKey={selected?.key}
           onRowClick={(row) => setSelectedKey(row.key)}
         />
+        </div>
       )}
 
       {selected?.kind === "transfer" ? (

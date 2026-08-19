@@ -120,3 +120,71 @@
   --font-family:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+
+/* Mobile is the primary viewport. Money screens must fit 375px without
+   horizontal body scroll: panels go full-bleed, forms stop clamping above
+   the viewport, and tables scroll inside their own container. */
+.venly-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.venly-send-split {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--space-md);
+}
+
+.venly-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2xl);
+}
+
+.venly-toolbar-end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+@media (max-width: 40rem) {
+  :root {
+    --panel-width: 100%;
+    --panel-min-width: 100%;
+    --card-max-width: 100%;
+    --form-max-width: 100%;
+    --auth-form-max-width: 100%;
+    --shadow-overlay: 0 -8px 24px rgba(9, 9, 11, 0.08);
+  }
+
+  .venly-table-scroll > table {
+    min-width: 32rem;
+  }
+
+  .venly-send-split {
+    grid-template-columns: 1fr;
+  }
+
+  .venly-field-row {
+    flex-wrap: wrap;
+  }
+
+  .venly-field-row > dt {
+    width: 100%;
+    flex: 1 0 100%;
+  }
+
+  .venly-toolbar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--space-md);
+  }
+
+  .venly-toolbar-end {
+    margin-left: 0;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}

@@ -50,6 +50,10 @@ The demo page composes the core components into a payments screen plus a greysca
 
 For the kit running against live hooks, see [`examples/mock-bank`](../examples/mock-bank/): a full account experience in mock mode – `npm install && npm run dev`, fake data, zero credentials.
 
+## Mobile
+
+The kit is mobile-primary. `tokens.css` carries the only `@media` query: below `40rem` the panel, card and form clamps become `100%` so a 375px viewport never grows a horizontal body scrollbar. Tables sit in `.venly-table-scroll` and scroll inside that container; field-list rows and the send amount split stack.
+
 ## Styling approach
 
 Components use inline styles bound to the token variables rather than a utility framework. That keeps the kit runnable in any React stack (Tailwind or not), keeps the measured ratios exact, and keeps `tokens.css` the single source of visual truth. Consumers who want utility-class styling own the files and can convert them – that is the point of copy-owned distribution.
