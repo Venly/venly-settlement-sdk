@@ -7,10 +7,14 @@
  */
 export interface MockClock {
   now(): string;
+  /** Rewind to the start. Present only on deterministic clocks. */
+  reset?(): void;
 }
 
 export interface MockIdSource {
   next(kind: "id" | "address" | "hash"): string;
+  /** Rewind the counter. Present only on deterministic sources. */
+  reset?(): void;
 }
 
 export const systemClock: MockClock = {
@@ -37,6 +41,9 @@ export function deterministicClock(startIso = "2026-01-01T00:00:00.000Z", stepMs
       tick += 1;
       return at;
     },
+    reset() {
+      tick = 0;
+    },
   };
 }
 
@@ -55,6 +62,9 @@ export function deterministicIds(): MockIdSource {
       if (kind === "hash") return "0x" + hex.padStart(64, "0");
       const body = hex.padStart(32, "0");
       return [body.slice(0, 8), body.slice(8, 12), "4" + body.slice(13, 16), "8" + body.slice(17, 20), body.slice(20, 32)].join("-");
+    },
+    reset() {
+      n = 0;
     },
   };
 }

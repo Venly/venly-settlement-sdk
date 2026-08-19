@@ -211,7 +211,8 @@ export class FinanceMockStore {
   ivVerifications = new Map<string, schemas["PartyIvVerificationDto"]>();
 
   private counter = 0;
-  private readonly seeds: FinanceSeeds;
+  private initialised = false;
+  private seeds: FinanceSeeds;
   private clock: MockClock;
   private ids: MockIdSource;
   readonly ledger: Ledger;
@@ -247,6 +248,17 @@ export class FinanceMockStore {
 
   /** Restore the seed fixtures, discarding everything created since. */
   reset(): void {
+    if (this.initialised) {
+      // store.reset is the LAST event of the outgoing epoch; the epoch then
+      // rolls and sequence restarts at 1, so ids stay unique across resets
+      // while a deterministic replay still compares within one epoch.
+      this.emit({ type: "store.reset", resource: { kind: "store", id: "store" }, data: {} });
+      this.events.rollEpoch(this.events.epoch + 1);
+    }
+    // Rewind first: a replay that mints different ids is not a replay, and the
+    // seeds themselves are stamped from this clock.
+    this.clock.reset?.();
+    this.ids.reset?.();
     const s = structuredClone(this.seeds);
     this.parties = s.parties;
     this.accounts = s.accounts;
@@ -271,6 +283,7 @@ export class FinanceMockStore {
     );
     this.ledger.reset();
     this.hydrateLedger();
+    this.initialised = true;
     // A seed that cannot satisfy the invariants is a fixture teaching a
     // falsehood, and it fails here rather than halfway through a demo.
     this.ledger.verify();
@@ -315,6 +328,62 @@ export class FinanceMockStore {
         PAYOUT_PHASE[payout.status ?? "REQUESTED"],
       );
     }
+  }
+
+  /**
+   * Everything a peer needs to reproduce this store's world. Ledger holds are
+   * rebuilt by re-hydrating from the restored rows rather than shipped, so the
+   * snapshot stays plain JSON.
+   */
+  snapshotState(): Record<string, unknown> {
+    return structuredClone({
+      parties: this.parties,
+      accounts: this.accounts,
+      wallets: Object.fromEntries(this.wallets),
+      rolesByAccount: Object.fromEntries(this.rolesByAccount),
+      virtualBankAccounts: this.virtualBankAccounts,
+      transfers: this.transfers,
+      paymentSessions: this.paymentSessions,
+      inboundCredits: this.inboundCredits,
+      payoutBankAccounts: this.payoutBankAccounts,
+      payoutRoutes: Object.fromEntries(this.payoutRoutes),
+      payouts: this.payouts,
+      supportedAssets: this.supportedAssets,
+      accountSupportedAssets: Object.fromEntries(this.accountSupportedAssets),
+      ivVerifications: [...this.ivVerifications.values()],
+    });
+  }
+
+  restoreState(state: Record<string, unknown>): void {
+    const s = structuredClone(state) as Record<string, never>;
+    this.parties = s.parties;
+    this.accounts = s.accounts;
+    this.wallets = new Map(Object.entries(s.wallets ?? {}));
+    this.rolesByAccount = new Map(Object.entries(s.rolesByAccount ?? {}));
+    this.virtualBankAccounts = s.virtualBankAccounts;
+    this.transfers = s.transfers;
+    this.paymentSessions = s.paymentSessions;
+    this.inboundCredits = s.inboundCredits;
+    this.payoutBankAccounts = s.payoutBankAccounts;
+    this.payoutRoutes = new Map(Object.entries(s.payoutRoutes ?? {}));
+    this.payouts = s.payouts;
+    this.supportedAssets = s.supportedAssets;
+    this.accountSupportedAssets = new Map(Object.entries(s.accountSupportedAssets ?? {}));
+    this.ivVerifications = new Map(
+      ((s.ivVerifications ?? []) as schemas["PartyIvVerificationDto"][]).map(
+        (iv) => [iv.partyId as string, iv] as const,
+      ),
+    );
+    // Adopted state is a post-state, exactly like seeds, so holds are
+    // re-derived at their implied phase and post no delta.
+    this.ledger.reset();
+    this.hydrateLedger();
+  }
+
+  /** Load a named cast over the seeds, then prove it balances. */
+  applyProfile(profile: Partial<FinanceSeeds>): void {
+    this.seeds = { ...this.seeds, ...structuredClone(profile) };
+    this.reset();
   }
 
   private mintId(): string {
@@ -501,6 +570,49 @@ export class FinanceMockStore {
     return undefined;
   }
 
+  /**
+   * `GET /parties/{partyId}/iv-verification`. A party the seeds never linked
+   * reads as NOT_LINKED rather than 404: the contract models identity
+   * verification as a state every party has, not a resource some parties lack.
+   */
+  getIvVerification(ctx: HandlerContext): schemas["PartyIvVerificationDto"] {
+    const party = this.getParty(ctx);
+    return (
+      this.ivVerifications.get(party.id as string) ?? {
+        partyId: party.id,
+        status: "NOT_LINKED",
+      }
+    );
+  }
+
+  /** Mock-only driver: walk a party's IV case to any documented status. */
+  advanceIvVerification(
+    partyId: string,
+    to: NonNullable<schemas["PartyIvVerificationDto"]["status"]>,
+  ): schemas["PartyIvVerificationDto"] {
+    const party = this.parties.find((p) => p.id === partyId);
+    if (!party) {
+      throw new Error(`advanceIvVerification: no party with id ${partyId} in the mock store.`);
+    }
+    const current = this.ivVerifications.get(partyId);
+    const previous = current?.status;
+    const next: schemas["PartyIvVerificationDto"] = {
+      ...current,
+      partyId,
+      status: to,
+      ivCaseReference: current?.ivCaseReference ?? `IV-${partyId.slice(0, 8).toUpperCase()}`,
+      linkedAt: current?.linkedAt ?? (to === "NOT_LINKED" ? undefined : this.now()),
+    };
+    this.ivVerifications.set(partyId, next);
+    this.emit({
+      type: "party.iv_status_changed",
+      resource: { kind: "party", id: partyId },
+      previous: { status: previous },
+      data: next,
+    });
+    return next;
+  }
+
   // ── Virtual bank accounts ────────────────────────────────────────────
 
   listVirtualBankAccounts(ctx: HandlerContext): VirtualBankAccount[] {
@@ -648,6 +760,15 @@ export class FinanceMockStore {
         `transfer ${transfer.id}`,
       );
     } catch (error) {
+      // The intent is recorded as failed BEFORE the throw: replaying a request
+      // that failed must conflict, not silently retry into a second attempt.
+      const key = ctx.idempotencyKey ?? (ctx.body as { idempotencyKey?: string })?.idempotencyKey;
+      if (key !== undefined) {
+        this.transferIntents.set(`${sender}:${key}`, {
+          fingerprint: requestFingerprint(ctx.body),
+          outcome: "failed",
+        });
+      }
       if (error instanceof MockLedgerError) {
         insufficientFunds(ctx, error.message);
       }
@@ -775,6 +896,7 @@ export class FinanceMockStore {
   advanceVerification(id: string, status: VerificationStatusInput = "VERIFIED"): void {
     const party = this.parties.find((p) => p.id === id);
     if (party) {
+      const previousStatus = party.partyType === "ORGANISATION" ? party.kybStatus : party.kycStatus;
       if (party.partyType === "ORGANISATION") {
         party.kybStatus = (status === "REJECTED" ? "DENIED" : status) as Party["kybStatus"];
       } else {
@@ -783,14 +905,28 @@ export class FinanceMockStore {
           : status) as Party["kycStatus"];
       }
       party.updatedAt = this.now();
+      this.emit({
+        type: "party.verification_changed",
+        resource: { kind: "party", id },
+        previous: { status: previousStatus },
+        data: party,
+      });
       return;
     }
     const account = this.accounts.find((a) => a.id === id);
     if (account) {
+      const previousAccountStatus = account.kycStatus;
       account.kycStatus = (status === "PENDING"
         ? "VERIFICATION_PENDING"
         : status) as Account["kycStatus"];
       account.version = (account.version ?? 0) + 1;
+      this.emit({
+        type: "account.verification_changed",
+        resource: { kind: "account", id },
+        accountId: id,
+        previous: { status: previousAccountStatus },
+        data: account,
+      });
       return;
     }
     throw new Error(`advanceVerification: no party or account with id ${id} in the mock store.`);
