@@ -196,6 +196,11 @@ export class FinanceMockStore {
     outcome: "failed" | "succeeded";
     result?: Payout;
   }>();
+  private transferIntents = new Map<string, {
+    fingerprint: string;
+    outcome: "failed" | "succeeded";
+    result?: Transfer;
+  }>();
   private virtualBankAccountIntents = new Map<string, {
     fingerprint: string;
     outcome: "failed" | "succeeded";
@@ -257,6 +262,7 @@ export class FinanceMockStore {
     this.supportedAssets = s.supportedAssets;
     this.accountSupportedAssets = new Map(Object.entries(s.accountSupportedAssets));
     this.virtualBankAccountIntents.clear();
+    this.transferIntents.clear();
     this.payoutIntents.clear();
     this.payoutProofWallets.clear();
     this.counter = 0;
@@ -591,9 +597,99 @@ export class FinanceMockStore {
     return { receiverAccountId: receiver.id, receiverExternalId: b.receiverExternalId };
   }
 
+  /**
+   * Replay parity with `requestPayout`: same key + same body returns the
+   * original resource, same key + different body is a 409, and a failed intent
+   * stays failed. Before this, both creators stored `idempotencyKey` on the
+   * resource and never read it, so a retried send created a second transfer -
+   * and now that money actually moves, a second debit.
+   */
+  private transferIntent(
+    ctx: HandlerContext,
+    senderId: string,
+    body: { idempotencyKey?: string },
+  ): { replay?: Transfer; commit: (t: Transfer) => void; fail: () => never } {
+    const key = ctx.idempotencyKey ?? body.idempotencyKey;
+    const intentKey = `${senderId}:${key}`;
+    const fingerprint = requestFingerprint(body);
+    const existing = key === undefined ? undefined : this.transferIntents.get(intentKey);
+    if (existing) {
+      if (existing.outcome === "failed" || existing.fingerprint !== fingerprint || !existing.result) {
+        idempotencyConflict(ctx);
+      }
+      return { replay: existing.result, commit: () => {}, fail: () => idempotencyConflict(ctx) };
+    }
+    return {
+      commit: (transfer) => {
+        if (key !== undefined) {
+          this.transferIntents.set(intentKey, { fingerprint, outcome: "succeeded", result: transfer });
+        }
+      },
+      fail: () => {
+        if (key !== undefined) this.transferIntents.set(intentKey, { fingerprint, outcome: "failed" });
+        return undefined as never;
+      },
+    };
+  }
+
+  /**
+   * Reserve the amount against the sender and record the transfer. The hold is
+   * what makes `available` mean something: a UI reading `total` as spendable
+   * now disagrees with the API.
+   */
+  private postTransfer(ctx: HandlerContext, transfer: Transfer, routeKey: string): Transfer {
+    const asset = transfer.asset as string;
+    const sender = transfer.senderAccountId as string;
+    try {
+      this.ledger.movePhase(
+        transfer.id as string,
+        "HELD",
+        { accountId: sender, asset, amount: transfer.amount as number },
+        `transfer ${transfer.id}`,
+      );
+    } catch (error) {
+      if (error instanceof MockLedgerError) {
+        insufficientFunds(ctx, error.message);
+      }
+      throw error;
+    }
+    this.transfers.push(transfer);
+    this.transferIntents.set(
+      `${sender}:${ctx.idempotencyKey ?? (ctx.body as { idempotencyKey?: string })?.idempotencyKey}`,
+      { fingerprint: requestFingerprint(ctx.body), outcome: "succeeded", result: transfer },
+    );
+    this.emit({
+      type: "transfer.created",
+      resource: { kind: "transfer", id: transfer.id as string },
+      accountId: sender,
+      data: transfer,
+    });
+    this.emitBalance(sender, asset);
+    return toResponseShape(routeKey, transfer as Record<string, unknown>) as Transfer;
+  }
+
+  /** Emitted after the causing event, so a balance-only subscriber is correct. */
+  private emitBalance(accountId: string, asset: string): void {
+    const row = (this.wallets.get(accountId) ?? []).find((w) => w.asset === asset);
+    if (!row) return;
+    this.emit({
+      type: "wallet.balance_changed",
+      resource: { kind: "wallet", id: `${accountId}:${asset}` },
+      accountId,
+      data: { accountId, asset, amount: row.amount },
+    });
+  }
+
   createFiatTransfer(ctx: HandlerContext): Transfer {
     const sender = this.getAccount(ctx, ctx.params.senderAccountId);
     const b = ctx.body as schemas["CreateFiatTransferInput"];
+    const intent = this.transferIntent(ctx, sender.id as string, b);
+    if (intent.replay) {
+      return toResponseShape(
+        "POST /accounts/{senderAccountId}/transfers/fiat",
+        intent.replay as Record<string, unknown>,
+      ) as Transfer;
+    }
     const receiver = this.resolveReceiver(ctx, b);
     const transfer: Transfer = {
       id: this.mintId(),
@@ -611,16 +707,19 @@ export class FinanceMockStore {
       status: "PENDING",
       createdAt: this.now(),
     };
-    this.transfers.push(transfer);
-    return toResponseShape(
-      "POST /accounts/{senderAccountId}/transfers/fiat",
-      transfer as Record<string, unknown>,
-    ) as Transfer;
+    return this.postTransfer(ctx, transfer, "POST /accounts/{senderAccountId}/transfers/fiat");
   }
 
   createCryptoTransfer(ctx: HandlerContext): Transfer {
     const sender = this.getAccount(ctx, ctx.params.senderAccountId);
     const b = ctx.body as schemas["CreateCryptoTransferInput"];
+    const intent = this.transferIntent(ctx, sender.id as string, b);
+    if (intent.replay) {
+      return toResponseShape(
+        "POST /accounts/{senderAccountId}/transfers/crypto",
+        intent.replay as Record<string, unknown>,
+      ) as Transfer;
+    }
     const receiver = this.resolveReceiver(ctx, b);
     const transfer: Transfer = {
       id: this.mintId(),
@@ -635,11 +734,7 @@ export class FinanceMockStore {
       status: "PENDING",
       createdAt: this.now(),
     };
-    this.transfers.push(transfer);
-    return toResponseShape(
-      "POST /accounts/{senderAccountId}/transfers/crypto",
-      transfer as Record<string, unknown>,
-    ) as Transfer;
+    return this.postTransfer(ctx, transfer, "POST /accounts/{senderAccountId}/transfers/crypto");
   }
 
   listTransfers(ctx: HandlerContext): Transfer[] {
@@ -706,12 +801,60 @@ export class FinanceMockStore {
     if (!transfer) {
       throw new Error(`advanceTransfer: no transfer with id ${id} in the mock store.`);
     }
+    const previous = transfer.status;
+    const asset = transfer.asset as string;
+    const amount = transfer.amount as number;
+    const sender = transfer.senderAccountId as string;
+    // The receiver only exists in the ledger if it is an account this mock
+    // knows; a transfer out to an external counterparty legitimately has no
+    // credit leg, and `sum(total)` moves by the amount (an external outflow).
+    const receiver = transfer.receiverAccountId;
+    const receiverKnown =
+      receiver !== undefined && this.accounts.some((a) => a.id === receiver);
+
+    // Both legs are computed and validated before either is applied. A refused
+    // credit reversal must not leave the sender's release standing, or
+    // `sum(total)` drifts up by the amount - a conservation breach created by
+    // the rule that exists to stop a negative balance.
+    const creditLegs: LedgerLeg[] = receiverKnown
+      ? this.ledger.creditLegs(
+          id,
+          status === "COMPLETED" ? "CREDITED" : "NONE",
+          { accountId: receiver as string, asset, amount },
+          `transfer ${id} receiver leg`,
+        )
+      : [];
+
+    this.ledger.movePhase(
+      id,
+      TRANSFER_PHASE[status],
+      { accountId: sender, asset, amount },
+      `transfer ${id}`,
+      creditLegs,
+    );
+    if (receiverKnown) {
+      this.ledger.commitCredit(id, status === "COMPLETED" ? "CREDITED" : "NONE", {
+        accountId: receiver as string,
+        asset,
+        amount,
+      });
+    }
+
     transfer.status = status;
     if (status === "COMPLETED") transfer.transactionHash = this.mintHash();
     if (status === "FAILED") {
       transfer.errorMessage = transfer.errorMessage ?? "Insufficient available balance";
     }
     transfer.updatedAt = this.now();
+    this.emit({
+      type: "transfer.status_changed",
+      resource: { kind: "transfer", id },
+      accountId: sender,
+      previous: { status: previous },
+      data: transfer,
+    });
+    this.emitBalance(sender, asset);
+    if (receiverKnown) this.emitBalance(receiver as string, asset);
   }
 
   createPaymentSession(ctx: HandlerContext): PaymentSession {
@@ -779,6 +922,16 @@ export class FinanceMockStore {
         `simulateInboundCredit: virtual bank account ${virtualBankAccountId} has no currency, so nothing can land on it.`,
       );
     }
+    // The asset is the VBA's DECLARED target, never a guess from the fiat
+    // currency: the seeded EUR account targets USDC, so a currency->stablecoin
+    // mapping would credit the wrong coin - a fixture teaching a falsehood.
+    const asset = vba.targetCryptocurrency;
+    if (!asset) {
+      throw new Error(
+        `simulateInboundCredit: virtual bank account ${virtualBankAccountId} declares no ` +
+          `targetCryptocurrency, so the mock cannot know which asset the credit converts to.`,
+      );
+    }
     const credit: MockInboundCredit = {
       id: this.mintId(),
       virtualBankAccountId,
@@ -788,7 +941,26 @@ export class FinanceMockStore {
       currency: vba.currency,
       receivedAt: this.now(),
     };
+    const accountId = vba.accountId as string;
+    this.ledger.applyAtomic([
+      {
+        accountId,
+        asset,
+        deltaTotal: this.ledger.toMinor(asset, amount),
+        deltaAvailable: this.ledger.toMinor(asset, amount),
+        deltaReserved: 0n,
+        createIfMissing: true,
+        because: `inbound credit on ${virtualBankAccountId}`,
+      },
+    ]);
     this.inboundCredits.push(credit);
+    this.emit({
+      type: "inbound_credit.received",
+      resource: { kind: "inboundCredit", id: credit.id },
+      accountId,
+      data: credit,
+    });
+    this.emitBalance(accountId, asset);
     return credit;
   }
 
@@ -1040,8 +1212,39 @@ export class FinanceMockStore {
       status: "REQUESTED",
       requestedAt: this.now(),
     };
+    // PULL payouts are funded from the account's Venly-managed wallet, so the
+    // amount is reserved now and leaves `total` at SENDING. A PUSH payout is
+    // funded off-SDK to the deposit address and never touches the wallet.
+    if (payout.fundingMode === "PULL") {
+      const asset = route.depositAsset?.name;
+      if (!asset) {
+        this.payoutIntents.set(intentKey, { fingerprint, outcome: "failed" });
+        badRequest(ctx, `Payout route ${route.id} declares no deposit asset.`);
+      }
+      try {
+        this.ledger.movePhase(
+          payout.id as string,
+          "HELD",
+          { accountId: account.id as string, asset, amount: b.cryptoAmount },
+          `payout ${payout.id}`,
+        );
+      } catch (error) {
+        this.payoutIntents.set(intentKey, { fingerprint, outcome: "failed" });
+        if (error instanceof MockLedgerError) insufficientFunds(ctx, error.message);
+        throw error;
+      }
+    }
     this.payouts.push(payout);
     this.payoutIntents.set(intentKey, { fingerprint, outcome: "succeeded", result: payout });
+    this.emit({
+      type: "payout.requested",
+      resource: { kind: "payout", id: payout.id as string },
+      accountId: account.id as string,
+      data: payout,
+    });
+    if (payout.fundingMode === "PULL" && route.depositAsset?.name) {
+      this.emitBalance(account.id as string, route.depositAsset.name);
+    }
     return toResponseShape("POST /accounts/{accountId}/payouts", {
       createdResourceId: payout.id,
       response: payout,
@@ -1063,6 +1266,20 @@ export class FinanceMockStore {
     if (!payout) {
       throw new Error(`advancePayout: no payout with id ${id} in the mock store.`);
     }
+    const previous = payout.status;
+    const asset = payout.payoutRoute?.depositAsset?.name;
+    if (payout.fundingMode === "PULL" && asset) {
+      this.ledger.movePhase(
+        id,
+        PAYOUT_PHASE[to],
+        {
+          accountId: payout.accountId as string,
+          asset,
+          amount: payout.cryptoAmount as number,
+        },
+        `payout ${id}`,
+      );
+    }
     payout.status = to;
     if (to === "SENDING" || to === "PROVIDER_PROCESSING" || to === "COMPLETED") {
       payout.sendTxHash = opts?.sendTxHash ?? payout.sendTxHash ?? this.mintHash();
@@ -1078,6 +1295,16 @@ export class FinanceMockStore {
         (to === "RETURNED"
           ? "Returned by the receiving bank"
           : "Rejected by the payout provider");
+    }
+    this.emit({
+      type: "payout.status_changed",
+      resource: { kind: "payout", id },
+      accountId: payout.accountId as string,
+      previous: { status: previous },
+      data: payout,
+    });
+    if (payout.fundingMode === "PULL" && asset) {
+      this.emitBalance(payout.accountId as string, asset);
     }
     return payout;
   }

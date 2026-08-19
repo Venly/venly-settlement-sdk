@@ -272,6 +272,12 @@ export class Ledger {
     ];
     if (from === to) return [];
     if (Ledger.TERMINAL.includes(from)) {
+      // RELEASED and RETURNED are the same financial end-state - the money is
+      // back in `available`. The difference is narrative (rejected before it
+      // left vs returned by the receiving bank), so walking between them moves
+      // nothing. Re-arming to HELD or DEBITED is a different matter: that
+      // would spend money the ledger has already given back.
+      if (Ledger.TERMINAL.includes(to)) return [];
       throw new MockLedgerError(
         `${because}: ${from} is terminal and cannot move to ${to}. Money that has been ` +
           `released or returned is not re-armed; create a new operation instead.`,

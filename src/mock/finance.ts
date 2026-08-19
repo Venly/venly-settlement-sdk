@@ -205,6 +205,15 @@ const walletSeeds: Record<string, schemas["WalletBalanceDto"][]> = {
   ],
   [accounts[4].id]: [
     {
+      // The payouts account funds USDC payout routes, so it has to hold USDC.
+      // Without this row every payout on the seeded route fails for want of
+      // funds - the routes deposit USDC while the wallet held only USDT, a
+      // mismatch that was invisible while payouts moved no money at all.
+      asset: "USDC",
+      contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      amount: { total: 6000, available: 6000, reserved: 0 },
+    },
+    {
       asset: "USDT",
       contractAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
       amount: { total: 500, available: 500, reserved: 0 },
