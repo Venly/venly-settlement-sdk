@@ -2,7 +2,7 @@
  * never touches real infrastructure; staging/production are explicit. */
 
 export const SERVER_NAME = "venly-finance-mcp-server";
-export const SERVER_VERSION = "0.6.0";
+export const SERVER_VERSION = "0.7.0";
 export const INSTRUCTIONS = `Venly Finance build advisor. This server is a build-time advisor, not your app's data plane. The data plane is the published packages: every read is a hook and every regulated lifecycle a flow machine from \`@venlyfinance/react\`, inside \`<VenlyProvider environment="mock">\` – zero credentials, zero network; server-side code uses \`@venlyfinance/sdk\`. Hand-rolled fetch layers, in-memory money stores, or route handlers that re-implement transfers, balances, or approvals are off-contract and fail review. UI installs from the @venlyfinance shadcn registry: \`npx shadcn@latest add @venlyfinance/balances @venlyfinance/send …\` (auto-installs the npm packages). Before scaffolding, read \`venly://frontend/agents\` – it is the composition doctrine (AGENTS.md). Consult \`get_journey_blueprint\` per screen; gate finished screens with \`review_screen\` and \`npx @venlyfinance/settlement-mcp review "src/**/*.tsx"\`.`;
 
 export const ENVIRONMENT_FLAG = "VENLY_ENV";

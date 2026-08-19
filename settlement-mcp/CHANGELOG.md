@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.0 – 2026-08-19
+
+The MCP now pushes a machine-checkable runtime contract instead of relying on
+agents to discover composition guidance through optional pull surfaces.
+
+- The initialize response carries server instructions that establish
+  `@venlyfinance/react` hooks and flow machines as the browser data plane,
+  `@venlyfinance/sdk` as the server data plane, and the shadcn registry as the
+  UI installation path.
+- Every `get_journey_blueprint` response keeps its prose blueprint and adds the
+  same `runtime_contract` as fenced JSON and `structuredContent`: exact registry
+  dependencies, qualified hook imports, provider configuration, forbidden
+  hand-rolled patterns, install commands, and completion gates.
+- New deterministic `verify` CLI and `verify_runtime_contract` MCP tool with
+  auto-detected `direct-sdk` and `backend-proxy` profiles. Exit codes match the
+  `review` CLI (0 clean, 1 on errors, 2 on usage/no-match), and
+  `venly-allow:<rule-id>` suppressions work on verifier findings.
+- Money-route-without-SDK, in-memory-money-store, and direct-profile missing
+  React checks remain warning-only pending a false-positive-boundary ruling.
+- Requires `@venlyfinance/sdk` ^0.5.0.
+
 ## 0.3.0 – 2026-08-04
 
 Wording-is-the-safety-surface release. An outside integrator audit (2026-08-04) found the server's words disagreeing with its behavior in three
