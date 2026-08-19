@@ -615,8 +615,8 @@ test("ledger: the refusal names the shortfall when both amounts render alike", (
       // "has 1000 and needs 1000" reads as a broken mock. Both render as 1000
       // because a double cannot show 18 decimals, so the message has to say so.
       assert.match(e.message, /999\.999999999999999999/, "the exact balance");
-      assert.match(e.message, /both render as 1000/, "why the numbers look equal");
-      assert.match(e.message, /shortfall of 0\.000000000000000001/, "and the gap");
+      assert.match(e.message, /shortfall of 0\.000000000000000001/, "the gap, stated next to the amounts");
+      assert.match(e.message, /Both amounts render as 1000/, "and why the numbers look equal");
       return e instanceof MockLedgerError;
     },
   );
@@ -632,4 +632,85 @@ test("ledger: the conservation total is accumulated exactly", () => {
     L.snapshot().exactTotalsByAsset.DAI, "2000.000000000000000002",
     "summing through a double would lose both wei, and I4 is asserted on this number",
   );
+});
+
+// ── Sign, and the status a failure actually deserves ───────────────────
+
+test("ledger: a negative amount is refused, not run backwards", async () => {
+  const f = mock();
+  const before = await usdc(f, MAIN);
+  // Conservation is blind to sign, so a negative transfer balanced perfectly
+  // while running the phase machine in reverse: the SENDER gained and the
+  // counterparty lost. Any account could pull funds from any other.
+  await assert.rejects(
+    f.transfers.createFiat(MAIN, {
+      receiverExternalId: "acct-ops-usd", currency: "USD", amount: -5, idempotencyKey: key(70),
+    }),
+    (e) => {
+      assert.match(e.errors[0].message, /must be greater than zero/);
+      assert.match(e.errors[0].message, /would move money backwards/, "says why it matters");
+      return e.status === 400;
+    },
+  );
+  assert.deepEqual(await usdc(f, MAIN), before, "and nothing moved");
+});
+
+test("ledger: zero is refused too", async () => {
+  const f = mock();
+  await assert.rejects(
+    f.transfers.createFiat(MAIN, {
+      receiverExternalId: "acct-ops-usd", currency: "USD", amount: 0, idempotencyKey: key(71),
+    }),
+    (e) => e.status === 400,
+  );
+});
+
+test("ledger: only a real shortfall is a 402; bad input is a 400", async () => {
+  const f = mock();
+  // A client that branches on 402 shows a top-up screen. An over-precise
+  // amount is not a funding problem and must not land there.
+  await assert.rejects(
+    f.transfers.createFiat(MAIN, {
+      receiverExternalId: "acct-ops-usd", currency: "USD", amount: 1.0000001, idempotencyKey: key(72),
+    }),
+    (e) => e.status === 400 && e.errors[0].code === "invalid-request",
+    "too much precision is invalid input, not an empty wallet",
+  );
+  await assert.rejects(
+    f.transfers.createFiat(MAIN, {
+      receiverExternalId: "acct-ops-usd", currency: "USD", amount: 999999999, idempotencyKey: key(73),
+    }),
+    (e) => e.status === 402 && e.errors[0].code === "insufficient-funds",
+    "an actual shortfall still is",
+  );
+});
+
+test("ledger: verify() explains itself when the two amounts render alike", () => {
+  const t = new FinanceMockTransport();
+  const L = t.$store.ledger;
+  // reserved and held come from different precision provenance, so on an
+  // 18-decimal asset they can differ below what a double can show.
+  L.applyAtomic([{
+    accountId: OPS, asset: "DAI",
+    deltaTotal: L.toMinor("DAI", 1000), deltaAvailable: 0n, deltaReserved: L.toMinor("DAI", 1000),
+    createIfMissing: true, because: "reserve",
+  }]);
+  L.hydrateHold("h1", OPS, "DAI", 1000, "HELD");
+  L.applyAtomic([{ accountId: OPS, asset: "DAI", deltaTotal: 1n, deltaAvailable: 0n, deltaReserved: 1n, because: "one wei more reserved" }]);
+  assert.throws(
+    () => L.verify(),
+    (e) => {
+      assert.match(e.message, /both render as 1000/, "must not read as '1000 must match 1000'");
+      return e instanceof MockLedgerError;
+    },
+  );
+});
+
+test("ledger: open holds carry an exact amount, so reserves can be reconciled", () => {
+  const t = new FinanceMockTransport();
+  const holds = t.simulations.ledger.snapshot().holds;
+  assert.ok(holds.length > 0);
+  for (const h of holds) {
+    assert.equal(typeof h.exactAmount, "string", "every hold is reconcilable against `reserved`");
+  }
 });

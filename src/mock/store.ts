@@ -87,9 +87,26 @@ const PAYOUT_PHASE: Record<string, FundsPhase> = {
   RETURNED: "RETURNED",
 };
 
-/** 402/insufficient-funds, matching the mock's own `INSUFFICIENT_FUNDS` preset. */
-function insufficientFunds(ctx: HandlerContext, message: string): never {
-  mockError({ status: 402, code: "insufficient-funds", message }, ctx.method, ctx.path);
+/**
+ * Map a ledger failure onto the status it actually deserves.
+ *
+ * Everything used to surface as `402 insufficient-funds`, so a mistyped asset
+ * symbol or an over-precise amount rendered a top-up prompt in any client that
+ * branches on 402. Only a genuine shortfall is a funding problem.
+ */
+function ledgerError(ctx: HandlerContext, error: MockLedgerError): never {
+  if (error.kind === "insufficient-funds") {
+    mockError(
+      { status: 402, code: "insufficient-funds", message: error.message },
+      ctx.method,
+      ctx.path,
+    );
+  }
+  mockError(
+    { status: 400, code: "invalid-request", message: error.message },
+    ctx.method,
+    ctx.path,
+  );
 }
 
 export type VerificationStatusInput =
@@ -799,9 +816,7 @@ export class FinanceMockStore {
           outcome: "failed",
         });
       }
-      if (error instanceof MockLedgerError) {
-        insufficientFunds(ctx, error.message);
-      }
+      if (error instanceof MockLedgerError) ledgerError(ctx, error);
       throw error;
     }
     this.transfers.push(transfer);
@@ -1108,6 +1123,12 @@ export class FinanceMockStore {
       receivedAt: this.now(),
     };
     const accountId = vba.accountId as string;
+    if (!(amount > 0)) {
+      throw new Error(
+        `simulateInboundCredit: amount must be greater than zero, got ${amount}. ` +
+          `A credit that removes money is a debit, and there is no such simulation.`,
+      );
+    }
     this.ledger.applyAtomic([
       {
         accountId,
@@ -1397,7 +1418,7 @@ export class FinanceMockStore {
         );
       } catch (error) {
         this.payoutIntents.set(intentKey, { fingerprint, outcome: "failed" });
-        if (error instanceof MockLedgerError) insufficientFunds(ctx, error.message);
+        if (error instanceof MockLedgerError) ledgerError(ctx, error);
         throw error;
       }
     }

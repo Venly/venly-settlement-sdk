@@ -11,10 +11,28 @@ type SupportedAsset = schemas["SupportedAssetView"];
  * tenant does not support. Every message names the account, the asset, the
  * amounts involved, and what to do instead.
  */
+export type MockLedgerErrorKind =
+  /** The account genuinely does not hold enough. */
+  | "insufficient-funds"
+  /** The amount itself is not usable: negative, zero, or too precise. */
+  | "invalid-amount"
+  /** The asset is not one the tenant supports. */
+  | "unsupported-asset"
+  /** A balance rule would be broken, or a transition cannot happen. */
+  | "invariant";
+
 export class MockLedgerError extends Error {
-  constructor(message: string) {
+  /**
+   * Why this failed, so a caller can map it to the right status. Everything
+   * used to surface as a shortfall, which turned a mistyped asset symbol into
+   * a "top up your account" prompt.
+   */
+  readonly kind: MockLedgerErrorKind;
+
+  constructor(message: string, kind: MockLedgerErrorKind = "invariant") {
     super(message);
     this.name = "MockLedgerError";
+    this.kind = kind;
   }
 }
 
@@ -73,7 +91,14 @@ export interface LedgerSnapshot {
    * Money committed to a pending operation. Every reserved amount must have
    * one of these behind it.
    */
-  holds: { id: string; accountId: string; asset: string; amount: number }[];
+  holds: {
+    id: string;
+    accountId: string;
+    asset: string;
+    amount: number;
+    /** Exact minor-unit amount, for reconciling against `reserved` on a high-precision asset. */
+    exactAmount: string;
+  }[];
 }
 
 /** An open or historical hold the ledger tracks for I5 and for phase transitions. */
@@ -96,6 +121,10 @@ interface Credit {
 }
 
 const SCALE_CACHE = new Map<string, number>();
+
+function existingHold(holds: Map<string, unknown>, id: string): boolean {
+  return holds.has(id);
+}
 
 /**
  * Expand `1.5e-7` to `0.00000015` without rounding.
@@ -174,8 +203,10 @@ export class Ledger {
     const row = this.supportedAssets().find((a) => a.cryptoCurrency === asset);
     if (!row || row.decimals === undefined) {
       throw new MockLedgerError(
-        `No supported asset row for ${asset}, so the mock cannot know its decimals. ` +
-          `Add it to seeds.supportedAssets rather than assuming a default.`,
+        `${asset} is not one of this tenant's supported assets, so the mock does not know ` +
+          `how many decimals it has. Load a seed profile whose supportedAssets include ` +
+          `${asset}, or use one of the assets already configured.`,
+        "unsupported-asset",
       );
     }
     SCALE_CACHE.set(asset, row.decimals);
@@ -190,7 +221,7 @@ export class Ledger {
   toMinor(asset: string, amount: number): bigint {
     const decimals = this.decimals(asset);
     if (!Number.isFinite(amount)) {
-      throw new MockLedgerError(`Amount ${amount} is not a finite number.`);
+      throw new MockLedgerError(`Amount ${amount} is not a finite number.`, "invalid-amount");
     }
     // `String(n)` gives the shortest representation that round-trips, which is
     // the value the author wrote. `toFixed(20)` does NOT: it exposes the float
@@ -215,6 +246,7 @@ export class Ledger {
         `Amount ${String(reportAs)} has more precision than ${asset} allows ` +
           `(${decimals} decimals). Amounts are never rounded to fit — that is how a ledger ` +
           `loses money — so pass an amount ${asset} can actually represent.`,
+        "invalid-amount",
       );
     }
     const padded = trimmed.padEnd(decimals, "0");
@@ -314,16 +346,16 @@ export class Ledger {
         const needs = this.toDecimal(leg.asset, -leg.deltaAvailable);
         const collides = has === needs;
         const detail = collides
-          ? `has ${this.toExact(leg.asset, base.available)} ${leg.asset} available (both ` +
-            `render as ${has}, because ${leg.asset} carries more decimals than a JavaScript ` +
-            `number can show) and this operation needs ` +
-            `${this.toExact(leg.asset, -leg.deltaAvailable)}, a shortfall of ` +
-            `${this.toExact(leg.asset, -next.available)}`
+          ? `has ${this.toExact(leg.asset, base.available)} ${leg.asset} available and this ` +
+            `operation needs ${this.toExact(leg.asset, -leg.deltaAvailable)} — a shortfall of ` +
+            `${this.toExact(leg.asset, -next.available)}. Both amounts render as ${has}, ` +
+            `because ${leg.asset} carries more decimals than a JavaScript number can show`
           : `has ${has} ${leg.asset} available and this operation needs ${needs}`;
         throw new MockLedgerError(
           `${leg.because}: account ${leg.accountId} ${detail}. Fund the account first — in ` +
             `mock mode, simulations.inbound.credit(virtualBankAccountId, amount) lands money ` +
             `the way a bank transfer does. No part of this operation was applied.`,
+          "insufficient-funds",
         );
       }
       if (next.total < 0n || next.reserved < 0n) {
@@ -376,8 +408,8 @@ export class Ledger {
       throw new MockLedgerError(
         `${because}: cannot open a ${asset} wallet row for account ${accountId} because no ` +
           `supported asset declares it, so the mock has no real contract address to give it. ` +
-          `Add ${asset} to the tenant's supported assets first. No part of this operation was ` +
-          `applied.`,
+          `Use an asset the tenant supports. No part of this operation was applied.`,
+        "unsupported-asset",
       );
     }
   }
@@ -426,8 +458,26 @@ export class Ledger {
 
   // ── Holds (sender side) ──────────────────────────────────────────────
 
+  /**
+   * Every amount that moves money must be strictly positive. Direction belongs
+   * to the operation, never to the sign of its amount: a negative transfer runs
+   * the phase machine in reverse, so the SENDER gains and the counterparty
+   * loses — and conservation still balances, so no other rule catches it.
+   */
+  private assertPositive(asset: string, amount: number, because: string): void {
+    if (!(amount > 0)) {
+      throw new MockLedgerError(
+        `${because}: amount must be greater than zero, got ${amount}. Direction is decided by ` +
+          `the operation — a negative amount would move money backwards, taking it from the ` +
+          `counterparty instead of sending it.`,
+        "invalid-amount",
+      );
+    }
+  }
+
   /** Register a seeded money object at its implied phase, posting no delta. */
   hydrateHold(id: string, accountId: string, asset: string, amount: number, phase: FundsPhase): void {
+    this.assertPositive(asset, amount, `seeded money object ${id}`);
     this.holds.set(id, { accountId, asset, amount: this.toMinor(asset, amount), phase, hydrated: true });
   }
 
@@ -439,6 +489,7 @@ export class Ledger {
     because: string,
     extraLegs: LedgerLeg[] = [],
   ): void {
+    if (!existingHold(this.holds, id)) this.assertPositive(init.asset, init.amount, because);
     const existing = this.holds.get(id);
     const hold: Hold = existing ?? {
       accountId: init.accountId,
@@ -463,6 +514,7 @@ export class Ledger {
   // ── Credits (receiver side) ──────────────────────────────────────────
 
   hydrateCredit(id: string, accountId: string, asset: string, amount: number): void {
+    this.assertPositive(asset, amount, `seeded credit ${id}`);
     this.credits.set(id, { accountId, asset, amount: this.toMinor(asset, amount), phase: "CREDITED", hydrated: true });
   }
 
@@ -564,11 +616,21 @@ export class Ledger {
       const reserved = this.read(accountId, asset).reserved;
       const held = open.get(key) ?? 0n;
       if (reserved !== held) {
-        throw new MockLedgerError(
-          `Account ${accountId} reserves ${this.toDecimal(asset, reserved)} ${asset}, but ` +
+        // Same collision applyAtomic guards against: on a high-precision asset
+        // these two can render identically while differing, and "reserves 1000
+        // but 1000 is outstanding — the two must match" reads as nonsense.
+        const collides = this.toDecimal(asset, reserved) === this.toDecimal(asset, held);
+        const amounts = collides
+          ? `reserves ${this.toExact(asset, reserved)} ${asset}, but ` +
+            `${this.toExact(asset, held)} ${asset} of pending operations are outstanding ` +
+            `against it (both render as ${this.toDecimal(asset, reserved)}, because ${asset} ` +
+            `carries more decimals than a JavaScript number can show)`
+          : `reserves ${this.toDecimal(asset, reserved)} ${asset}, but ` +
             `${this.toDecimal(asset, held)} ${asset} of pending operations are outstanding ` +
-            `against it — the two must match. Reserved money is money committed to ` +
-            `something: every reserve needs a ` +
+            `against it`;
+        throw new MockLedgerError(
+          `Account ${accountId} ${amounts} — the two must match. Reserved money is money ` +
+            `committed to something: every reserve needs a ` +
             `PENDING transfer or a REQUESTED payout behind it. If you supplied your own ` +
             `fixtures, supply the transfers and payouts alongside the balances they reserve ` +
             `against — replacing one without the other leaves the reserve unexplained.`,
@@ -615,7 +677,13 @@ export class Ledger {
     const holds = [...this.holds.entries()]
       .filter(([, h]) => h.phase === "HELD")
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([id, h]) => ({ id, accountId: h.accountId, asset: h.asset, amount: this.toDecimal(h.asset, h.amount) }));
+      .map(([id, h]) => ({
+        id,
+        accountId: h.accountId,
+        asset: h.asset,
+        amount: this.toDecimal(h.asset, h.amount),
+        exactAmount: this.toExact(h.asset, h.amount),
+      }));
     return { rows, totalsByAsset, exactTotalsByAsset, holds };
   }
 
