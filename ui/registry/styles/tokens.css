@@ -143,7 +143,10 @@ a:focus-visible,
    horizontal body scroll: panels go full-bleed, forms stop clamping above
    the viewport, and tables scroll inside their own container. */
 .venly-table-scroll {
+  box-sizing: border-box;
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -175,6 +178,16 @@ a:focus-visible,
     --form-max-width: 100%;
     --auth-form-max-width: 100%;
     --shadow-overlay: 0 -8px 24px rgba(9, 9, 11, 0.08);
+  }
+
+  /* Bound the page so a wide table cannot stretch the body. Tables
+     keep a readable min-width and scroll inside .venly-table-scroll. */
+  html {
+    overflow-x: hidden;
+  }
+
+  .venly-table-scroll {
+    max-width: 100vw;
   }
 
   .venly-table-scroll > table {
