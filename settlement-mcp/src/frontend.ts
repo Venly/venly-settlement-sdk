@@ -96,6 +96,156 @@ Rules that must hold: the optimistic-locking version travels with every decision
 type JourneyKey = keyof typeof JOURNEYS;
 const JOURNEY_KEYS = Object.keys(JOURNEYS) as [JourneyKey, ...JourneyKey[]];
 
+const RUNTIME_PACKAGES_BY_BLOCK = {
+  activity: {
+    "@venlyfinance/react": "^0.4.0",
+    "@venlyfinance/sdk": "^0.5.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  auth: { "@radix-ui/react-one-time-password-field": "^0.1.16" },
+  balances: {
+    "@venlyfinance/react": "^0.4.0",
+    "@venlyfinance/sdk": "^0.5.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  "bank-accounts": {
+    "@venlyfinance/react": "^0.4.0",
+    "@venlyfinance/sdk": "^0.5.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  onboarding: {
+    "@venlyfinance/react": "^0.4.0",
+    "@venlyfinance/sdk": "^0.5.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  receive: {
+    "@venlyfinance/react": "^0.4.0",
+    "@venlyfinance/sdk": "^0.5.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  reconciliation: {
+    "@venlyfinance/react": "^0.4.0",
+    "@venlyfinance/sdk": "^0.5.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  send: {
+    "@venlyfinance/react": "^0.4.0",
+    "@venlyfinance/sdk": "^0.5.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  team: { "@radix-ui/react-dialog": "^1.1.23" },
+  withdraw: {
+    "@venlyfinance/react": "^0.4.0",
+    "@venlyfinance/sdk": "^0.5.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+} as const;
+
+type RuntimeBlock = keyof typeof RUNTIME_PACKAGES_BY_BLOCK;
+
+const JOURNEY_RUNTIME: Record<JourneyKey, {
+  blocks: RuntimeBlock[];
+  hooks: string[];
+  demoBindings?: { import: string; from: string }[];
+}> = {
+  auth: {
+    blocks: ["auth"],
+    hooks: [],
+    demoBindings: [{ import: "createMockAuthAdapter", from: "registry:block/auth" }],
+  },
+  team: {
+    blocks: ["team"],
+    hooks: [],
+    demoBindings: [{ import: "createMockTeamAdapter", from: "registry:block/team" }],
+  },
+  "home-balances": { blocks: ["balances"], hooks: ["useAccounts", "useWallets"] },
+  receive: { blocks: ["receive"], hooks: ["useVirtualBankAccounts"] },
+  send: { blocks: ["send"], hooks: ["useStagedTransfer", "useFeeQuote"] },
+  activity: { blocks: ["activity"], hooks: ["useTransfers", "useRampRequests"] },
+  "onboarding-status": {
+    blocks: ["onboarding"],
+    hooks: ["useCreateParty", "useCreateAccount", "useParty", "useAccount"],
+  },
+  "withdraw-bank-accounts": {
+    blocks: ["bank-accounts", "withdraw"],
+    hooks: [
+      "useCompanyBankAccounts",
+      "useBankAccountConfig",
+      "useCreateCompanyBankAccount",
+      "useRampRequests",
+      "useRampRequest",
+      "useCreateRampRequest",
+      "useFeeQuote",
+      "useRampPairs",
+      "useReferenceData",
+      "useFourEyesApproval",
+      "useInitiateRamp",
+      "describeRampStatus",
+    ],
+  },
+  reconciliation: {
+    blocks: ["reconciliation"],
+    hooks: ["useVirtualBankAccounts", "useTransfers"],
+  },
+  "proof-of-segregation": { blocks: ["balances"], hooks: ["useWallets", "useAccount"] },
+  approvals: {
+    blocks: ["withdraw"],
+    hooks: ["useRampRequests", "useFourEyesApproval", "useRampLifecycle"],
+  },
+};
+
+const RUNTIME_CONTRACT_SCHEMA = z.object({
+  runtimeMode: z.enum(["mock", "staging", "production"]),
+  requiredPackages: z.record(z.string()),
+  requiredHooks: z.array(z.object({ import: z.string(), from: z.string() })),
+  demoBindings: z.array(z.object({ import: z.string(), from: z.string() })).optional(),
+  provider: z.object({
+    import: z.string(),
+    from: z.string(),
+    props: z.object({ environment: z.literal("mock") }),
+  }),
+  forbiddenPatterns: z.array(z.string()),
+  install: z.array(z.string()),
+  completionChecks: z.array(z.string()),
+});
+
+function runtimeContractForJourney(journey: JourneyKey): z.infer<typeof RUNTIME_CONTRACT_SCHEMA> {
+  const definition = JOURNEY_RUNTIME[journey];
+  const requiredPackages: Record<string, string> = {};
+  for (const block of definition.blocks) {
+    Object.assign(requiredPackages, RUNTIME_PACKAGES_BY_BLOCK[block]);
+  }
+  return {
+    runtimeMode: "mock",
+    requiredPackages,
+    requiredHooks: definition.hooks.map((name) => ({
+      import: name,
+      from: "@venlyfinance/react",
+    })),
+    ...(definition.demoBindings ? { demoBindings: definition.demoBindings } : {}),
+    provider: {
+      import: "VenlyProvider",
+      from: "@venlyfinance/react",
+      props: { environment: "mock" },
+    },
+    forbiddenPatterns: [
+      "in-memory store of transfer/balance/approval state",
+      "fetch()/axios to self-owned money routes that do not wrap @venlyfinance/sdk",
+      "useEffect polling loops for transfer status (useStagedTransfer/useRampLifecycle exist)",
+      "clientSecret in browser code (provider throws; use proxyClientOptions())",
+    ],
+    install: [
+      "npx shadcn@latest init -y -b radix -p nova",
+      'add { "registries": { "@venlyfinance": "https://raw.githubusercontent.com/Venly/venly-settlement-sdk/main/ui/r/{name}.json" } } to components.json',
+      `npx shadcn@latest add ${definition.blocks.map((block) => `@venlyfinance/${block}`).join(" ")} -y -o`,
+    ],
+    completionChecks: [
+      'npx @venlyfinance/settlement-mcp review "src/**/*.tsx" exits 0',
+      'npx @venlyfinance/settlement-mcp verify "src/**/*.{ts,tsx}" exits 0',
+    ],
+  };
+}
+
 interface Finding {
   rule: string;
   severity: "error" | "warn";
@@ -620,10 +770,25 @@ export function registerFrontendTools(server: McpServer): void {
       inputSchema: {
         journey: z.enum(JOURNEY_KEYS).describe("Which journey to blueprint"),
       },
+      outputSchema: {
+        runtime_contract: RUNTIME_CONTRACT_SCHEMA,
+      },
     },
-    async ({ journey }) => ({
-      content: [{ type: "text", text: JOURNEYS[journey] }],
-    }),
+    async ({ journey }) => {
+      const structuredContent = {
+        runtime_contract: runtimeContractForJourney(journey),
+      };
+      return {
+        content: [
+          { type: "text", text: JOURNEYS[journey] },
+          {
+            type: "text",
+            text: `\`\`\`json\n${JSON.stringify(structuredContent, null, 2)}\n\`\`\``,
+          },
+        ],
+        structuredContent,
+      };
+    },
   );
 
   server.registerTool(
