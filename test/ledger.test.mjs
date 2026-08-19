@@ -819,3 +819,40 @@ test("ledger: a refused seed profile does not survive a later reset", () => {
   t.simulations.reset();
   t.simulations.ledger.verify();
 });
+
+test("errors: every code the ledger throws can also be injected with failNext", async () => {
+  const f = mock();
+  // A single vocabulary is the point: a UI wired to failNext and a UI wired to
+  // the real rejection must not need two handlers for one failure. A code the
+  // ledger can produce but failNext cannot inject breaks that.
+  for (const [preset, expected] of [
+    ["INVALID_AMOUNT", "invalid-amount"],
+    ["UNSUPPORTED_ASSET", "unsupported-asset"],
+    ["INSUFFICIENT_FUNDS", "insufficient-funds"],
+  ]) {
+    f.mock.failNext(preset);
+    await assert.rejects(f.accounts.list(), (e) => e.errors[0].code === expected, preset);
+  }
+});
+
+test("idempotency: a key refused for a bad amount is still usable; a burned key is not", async () => {
+  const f = mock();
+  const k = key(80);
+  // Validation now runs before the intent is recorded, so a 400 does not burn
+  // the key - retrying with a corrected body is the normal client move.
+  await assert.rejects(
+    f.transfers.createFiat(MAIN, { receiverExternalId: "acct-ops-usd", currency: "USD", amount: -5, idempotencyKey: k }),
+    (e) => e.status === 400,
+  );
+  const ok = await f.transfers.createFiat(MAIN, {
+    receiverExternalId: "acct-ops-usd", currency: "USD", amount: 5, idempotencyKey: k,
+  });
+  assert.ok(ok.id, "a request rejected before it existed leaves the key free");
+
+  // A key burned by a genuine shortfall stays burned: that attempt DID reach
+  // the ledger, so replaying it is a conflict rather than a retry.
+  const k2 = key(81);
+  const body = { receiverExternalId: "acct-ops-usd", currency: "USD", amount: 999999999, idempotencyKey: k2 };
+  await assert.rejects(f.transfers.createFiat(MAIN, body), (e) => e.status === 402);
+  await assert.rejects(f.transfers.createFiat(MAIN, body), (e) => e.status === 409);
+});

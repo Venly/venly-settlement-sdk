@@ -62,6 +62,16 @@ export const errorPresets = {
     code: "idempotency-conflict",
     message: "This idempotency key was already used with a different request body.",
   },
+  INVALID_AMOUNT: {
+    status: 400,
+    code: "invalid-amount",
+    message: "The amount is not usable: it is negative, zero, or finer than the asset allows.",
+  },
+  UNSUPPORTED_ASSET: {
+    status: 400,
+    code: "unsupported-asset",
+    message: "That asset is not configured for this tenant.",
+  },
   INTERNAL_SERVER_ERROR: {
     status: 500,
     code: "internal-error",
