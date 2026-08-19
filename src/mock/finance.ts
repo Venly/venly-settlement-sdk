@@ -185,7 +185,7 @@ export const accounts = [
 
 // Contract 1.3.0: `listWallets` returns per-asset balance rows only. The
 // wallet wrapper (id/chain/address/amlStatus) is no longer part of the public
-// read surface — see the gap register (wallet identity is unobtainable while
+// read surface (wallet identity is unobtainable while
 // the permit endpoints still key on {walletId}).
 export const wallet = [
   {
@@ -982,10 +982,12 @@ export interface ChannelInfo {
 }
 
 /**
- * Mock-only drivers, separated from the transport controls (`failNext`,
- * `calls`, `clear`). Two different things shared one surface before: how the
- * TRANSPORT behaves, and what the WORLD does. Splitting them is what later
- * lets an MCP host allow one and refuse the other mechanically.
+ * Drivers that change the simulated world: advance a verification, land an
+ * inbound payment, walk a payout to its next status, load a seed profile.
+ *
+ * Separate from the transport controls (`failNext`, `respondNext`, `calls`,
+ * `clear`), which change how the mock TRANSPORT behaves rather than what
+ * happens in the world it simulates.
  */
 export interface VenlyFinanceSimulations {
   reset(): void;
@@ -997,7 +999,12 @@ export interface VenlyFinanceSimulations {
   };
   ledger: {
     snapshot(): LedgerSnapshot;
-    /** Throws MockLedgerError on I1/I2/I5. I4 is a delta between snapshots. */
+    /**
+     * Throws `MockLedgerError` if any balance stops adding up: total not equal
+     * to available + reserved, a negative amount, or money reserved with no
+     * pending operation behind it. To check that the system-wide total only
+     * moved on money entering or leaving, compare two `snapshot()` calls.
+     */
     verify(): void;
   };
   inbound: {
@@ -1119,6 +1126,7 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
     this.sessionId = sessionId;
     this.highWater = { revision: 0, originId: channel.originId };
     this.simulations = createSimulations(this);
+    transportsConstructed += 1;
 
     channel.subscribe((message) => this.receive(message));
     if (channel.adapter !== "memory") channel.post({ kind: "hello", originId: channel.originId });
@@ -1257,6 +1265,8 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
 
 /** Module-level defaults for transports the caller cannot pass options to. */
 let defaultMockOptions: FinanceMockOptions = {};
+/** Counted so late configuration can warn instead of failing silently. */
+let transportsConstructed = 0;
 
 /**
  * Set the options a later `new FinanceMockTransport()` uses when given none.
@@ -1274,12 +1284,22 @@ let defaultMockOptions: FinanceMockOptions = {};
  *    check `adapter` and `peers` rather than assuming the call took.
  */
 export function configureFinanceMockDefaults(options: FinanceMockOptions): void {
+  if (transportsConstructed > 0 && typeof console !== "undefined") {
+    console.warn(
+      `[venly mock] configureFinanceMockDefaults() was called after ${transportsConstructed} ` +
+        `mock client(s) had already been created. Those clients keep the settings that were in ` +
+        `force when they were built, so they will not share state with clients created from ` +
+        `now on. Call this once at startup, before creating any client, and check ` +
+        `client.mock.simulations.channelInfo() to confirm what a given client actually joined.`,
+    );
+  }
   defaultMockOptions = { ...options };
 }
 
 /** Clear the module-level defaults (mostly for tests). */
 export function resetFinanceMockDefaults(): void {
   defaultMockOptions = {};
+  transportsConstructed = 0;
 }
 
 /** @deprecated Construct `FinanceMockTransport` instead; kept for 0.1.x compatibility. */

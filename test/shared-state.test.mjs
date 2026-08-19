@@ -14,8 +14,21 @@ const MAIN = "a10c2d31-2222-4b20-8c63-000000000001";
 const PARTY = "0b54e9f1-1111-4a10-9b52-000000000004";
 const key = (n) => `${String(n).padStart(8, "0")}-2222-4222-8222-222222222222`;
 
-/** Let the BroadcastChannel round-trip land: delivery is async by design. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
+/**
+ * Replication is asynchronous, so a fixed sleep is a race: under parallel test
+ * load a 10ms wait is sometimes short, which makes the suite flaky rather than
+ * wrong. Poll the condition instead and fail only when it never arrives.
+ */
+const waitFor = async (predicate, what, timeoutMs = 2000) => {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (predicate()) return;
+    if (Date.now() > deadline) throw new Error(`timed out waiting for: ${what}`);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+};
+/** Give the channel a beat when there is no condition to poll on yet. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 25));
 
 const usdc = (t, acct) =>
   t.simulations.ledger.snapshot().rows.find((r) => r.accountId === acct && r.asset === "USDC");
@@ -34,7 +47,7 @@ test("shared state: a mutation in one context is visible in another", async (t) 
     body: { receiverExternalId: "acct-ops-usd", amount: 400, currency: "USD", idempotencyKey: key(1) },
     idempotencyKey: key(1),
   });
-  await settle();
+  await waitFor(() => usdc(B, MAIN).available === beforeB - 400, "B to observe A's hold");
 
   assert.equal(
     usdc(B, MAIN).available, beforeB - 400,
@@ -68,7 +81,7 @@ test("shared state: B rejects a spend using A's balance, not a stale local one",
     body: { receiverExternalId: "acct-ops-usd", amount: available - 10, currency: "USD", idempotencyKey: key(2) },
     idempotencyKey: key(2),
   });
-  await settle();
+  await waitFor(() => usdc(B, MAIN).available === 10, "B to adopt A's balance");
 
   // B, which started with the full balance, must now refuse a spend of 500.
   await assert.rejects(
@@ -92,7 +105,10 @@ test("shared state: a driver in the console context reaches the consumer context
 
   const before = consumer.$store.parties.find((p) => p.id === PARTY)?.kybStatus;
   console_.simulations.verification.advance(PARTY, "VERIFIED");
-  await settle();
+  await waitFor(
+    () => consumer.$store.parties.find((p) => p.id === PARTY)?.kybStatus === "VERIFIED",
+    "the consumer surface to learn about the approval",
+  );
 
   assert.notEqual(before, "VERIFIED", "precondition: not already verified");
   assert.equal(
@@ -117,7 +133,10 @@ test("shared state: a late joiner adopts the world and is told to resync", async
   const late = new FinanceMockTransport({ channel: "broadcast", sessionId: session });
   const seen = [];
   late.simulations.events.subscribe((e) => seen.push(e));
-  await settle();
+  await waitFor(
+    () => usdc(late, MAIN).available === usdc(A, MAIN).available,
+    "the late joiner to adopt current truth",
+  );
 
   assert.equal(usdc(late, MAIN).available, usdc(A, MAIN).available, "the late joiner sees current truth");
   assert.ok(seen.some((e) => e.type === "store.resync"), "and is told it is a resync, not continuity");
@@ -147,7 +166,10 @@ test("defaults: an ordinarily-constructed client joins the configured session", 
       body: { receiverExternalId: "acct-ops-usd", amount: 125, currency: "USD", idempotencyKey: key(5) },
       idempotencyKey: key(5),
     });
-    await settle();
+    await waitFor(
+      () => app.mock.simulations.channelInfo().revision > 0,
+      "the default-configured client to adopt the other context's write",
+    );
 
     const wallets = await app.wallets.list(MAIN);
     const row = wallets.items.find((w) => w.asset === "USDC");

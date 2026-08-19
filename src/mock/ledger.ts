@@ -5,10 +5,11 @@ type Wallet = schemas["WalletBalanceDto"];
 type SupportedAsset = schemas["SupportedAssetView"];
 
 /**
- * Raised when an operation would break a ledger invariant. Every throw site is
- * a driver misusing the mock (reversing a credit the receiver no longer holds,
- * re-arming a terminal phase, crediting an asset the tenant does not support),
- * so the message names the operation rather than the internal rule number.
+ * Raised when an operation would leave a balance in an impossible state:
+ * spending more than an account has, reversing a credit the receiver no longer
+ * holds, re-arming money that was already given back, or crediting an asset the
+ * tenant does not support. Every message names the account, the asset, the
+ * amounts involved, and what to do instead.
  */
 export class MockLedgerError extends Error {
   constructor(message: string) {
@@ -219,18 +220,30 @@ export class Ledger {
         available: base.available + leg.deltaAvailable,
         reserved: base.reserved + leg.deltaReserved,
       };
-      if (next.total < 0n || next.available < 0n || next.reserved < 0n) {
+      if (next.available < 0n) {
+        // Report what the account HAS and what the operation NEEDS. The
+        // projected negative is an internal number; the caller can only act on
+        // the shortfall.
         throw new MockLedgerError(
-          `${leg.because}: would leave account ${leg.accountId} with a negative ${leg.asset} ` +
-            `balance (total ${this.toDecimal(leg.asset, next.total)}, available ` +
-            `${this.toDecimal(leg.asset, next.available)}, reserved ` +
-            `${this.toDecimal(leg.asset, next.reserved)}). No part of this operation was applied.`,
+          `${leg.because}: account ${leg.accountId} has ` +
+            `${this.toDecimal(leg.asset, base.available)} ${leg.asset} available and this ` +
+            `operation needs ${this.toDecimal(leg.asset, -leg.deltaAvailable)}. Fund the ` +
+            `account first — in mock mode, simulations.inbound.credit(virtualBankAccountId, ` +
+            `amount) lands money the way a bank transfer does. No part of this operation was ` +
+            `applied.`,
+        );
+      }
+      if (next.total < 0n || next.reserved < 0n) {
+        throw new MockLedgerError(
+          `${leg.because}: would leave account ${leg.accountId} holding a negative amount of ` +
+            `${leg.asset}. No part of this operation was applied.`,
         );
       }
       if (next.total !== next.available + next.reserved) {
         throw new MockLedgerError(
-          `${leg.because}: would break total === available + reserved on ${leg.asset} for ` +
-            `account ${leg.accountId}. No part of this operation was applied.`,
+          `${leg.because}: would leave account ${leg.accountId}'s ${leg.asset} balance ` +
+            `inconsistent — total must always equal available + reserved. No part of this ` +
+            `operation was applied.`,
         );
       }
       // A row that must exist but does not is caught here, before any write,
@@ -259,7 +272,7 @@ export class Ledger {
 
   private static readonly TERMINAL: FundsPhase[] = ["RELEASED", "RETURNED"];
 
-  /** The delta table from the spec, as legs. Throws on an illegal edge. */
+  /** Deltas for one phase transition. Throws on a transition that cannot happen. */
   private phaseLegs(
     from: FundsPhase,
     to: FundsPhase,
@@ -392,9 +405,12 @@ export class Ledger {
   // ── Invariants and snapshot ──────────────────────────────────────────
 
   /**
-   * I1 (total === available + reserved), I2 (non-negative) and I5 (reserved
-   * equals the sum of open holds). I4 is conservation over operations and is
-   * a delta between two snapshots, so it is deliberately not checked here.
+   * Checks every balance rule that can be judged from the current state:
+   * `total` equals `available + reserved`, no amount is negative, and every
+   * reserved amount has a pending operation behind it. Conservation (that the
+   * system-wide total only moves on money entering or leaving) is a property of
+   * a sequence of operations, not of one moment, so compare two `snapshot()`
+   * calls for that.
    */
   verify(): void {
     for (const [accountId, rows] of this.wallets) {
@@ -403,12 +419,16 @@ export class Ledger {
         const { total, available, reserved } = this.read(accountId, row.asset);
         if (total !== available + reserved) {
           throw new MockLedgerError(
-            `I1 broken on ${row.asset} for account ${accountId}: total ${row.amount.total} !== ` +
-              `available ${row.amount.available} + reserved ${row.amount.reserved}.`,
+            `Account ${accountId}'s ${row.asset} balance is inconsistent: total ` +
+              `${row.amount.total} does not equal available ${row.amount.available} + reserved ` +
+              `${row.amount.reserved}.`,
           );
         }
         if (total < 0n || available < 0n || reserved < 0n) {
-          throw new MockLedgerError(`I2 broken on ${row.asset} for account ${accountId}: a negative balance.`);
+          throw new MockLedgerError(
+            `Account ${accountId} holds a negative amount of ${row.asset}, which is not a ` +
+              `state any balance can reach.`,
+          );
         }
       }
     }
@@ -430,11 +450,12 @@ export class Ledger {
       const held = open.get(key) ?? 0n;
       if (reserved !== held) {
         throw new MockLedgerError(
-          `I5 broken on ${asset} for account ${accountId}: reserved ` +
-            `${this.toDecimal(asset, reserved)} does not equal the sum of open holds ` +
-            `${this.toDecimal(asset, held)}. A reserve with no hold behind it is money the ` +
-            `fixtures cannot account for; back it with a seeded PENDING transfer or ` +
-            `REQUESTED payout, or correct the seeded balance.`,
+          `Account ${accountId} reserves ${this.toDecimal(asset, reserved)} ${asset}, but the ` +
+            `pending operations against it only account for ${this.toDecimal(asset, held)}. ` +
+            `Reserved money must always be committed to something: every reserve needs a ` +
+            `PENDING transfer or a REQUESTED payout behind it. If you supplied your own ` +
+            `fixtures, supply the transfers and payouts alongside the balances they reserve ` +
+            `against — replacing one without the other leaves the reserve unexplained.`,
         );
       }
     }

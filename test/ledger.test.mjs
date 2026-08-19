@@ -310,3 +310,69 @@ test("demoCast: an unverified party's IV reads NOT_LINKED rather than 404", asyn
   const iv = await t.request("GET", `/parties/${nova.id}/iv-verification`);
   assert.equal(iv.result.status, "NOT_LINKED", "IV is a state every party has, not a resource some lack");
 });
+
+// ── Messages a stranger will hit ───────────────────────────────────────
+// These assert on user-facing copy on purpose: an unfunded account is the
+// FIRST thing a new reader hits, and a message that explains the mock's
+// internals instead of the next action leaves them stuck.
+
+test("copy: the insufficient-funds message names what you have and how to fund it", async () => {
+  const f = mock();
+  const party = await f.parties.create({ partyType: "INDIVIDUAL", firstName: "Ada", lastName: "Lovelace" });
+  const acct = await f.accounts.create({ externalId: "copy-probe", chain: "BASE", partyId: party.id });
+  await assert.rejects(
+    f.transfers.createFiat(acct.id, {
+      receiverExternalId: "acct-ops-usd", currency: "EUR", amount: 25, idempotencyKey: key(50),
+    }),
+    (e) => {
+      const m = e.errors[0].message;
+      assert.match(m, /has 0 EURC available/, "says what the account actually holds");
+      assert.match(m, /needs 25/, "says what the operation wanted");
+      assert.match(m, /simulations\.inbound\.credit/, "says how to fix it");
+      assert.match(m, /No part of this operation was applied/, "says nothing was half-done");
+      return e.status === 402;
+    },
+  );
+});
+
+test("copy: a replayed failure explains that it needs a new key", async () => {
+  const f = mock();
+  const body = { receiverExternalId: "acct-ops-usd", amount: 999999, currency: "USD", idempotencyKey: key(51) };
+  await assert.rejects(f.transfers.createFiat(MAIN, body), (e) => e.status === 402);
+  await assert.rejects(f.transfers.createFiat(MAIN, body), (e) => {
+    assert.match(e.errors[0].message, /issue a new idempotency key/, "a 409 must say what to do next");
+    return e.status === 409;
+  });
+});
+
+test("copy: no internal register id or rule label reaches a shipped string", async () => {
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const dir = new URL("../dist/esm/mock/", import.meta.url);
+  const offenders = [];
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith(".js") && !file.endsWith(".d.ts")) continue;
+    const text = readFileSync(new URL(file, dir), "utf8");
+    // Register ids (MG-*, D-numbers) and invariant labels (I1/I2/I5) are
+    // shorthand for documents a consumer does not have.
+    for (const pattern of [/\bMG-\d+/g, /\bI[125] broken\b/g, /mock-gap ledger/g, /gap register/g]) {
+      for (const hit of text.match(pattern) ?? []) offenders.push(`${file}: ${hit}`);
+    }
+  }
+  assert.deepEqual(offenders, [], "shipped source must read as documentation, not as internal notes");
+});
+
+test("copy: a partial seed profile is refused with an explanation, not an internal rule", () => {
+  const t = new FinanceMockTransport();
+  // The obvious first use of the seeding API: bring your own balances, keep
+  // everything else. The seeded pending transfer still reserves against the
+  // wallets this replaces, so the profile cannot balance.
+  assert.throws(
+    () => t.simulations.seed({ name: "mine", description: "balances only", seeds: { wallets: {} } }),
+    (e) => {
+      assert.match(e.message, /supply the transfers and payouts alongside the balances/,
+        "the message must tell the caller what THEY should change");
+      assert.doesNotMatch(e.message, /\bI5\b/, "not a rule label from a document they do not have");
+      return e instanceof MockLedgerError;
+    },
+  );
+});

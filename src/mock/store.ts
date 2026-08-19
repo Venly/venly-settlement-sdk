@@ -63,7 +63,7 @@ export interface FinanceSeeds {
   ivVerifications?: schemas["PartyIvVerificationDto"][];
 }
 
-/** Contract status -> what the money did. The full tables live in the spec. */
+/** Contract status -> what the money did. */
 const TRANSFER_PHASE: Record<string, FundsPhase> = {
   PENDING: "HELD",
   COMPLETED: "DEBITED",
@@ -121,7 +121,10 @@ function idempotencyConflict(ctx: HandlerContext): never {
     {
       status: 409,
       code: "concurrent-modification",
-      message: "This request conflicts with an earlier use of the same idempotency key.",
+      message:
+        "This idempotency key was already used for a different request body, or for an " +
+        "attempt that failed. A failed attempt is never retried under the same key - issue a " +
+        "new idempotency key for a fresh attempt.",
     },
     ctx.method,
     ctx.path,
@@ -380,7 +383,15 @@ export class FinanceMockStore {
     this.hydrateLedger();
   }
 
-  /** Load a named cast over the seeds, then prove it balances. */
+  /**
+   * Load a cast over the seeds, then check every balance rule.
+   *
+   * Each top-level key REPLACES the seeded one wholesale rather than merging,
+   * so a profile that supplies `wallets` must also supply the `transfers` and
+   * `payouts` that reserve against them. Replacing balances while keeping the
+   * seeded pending operations leaves reserves with nothing behind them, and the
+   * check will refuse the profile.
+   */
   applyProfile(profile: Partial<FinanceSeeds>): void {
     this.seeds = { ...this.seeds, ...structuredClone(profile) };
     this.reset();
@@ -710,11 +721,9 @@ export class FinanceMockStore {
   }
 
   /**
-   * Replay parity with `requestPayout`: same key + same body returns the
-   * original resource, same key + different body is a 409, and a failed intent
-   * stays failed. Before this, both creators stored `idempotencyKey` on the
-   * resource and never read it, so a retried send created a second transfer -
-   * and now that money actually moves, a second debit.
+   * Same key + same body replays the original transfer; same key + a different
+   * body is a 409; an attempt that failed stays failed under that key, so a
+   * retry needs a fresh one.
    */
   private transferIntent(
     ctx: HandlerContext,
@@ -1035,8 +1044,9 @@ export class FinanceMockStore {
    * The Finance API models no such resource — this exists only so tests can
    * assert that money arrived, the way advanceTransfer exists for transfers.
    *
-   * referenceCode defaults to the VBA own referenceCode (or null). Pass null
-   * explicitly to simulate an unmatched credit — see MG-5 / J6 reconciliation.
+   * referenceCode defaults to the VBA's own referenceCode (or null). Pass null
+   * explicitly to simulate a credit that arrives with no reference, which a
+   * reconciliation flow has to match by hand.
    */
   simulateInboundCredit(
     virtualBankAccountId: string,
@@ -1051,8 +1061,7 @@ export class FinanceMockStore {
     }
     // Every field on the generated VirtualBankAccount is optional, so a currency
     // is not guaranteed. Refuse rather than default: a credit denominated in a
-    // currency the account never declared is a fixture teaching a falsehood,
-    // which is the MG-11 rule.
+    // currency the account never declared would teach a falsehood, so refuse.
     if (!vba.currency) {
       throw new Error(
         `simulateInboundCredit: virtual bank account ${virtualBankAccountId} has no currency, so nothing can land on it.`,
@@ -1119,7 +1128,8 @@ export class FinanceMockStore {
   // request payouts against the ACTIVE route. Where the contract is silent on
   // transition semantics (who activates a bank account, when a route needs
   // proof), the mock takes the least-opinionated reading and leaves the rest
-  // to explicit drivers – documented as MG-14 in the program's mock-gap ledger.
+  // to explicit drivers, so no fixture asserts a transition the contract does
+  // not document.
 
   listPayoutBankAccounts(ctx: HandlerContext): PayoutBankAccount[] {
     this.getParty(ctx);
@@ -1391,7 +1401,7 @@ export class FinanceMockStore {
    * Walk a payout to any documented status. COMPLETED stamps completedAt, a
    * send hash and – stablecoin par unless overridden – settledFiatAmount;
    * REJECTED/FAILED/RETURNED stamp a failureReason. The override arguments
-   * are the integrator's seam, same doctrine as simulateInboundCredit.
+   * let you control the settled amount, the send hash and the failure reason.
    */
   advancePayout(
     id: string,
