@@ -11,6 +11,7 @@ import {
 import { FieldList } from "../components/field-list.js";
 import { StatusPill } from "../components/status-pill.js";
 import { ListLoadError } from "../components/list-error.js";
+import { formatStamp } from "../lib/money.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -41,19 +42,8 @@ export interface ReceiveDetails {
 export function serializeReceiveDetails(details: ReceiveDetails): string {
   const lines: string[] = [];
   const now = new Date();
-  const tzName = now.toLocaleString("en-GB", { timeZoneName: "short" }).split(", ").pop() ?? "";
   lines.push("Bank transfer instructions");
-  lines.push(
-     `Generated: ${now.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-     })} ${now.toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-     })} ${tzName}`
-   );
+  lines.push(`Generated: ${formatStamp(now)}`);
   lines.push("");
   lines.push("Important");
   lines.push(REFERENCE_WARNING);

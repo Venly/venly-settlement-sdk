@@ -26,7 +26,7 @@ Acceptance test for any palette: map every `--state-*` pair to greys and confirm
 
 | File | Component | The rules it encodes |
 |---|---|---|
-| `registry/lib/money.tsx` | `Money`, `formatAmount` | Tabular figures always · trailing currency code at 0.6× one tone down · true minus `−` · debits are not red · empty value = em-dash |
+| `registry/lib/money.tsx` | `Money`, `formatAmount`, `formatStamp` | Tabular figures always · trailing currency code at 0.6× one tone down · true minus `−` · debits are not red · empty value = em-dash · timestamps always timezone-qualified |
 | `registry/components/status-pill.tsx` | `StatusPill` | Word + glyph on every state (greyscale-legible) · 4px data-value rectangle · tinted bg + dark text of the same ramp · cancelled is grey `↺`, never red |
 | `registry/components/data-table.tsx` | `DataTable`, `RowText` | Row pitch ÷ body size 2.4–3.8× via `--row-pitch` · hairline-only 32px header · money right-aligned · hover tint, no zebra, no shadow · em-dash empties · truncate, never wrap |
 | `registry/components/timeline.tsx` | `Timeline` | Three-axis state (node, rail, label) · solid past / dotted future, never inverted · donut current + bold label · terminal failure is never a green check |

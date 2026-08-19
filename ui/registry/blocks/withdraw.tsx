@@ -13,7 +13,7 @@ import {
   useReferenceData,
   useWallets,
 } from "@venlyfinance/react";
-import { Money, formatAmount } from "../lib/money.js";
+import { Money, formatAmount, formatStamp } from "../lib/money.js";
 import { DataTable, RowText, type DataTableColumn } from "../components/data-table.js";
 import { StatusPill, type StatusIntent } from "../components/status-pill.js";
 import { Timeline, type TimelineStep } from "../components/timeline.js";
@@ -481,7 +481,7 @@ function eventsToTimeline(events: fundflow["RampRequestEventDto"][] | undefined)
   return (events ?? []).map((event, index, all) => ({
     key: event.id ?? String(index),
     label: (event.eventType ?? "").replaceAll("_", " ").toLowerCase().replace(/^./, (c) => c.toUpperCase()),
-    meta: `${event.username ?? ""} (${(event.role ?? "").replaceAll("COMPANY_", "").toLowerCase()}) · ${event.createdAt ?? ""} UTC`,
+    meta: `${event.username ?? ""} (${(event.role ?? "").replaceAll("COMPANY_", "").toLowerCase()}) · ${event.createdAt ? formatStamp(event.createdAt) : ""}`,
     state: index === all.length - 1 ? "current" : "completed",
   }));
 }
@@ -539,7 +539,7 @@ export function WithdrawDetail({ request, actorId, style, className }: WithdrawD
           fields={[
             { label: "You send", value: request.cryptoAmount !== undefined ? `${formatAmount(request.cryptoAmount)} ${cryptoCode}` : null, copyable: false, mono: true },
             { label: "To", value: request.companyBankAccount ? `${request.companyBankAccount.name ?? ""} · ${request.companyBankAccount.bankName ?? ""}` : null, copyable: false },
-            { label: "Created", value: request.createdAt ? `${request.createdAt} UTC` : null, copyable: false },
+            { label: "Created", value: request.createdAt ? formatStamp(request.createdAt) : null, copyable: false },
           ]}
         />
       </div>

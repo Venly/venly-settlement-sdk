@@ -35,6 +35,28 @@ export function formatAmount(
   return amount < 0 ? `−${formatted}` : formatted;
 }
 
+/**
+ * Absolute, timezone-qualified stamp. Relative times rot while a queue sits
+ * open; a stamp without a zone is an incomplete claim. Empty / unparsable
+ * input renders the empty string so callers can show their own omission.
+ */
+export function formatStamp(input: Date | string): string {
+  const date = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = date.toLocaleDateString("en-US", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  const time = date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+  });
+  return `${day}, ${time}`;
+}
+
 const EMPTY = "—"; // em-dash: an empty numeric cell is a statement, not a gap
 
 export interface MoneyProps {
