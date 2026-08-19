@@ -119,6 +119,24 @@
 
   --font-family:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Keyboard: one ring token, applied via :focus-visible on every
+     interactive primitive. Mouse clicks must not paint a ring. */
+  --focus-ring: var(--border-w-emphasis) solid var(--accent);
+  --focus-ring-offset: var(--space-3xs);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="row"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
 
 /* Mobile is the primary viewport. Money screens must fit 375px without
