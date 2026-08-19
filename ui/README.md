@@ -58,6 +58,8 @@ The kit is mobile-primary. `tokens.css` carries the only `@media` query: below `
 
 `formatAmount` and `formatStamp` take an optional locale (default `en-US`). Wrap the tree in `VenlyLocaleProvider` or pass `locale` on `Money` – there is no message catalog.
 
+Dark values for the same token set sit behind `prefers-color-scheme: dark` and a `.dark` class. Pin light with `.light` on `:root` if the host should ignore the OS.
+
 ## Styling approach
 
 Components use inline styles bound to the token variables rather than a utility framework. That keeps the kit runnable in any React stack (Tailwind or not), keeps the measured ratios exact, and keeps `tokens.css` the single source of visual truth. Consumers who want utility-class styling own the files and can convert them – that is the point of copy-owned distribution.
