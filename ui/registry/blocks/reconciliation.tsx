@@ -481,9 +481,9 @@ export function stepQueueSelection(
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
 /** Absolute timestamps only – relative times rot while a queue sits open. */
-export function formatAbsolute(iso: string | undefined): string {
+export function formatAbsolute(iso: string | undefined, locale?: string): string {
   if (!iso) return "Not provided";
-  const stamped = formatStamp(iso);
+  const stamped = formatStamp(iso, locale);
   return stamped || "Not provided";
 }
 

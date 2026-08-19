@@ -56,6 +56,8 @@ The kit is mobile-primary. `tokens.css` carries the only `@media` query: below `
 
 `--focus-ring` and `:focus-visible` live in the same file so every button, input, select, tab and row shows a visible cursor under keyboard focus.
 
+`formatAmount` and `formatStamp` take an optional locale (default `en-US`). Wrap the tree in `VenlyLocaleProvider` or pass `locale` on `Money` – there is no message catalog.
+
 ## Styling approach
 
 Components use inline styles bound to the token variables rather than a utility framework. That keeps the kit runnable in any React stack (Tailwind or not), keeps the measured ratios exact, and keeps `tokens.css` the single source of visual truth. Consumers who want utility-class styling own the files and can convert them – that is the point of copy-owned distribution.

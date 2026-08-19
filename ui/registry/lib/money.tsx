@@ -1,4 +1,10 @@
-import type { CSSProperties, ReactElement } from "react";
+import {
+  createContext,
+  useContext,
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 /**
  * Money rendering rules this module owns (do not re-implement locally):
@@ -16,19 +22,42 @@ import type { CSSProperties, ReactElement } from "react";
  *   never just the hero.
  */
 
+/** Default BCP 47 tag. Changing this changes every figure and stamp. */
+export const DEFAULT_LOCALE = "en-US";
+
+export const VenlyLocaleContext = createContext(DEFAULT_LOCALE);
+
+export function VenlyLocaleProvider({
+  locale = DEFAULT_LOCALE,
+  children,
+}: {
+  locale?: string;
+  children: ReactNode;
+}): ReactElement {
+  return <VenlyLocaleContext.Provider value={locale}>{children}</VenlyLocaleContext.Provider>;
+}
+
+export function useVenlyLocale(): string {
+  return useContext(VenlyLocaleContext);
+}
+
 /**
  * `fractionDigits` is the minimum shown; `maxFractionDigits` (default: the
  * minimum) lets an asset's on-chain precision through. Pass the asset's
  * `decimals` from supported-assets as `maxFractionDigits`: a fixed 2dp
  * render shows a 6-decimal asset's sub-cent balance as 0.00 and the total
  * stops reconciling with its rows.
+ *
+ * `locale` defaults to `en-US` so existing figures do not move. No message
+ * catalog lives here – this is grouping and decimal separators only.
  */
 export function formatAmount(
   amount: number,
   fractionDigits = 2,
   maxFractionDigits = fractionDigits,
+  locale: string = DEFAULT_LOCALE,
 ): string {
-  const formatted = new Intl.NumberFormat("en-US", {
+  const formatted = new Intl.NumberFormat(locale, {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: Math.max(fractionDigits, maxFractionDigits),
   }).format(Math.abs(amount));
@@ -40,15 +69,15 @@ export function formatAmount(
  * open; a stamp without a zone is an incomplete claim. Empty / unparsable
  * input renders the empty string so callers can show their own omission.
  */
-export function formatStamp(input: Date | string): string {
+export function formatStamp(input: Date | string, locale: string = DEFAULT_LOCALE): string {
   const date = input instanceof Date ? input : new Date(input);
   if (Number.isNaN(date.getTime())) return "";
-  const day = date.toLocaleDateString("en-US", {
+  const day = date.toLocaleDateString(locale, {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
-  const time = date.toLocaleTimeString("en-US", {
+  const time = date.toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -86,6 +115,8 @@ export interface MoneyProps {
    * the same surface must receive the same flag.
    */
   masked?: boolean;
+  /** BCP 47 tag. Falls back to `VenlyLocaleProvider`, then `en-US`. */
+  locale?: string;
   style?: CSSProperties;
   className?: string;
 }
@@ -106,9 +137,11 @@ export function Money({
   fractionDigits = 2,
   maxFractionDigits,
   masked = false,
+  locale,
   style,
   className,
 }: MoneyProps): ReactElement {
+  const resolvedLocale = locale ?? useVenlyLocale();
   const base: CSSProperties = {
     fontVariantNumeric: "tabular-nums",
     color: "var(--text-primary)",
@@ -127,7 +160,7 @@ export function Money({
 
   return (
     <span className={className} style={base} aria-label={masked ? "amount hidden" : undefined}>
-      {masked ? MASK : formatAmount(amount, fractionDigits, maxFractionDigits ?? fractionDigits)}
+      {masked ? MASK : formatAmount(amount, fractionDigits, maxFractionDigits ?? fractionDigits, resolvedLocale)}
       {currency ? (
         <span
           style={{
