@@ -140,6 +140,34 @@ export const demoCast: SeedProfile = {
       [A.returned]: usdc(11200),
     },
     partyRole: { partyId: P.transacting, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" },
+    // Each account is held by ITS OWN party. Sharing one holder would make the
+    // denied applicant's account read as held by a verified organisation, and
+    // the onboarding account read as held by an approved one - the story and
+    // the data would contradict each other on the join a console actually reads.
+    rolesByAccount: {
+      [A.transacting]: [{ partyId: P.transacting, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" }],
+      [A.ivSubmitted]: [{ partyId: P.ivSubmitted, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" }],
+      [A.awaitingProof]: [{ partyId: P.awaitingProof, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" }],
+      [A.inFlight]: [{ partyId: P.inFlight, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" }],
+      [A.denied]: [{ partyId: P.denied, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" }],
+      [A.returned]: [{ partyId: P.returned, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" }],
+    },
+    // Supplied per cast account: the base seeds key these by their own account
+    // ids, and a profile replaces each top-level key wholesale.
+    accountSupportedAssets: Object.fromEntries(
+      Object.values(A).map((id) => [
+        id,
+        [
+          {
+            chain: "BASE" as const,
+            cryptoCurrency: "USDC",
+            decimals: 6,
+            contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+            permitStatus: "READY" as const,
+          },
+        ],
+      ]),
+    ),
     virtualBankAccounts: [
       {
         id: "c0a1e003-0000-4a00-9000-000000000001",

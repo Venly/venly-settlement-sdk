@@ -93,6 +93,14 @@ export class Ledger {
   private readonly supportedAssets: () => SupportedAsset[];
   private readonly holds = new Map<string, Hold>();
   private readonly credits = new Map<string, Credit>();
+  /**
+   * The authoritative balances, in minor units. `WalletBalanceDto.amount`
+   * carries JS numbers, and a double cannot hold 18 decimal places: DAI ships
+   * at `decimals: 18`, so re-deriving minor units from the rendered decimal
+   * silently truncates every sub-microscopic amount. The ledger therefore owns
+   * BigInt state and treats the wallet rows as a render-only projection.
+   */
+  private readonly balances = new Map<string, { total: bigint; available: bigint; reserved: bigint }>();
 
   constructor(wallets: () => Map<string, Wallet[]>, supportedAssets: () => SupportedAsset[]) {
     this.walletsRef = wallets;
@@ -102,6 +110,25 @@ export class Ledger {
   /** Resolved per call: `reset()` replaces the Map object, not its contents. */
   private get wallets(): Map<string, Wallet[]> {
     return this.walletsRef();
+  }
+
+  private static balanceKey(accountId: string, asset: string): string {
+    return `${accountId}\u0000${asset}`;
+  }
+
+  /** Adopt the wallet rows as the starting balances (seeds, or adopted state). */
+  private syncFromWallets(): void {
+    this.balances.clear();
+    for (const [accountId, rows] of this.wallets) {
+      for (const row of rows) {
+        if (!row.asset || !row.amount) continue;
+        this.balances.set(Ledger.balanceKey(accountId, row.asset), {
+          total: this.toMinor(row.asset, row.amount.total ?? 0),
+          available: this.toMinor(row.asset, row.amount.available ?? 0),
+          reserved: this.toMinor(row.asset, row.amount.reserved ?? 0),
+        });
+      }
+    }
   }
 
   // ── Units ────────────────────────────────────────────────────────────
@@ -190,15 +217,15 @@ export class Ledger {
     return row;
   }
 
-  /** Minor-unit view of a row; a missing row reads as zero. */
+  /** Authoritative minor-unit balance; an account with no row reads as zero. */
   private read(accountId: string, asset: string): { total: bigint; available: bigint; reserved: bigint } {
-    const row = this.findRow(accountId, asset);
-    if (!row?.amount) return { total: 0n, available: 0n, reserved: 0n };
-    return {
-      total: this.toMinor(asset, row.amount.total ?? 0),
-      available: this.toMinor(asset, row.amount.available ?? 0),
-      reserved: this.toMinor(asset, row.amount.reserved ?? 0),
-    };
+    return (
+      this.balances.get(Ledger.balanceKey(accountId, asset)) ?? {
+        total: 0n,
+        available: 0n,
+        reserved: 0n,
+      }
+    );
   }
 
   // ── Atomic application ───────────────────────────────────────────────
@@ -246,25 +273,46 @@ export class Ledger {
             `operation was applied.`,
         );
       }
-      // A row that must exist but does not is caught here, before any write,
-      // so the row-creation refusal cannot fire halfway through a transition.
-      if (!this.findRow(leg.accountId, leg.asset) && leg.createIfMissing !== true) {
-        throw new MockLedgerError(
-          `${leg.because}: account ${leg.accountId} holds no ${leg.asset} wallet row.`,
-        );
+      // Both row problems are resolved here, before ANY write. Deferring the
+      // supported-asset lookup to the write loop is what made a throw on the
+      // second leg leave the first one applied - money destroyed by an
+      // operation whose own error text said nothing had been applied.
+      if (!this.findRow(leg.accountId, leg.asset)) {
+        if (leg.createIfMissing !== true) {
+          throw new MockLedgerError(
+            `${leg.because}: account ${leg.accountId} holds no ${leg.asset} wallet row.`,
+          );
+        }
+        this.assertCreatable(leg.accountId, leg.asset, leg.because);
       }
       projected.set(key, next);
     }
 
     for (const leg of legs) {
-      const row = this.findRow(leg.accountId, leg.asset) ?? this.createRow(leg.accountId, leg.asset);
       const key = `${leg.accountId}:${leg.asset}`;
       const next = projected.get(key)!;
+      this.balances.set(Ledger.balanceKey(leg.accountId, leg.asset), next);
+      // Project onto the contract shape. This render is lossy for assets whose
+      // precision exceeds a double (DAI at 18 decimals); the ledger above is
+      // not, which is why it is the authority and this is the view.
+      const row = this.findRow(leg.accountId, leg.asset) ?? this.createRow(leg.accountId, leg.asset);
       row.amount = {
         total: this.toDecimal(leg.asset, next.total),
         available: this.toDecimal(leg.asset, next.available),
         reserved: this.toDecimal(leg.asset, next.reserved),
       };
+    }
+  }
+
+  /** Would `createRow` succeed? Asked during validation, never during a write. */
+  private assertCreatable(accountId: string, asset: string, because: string): void {
+    if (!this.supportedAssets().some((a) => a.cryptoCurrency === asset)) {
+      throw new MockLedgerError(
+        `${because}: cannot open a ${asset} wallet row for account ${accountId} because no ` +
+          `supported asset declares it, so the mock has no real contract address to give it. ` +
+          `Add ${asset} to the tenant's supported assets first. No part of this operation was ` +
+          `applied.`,
+      );
     }
   }
 
@@ -420,8 +468,9 @@ export class Ledger {
         if (total !== available + reserved) {
           throw new MockLedgerError(
             `Account ${accountId}'s ${row.asset} balance is inconsistent: total ` +
-              `${row.amount.total} does not equal available ${row.amount.available} + reserved ` +
-              `${row.amount.reserved}.`,
+              `${this.toDecimal(row.asset, total)} does not equal available ` +
+              `${this.toDecimal(row.asset, available)} + reserved ` +
+              `${this.toDecimal(row.asset, reserved)}.`,
           );
         }
         if (total < 0n || available < 0n || reserved < 0n) {
@@ -494,5 +543,8 @@ export class Ledger {
   reset(): void {
     this.holds.clear();
     this.credits.clear();
+    // Adopt whatever the wallet rows now say: seeds after a reset, or a peer's
+    // state after adopting a snapshot.
+    this.syncFromWallets();
   }
 }

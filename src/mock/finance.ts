@@ -1094,7 +1094,7 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
   private readonly sessionId: string;
   private revision = 0;
   /** Highest (revision, originId) this replica has adopted or produced. */
-  private highWater = { revision: 0, originId: "" };
+  private highWater = { epoch: 0, revision: 0, originId: "" };
   readonly simulations: VenlyFinanceSimulations;
 
   constructor(options: FinanceMockOptions = {}) {
@@ -1124,7 +1124,7 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
     this.store = store;
     this.channel = channel;
     this.sessionId = sessionId;
-    this.highWater = { revision: 0, originId: channel.originId };
+    this.highWater = { epoch: 0, revision: 0, originId: channel.originId };
     this.simulations = createSimulations(this);
     transportsConstructed += 1;
 
@@ -1179,7 +1179,11 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
   private broadcast(events: MockEvent[] = []): void {
     if (this.channel.adapter === "memory") return;
     this.revision += 1;
-    this.highWater = { revision: this.revision, originId: this.channel.originId };
+    this.highWater = {
+      epoch: this.store.events.epoch,
+      revision: this.revision,
+      originId: this.channel.originId,
+    };
     this.channel.post({
       kind: "snapshot",
       epoch: this.store.events.epoch,
@@ -1198,14 +1202,23 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
       return;
     }
     const mine = this.highWater;
-    const theirs = { revision: message.revision, originId: message.originId };
+    const theirs = { epoch: message.epoch, revision: message.revision, originId: message.originId };
+    // The full triple, in order. A peer that reset has a higher epoch and may
+    // legitimately carry a LOWER revision, so comparing revision alone would
+    // reject the reset and leave this replica holding a world that no longer
+    // exists.
     const newer =
-      theirs.revision > mine.revision ||
-      (theirs.revision === mine.revision && theirs.originId > mine.originId);
+      theirs.epoch > mine.epoch ||
+      (theirs.epoch === mine.epoch &&
+        (theirs.revision > mine.revision ||
+          (theirs.revision === mine.revision && theirs.originId > mine.originId)));
     if (!newer) return;
     this.store.restoreState(message.state);
     this.revision = message.revision;
     this.highWater = theirs;
+    // Adopt the peer's epoch before ingesting, so this replica's own sequence
+    // restarts at 1 for the new (originId, epoch) pair as the contract says.
+    if (message.epoch !== this.store.events.epoch) this.store.events.rollEpoch(message.epoch);
     for (const event of message.events) this.store.events.ingest(event);
     // The view was replaced wholesale, including state whose events this
     // replica already delivered. Say so rather than let a subscriber diverge.

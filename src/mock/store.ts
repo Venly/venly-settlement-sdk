@@ -47,7 +47,14 @@ export interface FinanceSeeds {
   accounts: Account[];
   /** Wallets per account id. Accounts absent here have no wallet yet. */
   wallets: Record<string, Wallet[]>;
+  /** Fallback role applied to every account that `rolesByAccount` does not cover. */
   partyRole: PartyRole;
+  /**
+   * Per-account roles. Without these every account shares one holder, so a
+   * profile's "denied applicant" account would read as held by a verified
+   * party - a join the fixtures assert and the story contradicts.
+   */
+  rolesByAccount?: Record<string, PartyRole[]>;
   virtualBankAccounts: VirtualBankAccount[];
   transfers: Transfer[];
   /** Beneficiary bank accounts per party (flat; each row carries partyId). */
@@ -266,7 +273,12 @@ export class FinanceMockStore {
     this.parties = s.parties;
     this.accounts = s.accounts;
     this.wallets = new Map(Object.entries(s.wallets));
-    this.rolesByAccount = new Map(s.accounts.map((a) => [a.id as string, [{ ...s.partyRole }]]));
+    this.rolesByAccount = new Map(
+      s.accounts.map((a) => [
+        a.id as string,
+        s.rolesByAccount?.[a.id as string] ?? [{ ...s.partyRole }],
+      ]),
+    );
     this.virtualBankAccounts = s.virtualBankAccounts;
     this.transfers = s.transfers;
     this.paymentSessions = [];

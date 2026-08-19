@@ -211,6 +211,11 @@ export class EventLog {
   }
 
   private syntheticResync(reason: string): MockEvent {
+    // Consumes a sequence number like any other event. Without this a replica
+    // that only ever adopts (never emits) minted the same id for every resync,
+    // and the dedupe rule in the delivery contract silently dropped all but
+    // the first - which is the exact silent divergence resync exists to stop.
+    this.sequence += 1;
     return {
       id: `${this.originId}:${this.epoch}:resync-${this.sequence}`,
       originId: this.originId,

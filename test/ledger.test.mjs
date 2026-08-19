@@ -70,14 +70,18 @@ test("ledger: a hold moves available without moving total", async () => {
   assert.equal(settled.reserved, start.reserved);
 });
 
-test("ledger: sub-cent dust survives arithmetic (no float drift)", async () => {
+test("ledger: the seeded sub-cent dust round-trips exactly", async () => {
   const f = mock();
   const sim = f.mock.simulations;
   const eurc = () => sim.ledger.snapshot().rows.find((r) => r.accountId === MAIN && r.asset === "EURC");
-  assert.equal(eurc().total, 8020.000875, "the seeded dust is exact");
-  for (let i = 0; i < 20; i += 1) sim.inbound.credit("vb7e5f19-4444-4d40-ae85-000000000002", 0.000001);
+  assert.equal(eurc().total, 8020.000875, "six decimals of seeded dust, exact through BigInt round-trip");
+  // Move the dust and put it back: a float ledger drifts, this must not.
+  const t = await f.transfers.createFiat(MAIN, {
+    receiverExternalId: "acct-treasury", amount: 0.000875, currency: "EUR", idempotencyKey: key(62),
+  });
+  sim.transfer.advance(t.id, "COMPLETED");
+  assert.equal(eurc().total, 8020, "exactly the dust left, nothing more");
   sim.ledger.verify();
-  assert.equal(eurc().total, 8020.000875, "credits landed on the other account, not this one");
 });
 
 test("ledger: precision finer than the asset allows is refused, not rounded", async () => {
@@ -249,18 +253,23 @@ test("determinism: a scripted run replays deep-equal after reset", async () => {
     t.simulations.inbound.credit(VBA_MAIN, 60);
     return {
       ledger: t.simulations.ledger.snapshot(),
-      events: t.simulations.events.list().map((e) => ({ ...e, id: `${e.epoch}:${e.sequence}`, originId: "x" })),
+      // The contract permits normalising exactly two things: `epoch`, which
+      // increments on every reset by design, and `originId`, which identifies
+      // the replica. Everything else - including every minted id inside `data`
+      // - must match.
+      events: t.simulations.events
+        .list()
+        .map((e) => ({ ...e, epoch: 0, id: `${e.sequence}`, originId: "x" })),
     };
   };
   const a = await run();
   t.simulations.reset();
   const b = await run();
   assert.deepEqual(b.ledger, a.ledger, "same script, same balances");
-  assert.deepEqual(
-    b.events.map((e) => [e.type, e.occurredAt]),
-    a.events.map((e) => [e.type, e.occurredAt]),
-    "same script, same event stream and timestamps",
-  );
+  // The whole event, not just its type and timestamp: `data` carries the minted
+  // ids, hashes and addresses that deterministic mode exists to pin, and they
+  // are the values most likely to drift.
+  assert.deepEqual(b.events, a.events, "same script, same events including every minted id");
   void f;
 });
 
@@ -375,4 +384,157 @@ test("copy: a partial seed profile is refused with an explanation, not an intern
       return e instanceof MockLedgerError;
     },
   );
+});
+
+// ── Refusal paths that write nothing ───────────────────────────────────
+
+test("ledger: a mid-transition row-creation refusal writes no earlier leg", () => {
+  const t = new FinanceMockTransport();
+  const L = t.$store.ledger;
+  const before = L.snapshot();
+  // Two legs: a legal debit, then a credit into an asset the tenant does not
+  // support. Resolving the asset lazily in the write loop would leave the
+  // debit applied - money destroyed by an operation whose error says otherwise.
+  assert.throws(
+    () =>
+      L.applyAtomic([
+        { accountId: MAIN, asset: "USDC", deltaTotal: -50_000000n, deltaAvailable: -50_000000n, deltaReserved: 0n, because: "leg 1" },
+        { accountId: OPS, asset: "WBTC", deltaTotal: 1n, deltaAvailable: 1n, deltaReserved: 0n, createIfMissing: true, because: "leg 2" },
+      ]),
+    MockLedgerError,
+  );
+  assert.deepEqual(L.snapshot(), before, "the first leg must not survive the second leg's refusal");
+});
+
+test("ledger: an unbacked seed is refused at construction, not at first use", () => {
+  const t = new FinanceMockTransport();
+  assert.throws(
+    () =>
+      t.simulations.seed({
+        name: "unbacked",
+        description: "a reserve with nothing behind it",
+        seeds: {
+          wallets: {
+            [MAIN]: [
+              {
+                asset: "USDC",
+                contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                amount: { total: 100, available: 40, reserved: 60 },
+              },
+            ],
+          },
+          transfers: [],
+          payouts: [],
+        },
+      }),
+    (e) => {
+      assert.match(e.message, /reserves 60 USDC/, "names the unexplained reserve");
+      assert.match(e.message, /only account for 0/, "and what actually backs it");
+      return e instanceof MockLedgerError;
+    },
+    "a reserve with no pending operation behind it must fail loudly at load",
+  );
+});
+
+// ── Precision the contract's number type cannot render ─────────────────
+
+test("ledger: 18-decimal assets are tracked exactly even though the view is lossy", () => {
+  const t = new FinanceMockTransport();
+  const L = t.$store.ledger;
+  const wei = (n) => ({ accountId: OPS, asset: "DAI", deltaTotal: n, deltaAvailable: n, deltaReserved: 0n, createIfMissing: true, because: "dai" });
+  L.applyAtomic([wei(L.toMinor("DAI", 1000))]);
+  for (let i = 0; i < 10; i += 1) L.applyAtomic([wei(1n)]);
+
+  const rendered = L.snapshot().rows.find((r) => r.accountId === OPS && r.asset === "DAI").total;
+  assert.equal(rendered, 1000, "WalletBalanceDto carries a double, which cannot show 1000 + 10 wei");
+
+  // The authority is exact: draining precisely what went in reaches zero. If
+  // the ledger re-derived its state from the rendered decimal, the 10 wei
+  // would have been destroyed and this would go negative.
+  L.applyAtomic([wei(-(L.toMinor("DAI", 1000) + 10n))]);
+  assert.equal(
+    L.snapshot().rows.find((r) => r.accountId === OPS && r.asset === "DAI").total, 0,
+    "every wei that went in came back out",
+  );
+});
+
+test("ledger: dust credited to an account is actually credited to it", async () => {
+  const f = mock();
+  const sim = f.mock.simulations;
+  const TREASURY = "a10c2d31-2222-4b20-8c63-000000000003"; // holds EURC, VBA ...0002 targets EURC
+  const row = () => sim.ledger.snapshot().rows.find((r) => r.accountId === TREASURY && r.asset === "EURC");
+  const start = row().total;
+  for (let i = 0; i < 20; i += 1) sim.inbound.credit("vb7e5f19-4444-4d40-ae85-000000000002", 0.000001);
+  assert.equal(row().total, start + 0.00002, "twenty 1e-6 credits sum exactly, with no float drift");
+  sim.ledger.verify();
+});
+
+// ── Walks the spec names ───────────────────────────────────────────────
+
+test("ledger: REQUESTED -> RETURNED releases a hold that never left", async () => {
+  const f = mock();
+  const sim = f.mock.simulations;
+  const before = (await usdc(f, PAYOUTS));
+  const p = await f.payouts.request(PAYOUTS, {
+    payoutRouteId: ACTIVE_ROUTE, cryptoAmount: 90, idempotencyKey: key(60),
+  });
+  assert.equal((await usdc(f, PAYOUTS)).reserved, before.reserved + 90);
+  sim.payout.advance(p.id, "RETURNED");
+  assert.deepEqual(await usdc(f, PAYOUTS), before, "returned before sending is just the hold coming back");
+  sim.ledger.verify();
+});
+
+test("ledger: a hydrated seed hold can be driven, which is why it must be backed", async () => {
+  const f = mock();
+  const sim = f.mock.simulations;
+  const ESCROW_SEND = "tr5e8c66-7777-4a70-9bb8-000000000006";
+  const before = sim.ledger.snapshot().rows.find((r) => r.accountId === ESCROW && r.asset === "USDC");
+  assert.deepEqual(before, { accountId: ESCROW, asset: "USDC", total: 4200, available: 0, reserved: 4200 });
+
+  // Fail it: the seeded hold releases back to available. This is the case the
+  // reserve-backing rule exists to make safe - without a real hold behind the
+  // 4200, this would drive reserved negative.
+  sim.transfer.advance(ESCROW_SEND, "FAILED");
+  assert.deepEqual(
+    sim.ledger.snapshot().rows.find((r) => r.accountId === ESCROW && r.asset === "USDC"),
+    { accountId: ESCROW, asset: "USDC", total: 4200, available: 4200, reserved: 0 },
+  );
+  sim.ledger.verify();
+});
+
+test("ledger: a receiver with no row for the asset gets one on credit", async () => {
+  const f = mock();
+  const sim = f.mock.simulations;
+  const has = (acct, asset) => sim.ledger.snapshot().rows.some((r) => r.accountId === acct && r.asset === asset);
+  assert.equal(has(OPS, "EURC"), false, "precondition: acct-ops-usd holds no EURC");
+
+  const t = await f.transfers.createFiat(MAIN, {
+    receiverExternalId: "acct-ops-usd", amount: 60, currency: "EUR", idempotencyKey: key(61),
+  });
+  sim.transfer.advance(t.id, "COMPLETED");
+  assert.equal(has(OPS, "EURC"), true, "the row is opened by the credit that needs it");
+  assert.equal(
+    sim.ledger.snapshot().rows.find((r) => r.accountId === OPS && r.asset === "EURC").available, 60,
+  );
+  sim.ledger.verify();
+});
+
+// ── demoCast joins ─────────────────────────────────────────────────────
+
+test("demoCast: each persona's account is held by its OWN party", async () => {
+  const t = new FinanceMockTransport();
+  t.simulations.seed(seedProfiles.demoCast);
+  for (const account of t.$store.accounts) {
+    const role = t.$store.rolesByAccount.get(account.id)?.[0];
+    const holder = t.$store.parties.find((p) => p.id === role?.partyId);
+    assert.ok(holder, `${account.externalId} has a holder`);
+    // The join a console reads. One shared holder would make the denied
+    // applicant's account read as held by a verified organisation.
+    if (account.externalId === "cast-denied") assert.equal(holder.kybStatus, "DENIED");
+    if (account.externalId === "cast-iv-submitted") assert.equal(holder.kybStatus, "PENDING");
+    if (account.externalId === "cast-transacting") assert.equal(holder.companyName, "Nova Retail");
+  }
+  const denied = t.$store.accounts.find((a) => a.externalId === "cast-denied");
+  const assets = await t.request("GET", `/accounts/${denied.id}/supported-assets`);
+  assert.ok((assets.result ?? assets.items ?? []).length > 0, "cast accounts resolve their supported assets");
 });
