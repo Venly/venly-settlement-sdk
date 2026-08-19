@@ -30,7 +30,7 @@
   /* Neutral text ramp: hierarchy at small sizes comes from tone, not size. */
   --text-primary: rgba(9, 9, 11, 0.92);
   --text-secondary: rgba(9, 9, 11, 0.6);
-  --text-tertiary: rgba(9, 9, 11, 0.5);
+  --text-tertiary: rgba(9, 9, 11, 0.62);
 
   /* Brand: one primary button, active nav, inline links. The default is
      deliberately unbranded near-black; a white-label consumer swaps it. */
