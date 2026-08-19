@@ -151,6 +151,10 @@ a:focus-visible,
   -webkit-overflow-scrolling: touch;
 }
 
+.venly-field-row > .venly-field-label {
+  width: 36%;
+}
+
 .venly-send-split {
   display: grid;
   grid-template-columns: 1fr 2fr;
@@ -202,7 +206,8 @@ a:focus-visible,
     flex-wrap: wrap;
   }
 
-  .venly-field-row > dt {
+  .venly-field-row > dt,
+  .venly-field-row > .venly-field-label {
     width: 100%;
     flex: 1 0 100%;
   }

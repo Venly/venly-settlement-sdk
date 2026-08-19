@@ -87,8 +87,8 @@ export function FieldList({ fields, onCopy, style, className }: FieldListProps):
             }}
           >
             <dt
+              className="venly-field-label"
               style={{
-                width: "36%",
                 flex: "none",
                 color: "var(--text-secondary)",
                 fontSize: "var(--font-size-label)",
