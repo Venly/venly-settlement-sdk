@@ -45,6 +45,16 @@ if (argv[0] === "review") {
       process.stderr.write(`Fatal: ${(err as Error).message}\n`);
       process.exit(2);
     });
+} else if (argv[0] === "verify") {
+  import("./verify-cli.js")
+    .then(({ runVerifyCli }) => runVerifyCli(argv.slice(1)))
+    .then((code) => {
+      process.exitCode = code;
+    })
+    .catch((err) => {
+      process.stderr.write(`Fatal: ${(err as Error).message}\n`);
+      process.exit(2);
+    });
 } else {
   main().catch((err) => {
     process.stderr.write(`Fatal: ${(err as Error).message}\n`);

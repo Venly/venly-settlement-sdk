@@ -9,6 +9,7 @@
  */
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { verifyRuntimeContract } from "./verify-cli.js";
 
 export const REGISTRY_URL_TEMPLATE =
   "https://raw.githubusercontent.com/Venly/venly-settlement-sdk/main/ui/r/{name}.json";
@@ -786,6 +787,45 @@ export function registerFrontendTools(server: McpServer): void {
             text: `\`\`\`json\n${JSON.stringify(structuredContent, null, 2)}\n\`\`\``,
           },
         ],
+        structuredContent,
+      };
+    },
+  );
+
+  server.registerTool(
+    "verify_runtime_contract",
+    {
+      title: "Verify an app's Venly runtime contract",
+      description:
+        "Deterministically checks supplied app source and package.json against the direct-sdk or backend-proxy runtime contract. The same rules power the verify CLI.",
+      inputSchema: {
+        files: z
+          .array(z.object({ path: z.string().min(1), source: z.string() }))
+          .min(1),
+        packageJson: z.string().describe("The app's package.json contents"),
+        profile: z.enum(["direct-sdk", "backend-proxy"]).optional(),
+      },
+    },
+    async ({ files, packageJson, profile }) => {
+      let parsedPackageJson: Record<string, unknown>;
+      try {
+        parsedPackageJson = JSON.parse(packageJson);
+      } catch (error) {
+        const message = `Invalid packageJson: ${(error as Error).message}`;
+        return {
+          content: [{ type: "text", text: message }],
+          structuredContent: { error: message },
+          isError: true,
+        };
+      }
+      const result = verifyRuntimeContract({ files, packageJson: parsedPackageJson, profile });
+      const structuredContent = {
+        profile: result.profile,
+        findings: result.findings,
+        summary: result.summary,
+      };
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
         structuredContent,
       };
     },

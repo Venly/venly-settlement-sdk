@@ -40,6 +40,7 @@ export const EXPECTED_TOOLS = [
   "request_payout",
   "quote_x402_payment",
   "get_journey_blueprint",
+  "verify_runtime_contract",
   "review_screen",
 ] as const;
 
