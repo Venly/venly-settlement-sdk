@@ -248,9 +248,11 @@ type RuntimeBlock = keyof typeof RUNTIME_PACKAGES_BY_BLOCK;
  * no npm dependencies, so deriving `requiredPackages` from blocks alone would
  * tell an agent that a surface living entirely on hooks needs no packages.
  *
- * The sdk range is the one `@venlyfinance/react` actually requires for these
- * hooks. Composite block registry items stamp their own range from
- * ui/package.json; where the two differ, this is the newer of them.
+ * The sdk range is the one the console screens themselves need: they render the
+ * mock's channel state and balances that move on a transfer, and both arrived in
+ * 0.6.0. Composite block registry items stamp their own range from
+ * ui/package.json, which is older; a console screen built against that range
+ * would describe states it cannot reach.
  */
 const DATA_PLANE_PACKAGES = {
   "@venlyfinance/react": "^0.4.0",

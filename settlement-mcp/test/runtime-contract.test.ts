@@ -207,3 +207,42 @@ for (const [journey, expectedHooks] of Object.entries(JOURNEY_HOOKS)) {
     }
   });
 }
+
+// A blueprint must never name a package version this repo does not ship. The
+// console entries pin the sdk range the 0.6.0-only APIs they describe actually
+// need (channelInfo, balances that move), so if the root package version ever
+// fell behind that range the blueprints would be telling an agent to install
+// something that does not exist. Offline and deterministic on purpose: it
+// asserts against the repo, not against the registry, so it cannot go red for
+// a publish that has not happened yet.
+test("blueprint package ranges are satisfied by the versions this repo ships", async () => {
+  const shipped: Record<string, string> = {
+    "@venlyfinance/sdk": JSON.parse(readFileSync(`${repoRoot}/package.json`, "utf8")).version,
+    "@venlyfinance/react": JSON.parse(readFileSync(`${repoRoot}/react/package.json`, "utf8"))
+      .version,
+  };
+
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  try {
+    for (const journey of Object.keys(JOURNEY_HOOKS)) {
+      const response: any = await h.client.callTool({
+        name: "get_journey_blueprint",
+        arguments: { journey },
+      });
+      const packages: Record<string, string> =
+        response.structuredContent.runtime_contract.requiredPackages;
+      for (const [name, range] of Object.entries(packages)) {
+        const version = shipped[name];
+        if (version === undefined) continue; // third-party ranges are not ours to assert
+        const [wantMajor, wantMinor] = range.replace(/^[^\d]*/, "").split(".").map(Number);
+        const [haveMajor, haveMinor] = version.split(".").map(Number);
+        assert.ok(
+          haveMajor > wantMajor || (haveMajor === wantMajor && haveMinor >= wantMinor),
+          `${journey}: blueprint asks for ${name}@${range}, repo ships ${version}`,
+        );
+      }
+    }
+  } finally {
+    await h.close();
+  }
+});
