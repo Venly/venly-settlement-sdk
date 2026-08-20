@@ -3,7 +3,13 @@ import type { FundflowComponents, Transfer } from "@venlyfinance/sdk";
 import { describeRampStatus, useRampRequests, useTransfers } from "@venlyfinance/react";
 import { ListLoadError } from "../components/list-error.js";
 import { Money, formatAmount } from "../lib/money.js";
-import { DataTable, RowText, type DataTableColumn, type DataTableGroup } from "../components/data-table.js";
+import {
+  DataTable,
+  RowText,
+  TableSkeleton,
+  type DataTableColumn,
+  type DataTableGroup,
+} from "../components/data-table.js";
 import { StatusPill, type StatusIntent } from "../components/status-pill.js";
 import { SidePanel } from "../components/side-panel.js";
 import { Timeline, type TimelineStep } from "../components/timeline.js";
@@ -228,14 +234,16 @@ export function ActivityTable({
   accountId?: string;
 }): ReactElement {
   return (
-    <DataTable
-      columns={transferColumns(accountId)}
-      rows={transfers}
-      rowKey={(t) => t.id ?? ""}
-      selectedKey={selectedId}
-      onRowClick={onSelect}
-      emptyMessage="No transfers yet"
-    />
+    <div className="venly-table-scroll">
+      <DataTable
+        columns={transferColumns(accountId)}
+        rows={transfers}
+        rowKey={(t) => t.id ?? ""}
+        selectedKey={selectedId}
+        onRowClick={onSelect}
+        emptyMessage="No transfers yet"
+      />
+    </div>
   );
 }
 
@@ -270,16 +278,18 @@ export function GroupedActivityTable({
     },
   ];
   return (
-    <DataTable
-      columns={transferColumns(accountId)}
-      rows={[]}
-      groups={groups}
-      collapsedGroups={collapsedGroups}
-      onGroupToggle={onGroupToggle}
-      rowKey={(t) => t.id ?? ""}
-      selectedKey={selectedId}
-      onRowClick={onSelect}
-    />
+    <div className="venly-table-scroll">
+      <DataTable
+        columns={transferColumns(accountId)}
+        rows={[]}
+        groups={groups}
+        collapsedGroups={collapsedGroups}
+        onGroupToggle={onGroupToggle}
+        rowKey={(t) => t.id ?? ""}
+        selectedKey={selectedId}
+        onRowClick={onSelect}
+      />
+    </div>
   );
 }
 
@@ -769,7 +779,7 @@ export function UnifiedActivityBlock({
   if (transfersPending || rampsPending) {
     return (
       <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
-        <p style={{ color: "var(--text-tertiary)" }}>Loading activity…</p>
+        <TableSkeleton columns={unifiedColumns()} label="Loading activity" />
       </section>
     );
   }
@@ -800,12 +810,12 @@ export function UnifiedActivityBlock({
 
   return (
     <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-2xl)", marginBottom: "var(--space-lg)" }}>
+      <div className="venly-toolbar" style={{ marginBottom: "var(--space-lg)" }}>
         <StatFigure label="Activity" value={summary.all} selected={scope === "all"} onClick={() => setScope("all")} />
         <StatFigure label="In progress" value={summary.pending} selected={scope === "pending"} onClick={() => toggleScope("pending")} />
         <StatFigure label="Failed" value={summary.failed} selected={scope === "failed"} onClick={() => toggleScope("failed")} />
 
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
+        <div className="venly-toolbar-end">
           <select
             aria-label="Filter by type"
             value={typeFilter}
@@ -922,7 +932,8 @@ export function UnifiedActivityBlock({
           </button>
         </p>
       ) : (
-        <DataTable
+        <div className="venly-table-scroll">
+          <DataTable
           columns={unifiedColumns(accountId, accountName)}
           rows={[]}
           groups={groups}
@@ -932,6 +943,7 @@ export function UnifiedActivityBlock({
           selectedKey={selected?.key}
           onRowClick={(row) => setSelectedKey(row.key)}
         />
+        </div>
       )}
 
       {selected?.kind === "transfer" ? (
@@ -1053,7 +1065,7 @@ export function ActivityBlock({
   return (
     <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
       {isPending ? (
-        <p style={{ color: "var(--text-tertiary)" }}>Loading activity…</p>
+        <TableSkeleton columns={transferColumns()} label="Loading activity" />
       ) : (
         <>
           {/* Summary strip: one inline stat row, no containers, under a

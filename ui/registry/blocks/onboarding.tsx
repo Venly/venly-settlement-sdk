@@ -241,7 +241,7 @@ export function CompanyForm({
             {error}
           </p>
         ) : null}
-        <div style={{ display: "flex", gap: "var(--space-sm)" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-sm)" }}>
           <button type="button" style={primaryButton} disabled={submitting} onClick={submit}>
             {submitting ? "Submitting…" : "Submit application"}
           </button>
@@ -311,7 +311,7 @@ export function CompanyForm({
           onChange={(e) => set("addressLine1")(e.target.value)}
         />
       </div>
-      <div style={{ display: "flex", gap: "var(--space-md)" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-md)" }}>
         <div style={{ flex: 1 }}>
           <label style={labelStyle} htmlFor="vf-onb-postal">
             Postal code
@@ -582,6 +582,7 @@ export function RestrictedBanner({
       className={className}
       style={{
         display: "flex",
+        flexWrap: "wrap",
         alignItems: "center",
         justifyContent: "space-between",
         gap: "var(--space-lg)",
@@ -595,7 +596,7 @@ export function RestrictedBanner({
         ...style,
       }}
     >
-      <span>
+      <span style={{ minWidth: 0, flex: "1 1 100%", overflowWrap: "anywhere" }}>
         {variant === "reverification"
           ? `We need updated details for ${companyName}. Money movement pauses until this is done – everything else keeps working.`
           : `${companyName}'s application is in review. Money movement and your account details for receiving unlock once you're verified – everything else keeps working.`}

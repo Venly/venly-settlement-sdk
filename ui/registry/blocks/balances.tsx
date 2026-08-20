@@ -3,7 +3,12 @@ import type { SupportedAsset, WalletBalance } from "@venlyfinance/sdk";
 import { useSupportedAssets, useWallets } from "@venlyfinance/react";
 import { Money, MASK, formatAmount } from "../lib/money.js";
 import { BalanceCard } from "../components/balance-card.js";
-import { DataTable, RowText, type DataTableColumn } from "../components/data-table.js";
+import {
+  DataTable,
+  RowText,
+  TableSkeleton,
+  type DataTableColumn,
+} from "../components/data-table.js";
 
 /**
  * Balances block – the home surface, wired to the wallet balance source.
@@ -188,29 +193,13 @@ export interface BalancesViewProps {
 }
 
 /** Presentational half: everything below the data fetch. */
-export function BalancesView({
-  rows,
-  primaryAsset,
-  qualifier,
-  masked = false,
-  onToggleMasked,
-  onReservedDrill,
-  style,
-  className,
-}: BalancesViewProps): ReactElement {
-  const primary = rows.find((r) => r.asset === primaryAsset) ?? rows[0];
-
-  if (!primary) {
-    return (
-      <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
-        <p style={{ color: "var(--text-secondary)", fontSize: "var(--font-size-body)" }}>
-          No balances yet. Funds arriving on your account details will appear here.
-        </p>
-      </section>
-    );
-  }
-
-  const columns: DataTableColumn<AssetBalanceRow>[] = [
+/**
+ * The balance table's columns, module-level so the loading skeleton can take the
+ * SAME definitions the real table takes - identical geometry, no drift possible.
+ * Mirrors the transferColumns()/unifiedColumns() convention in the activity block.
+ */
+export function assetBalanceColumns(masked: boolean): DataTableColumn<AssetBalanceRow>[] {
+  return [
     {
       key: "asset",
       header: "Asset",
@@ -253,6 +242,31 @@ export function BalancesView({
       ),
     },
   ];
+}
+
+export function BalancesView({
+  rows,
+  primaryAsset,
+  qualifier,
+  masked = false,
+  onToggleMasked,
+  onReservedDrill,
+  style,
+  className,
+}: BalancesViewProps): ReactElement {
+  const primary = rows.find((r) => r.asset === primaryAsset) ?? rows[0];
+
+  if (!primary) {
+    return (
+      <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
+        <p style={{ color: "var(--text-secondary)", fontSize: "var(--font-size-body)" }}>
+          No balances yet. Funds arriving on your account details will appear here.
+        </p>
+      </section>
+    );
+  }
+
+  const columns = assetBalanceColumns(masked);
 
   return (
     <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
@@ -308,8 +322,9 @@ export function BalancesView({
             background: "var(--surface-raised)",
             border: "var(--border-w-hairline) solid var(--border-hairline)",
             borderRadius: "var(--radius-card)",
-            overflow: "hidden",
+            overflowX: "auto",
           }}
+          className="venly-table-scroll"
         >
           <DataTable columns={columns} rows={rows} rowKey={(r) => r.asset} />
         </div>
@@ -349,7 +364,7 @@ export function BalancesBlock({
   if (isPending) {
     return (
       <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
-        <p style={{ color: "var(--text-tertiary)", fontSize: "var(--font-size-body)" }}>Loading balances…</p>
+        <TableSkeleton columns={assetBalanceColumns(masked ?? false)} label="Loading balances" />
       </section>
     );
   }

@@ -26,7 +26,7 @@ Acceptance test for any palette: map every `--state-*` pair to greys and confirm
 
 | File | Component | The rules it encodes |
 |---|---|---|
-| `registry/lib/money.tsx` | `Money`, `formatAmount` | Tabular figures always · trailing currency code at 0.6× one tone down · true minus `−` · debits are not red · empty value = em-dash |
+| `registry/lib/money.tsx` | `Money`, `formatAmount`, `formatStamp` | Tabular figures always · trailing currency code at 0.6× one tone down · true minus `−` · debits are not red · empty value = em-dash · timestamps always timezone-qualified |
 | `registry/components/status-pill.tsx` | `StatusPill` | Word + glyph on every state (greyscale-legible) · 4px data-value rectangle · tinted bg + dark text of the same ramp · cancelled is grey `↺`, never red |
 | `registry/components/data-table.tsx` | `DataTable`, `RowText` | Row pitch ÷ body size 2.4–3.8× via `--row-pitch` · hairline-only 32px header · money right-aligned · hover tint, no zebra, no shadow · em-dash empties · truncate, never wrap |
 | `registry/components/timeline.tsx` | `Timeline` | Three-axis state (node, rail, label) · solid past / dotted future, never inverted · donut current + bold label · terminal failure is never a green check |
@@ -49,6 +49,16 @@ npx tsx demo/render.tsx          # writes demo/out/index.html – the composed p
 The demo page composes the core components into a payments screen plus a greyscale strip that demonstrates the legibility contract.
 
 For the kit running against live hooks, see [`examples/mock-bank`](../examples/mock-bank/): a full account experience in mock mode – `npm install && npm run dev`, fake data, zero credentials.
+
+## Mobile
+
+The kit is mobile-primary. `tokens.css` carries the only `@media` query: below `40rem` the panel, card and form clamps become `100%` so a 375px viewport never grows a horizontal body scrollbar. Tables sit in `.venly-table-scroll` and scroll inside that container; field-list rows and the send amount split stack.
+
+`--focus-ring` and `:focus-visible` live in the same file so every button, input, select, tab and row shows a visible cursor under keyboard focus.
+
+`formatAmount` and `formatStamp` take an optional locale (default `en-US`). Wrap the tree in `VenlyLocaleProvider` or pass `locale` on `Money` – there is no message catalog.
+
+Dark values for the same token set sit behind `prefers-color-scheme: dark` and a `.dark` class. Pin light with `.light` on `:root` if the host should ignore the OS.
 
 ## Styling approach
 

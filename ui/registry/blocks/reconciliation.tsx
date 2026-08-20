@@ -17,7 +17,7 @@ import {
 import { SidePanel } from "../components/side-panel.js";
 import { StatusPill, type StatusIntent } from "../components/status-pill.js";
 import { FieldList } from "../components/field-list.js";
-import { Money, formatAmount } from "../lib/money.js";
+import { Money, formatAmount, formatStamp } from "../lib/money.js";
 
 /**
  * Reconciliation – match inbound bank credits to the payments you expected.
@@ -481,13 +481,10 @@ export function stepQueueSelection(
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
 /** Absolute timestamps only – relative times rot while a queue sits open. */
-export function formatAbsolute(iso: string | undefined): string {
+export function formatAbsolute(iso: string | undefined, locale?: string): string {
   if (!iso) return "Not provided";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Not provided";
-  const day = date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  const time = date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
-  return `${day}, ${time}`;
+  const stamped = formatStamp(iso, locale);
+  return stamped || "Not provided";
 }
 
 // ─── Rationale list ──────────────────────────────────────────────────────────

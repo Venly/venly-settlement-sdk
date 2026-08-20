@@ -30,7 +30,7 @@
   /* Neutral text ramp: hierarchy at small sizes comes from tone, not size. */
   --text-primary: rgba(9, 9, 11, 0.92);
   --text-secondary: rgba(9, 9, 11, 0.6);
-  --text-tertiary: rgba(9, 9, 11, 0.5);
+  --text-tertiary: rgba(9, 9, 11, 0.62);
 
   /* Brand: one primary button, active nav, inline links. The default is
      deliberately unbranded near-black; a white-label consumer swaps it. */
@@ -119,4 +119,183 @@
 
   --font-family:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Keyboard: one ring token, applied via :focus-visible on every
+     interactive primitive. Mouse clicks must not paint a ring. */
+  --focus-ring: var(--border-w-emphasis) solid var(--accent);
+  --focus-ring-offset: var(--space-3xs);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="row"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Mobile is the primary viewport. Money screens must fit 375px without
+   horizontal body scroll: panels go full-bleed, forms stop clamping above
+   the viewport, and tables scroll inside their own container. */
+.venly-table-scroll {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.venly-field-row > .venly-field-label {
+  width: 36%;
+}
+
+.venly-send-split {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--space-md);
+}
+
+.venly-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2xl);
+}
+
+.venly-toolbar-end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+@media (max-width: 40rem) {
+  :root {
+    --panel-width: 100%;
+    --panel-min-width: 100%;
+    --card-max-width: 100%;
+    --form-max-width: 100%;
+    --auth-form-max-width: 100%;
+    --shadow-overlay: 0 -8px 24px rgba(9, 9, 11, 0.08);
+  }
+
+  /* Bound the page so a wide table cannot stretch the body. Tables
+     keep a readable min-width and scroll inside .venly-table-scroll. */
+  html {
+    overflow-x: hidden;
+  }
+
+  .venly-table-scroll {
+    max-width: 100vw;
+  }
+
+  .venly-table-scroll > table {
+    min-width: 32rem;
+  }
+
+  .venly-send-split {
+    grid-template-columns: 1fr;
+  }
+
+  .venly-field-row {
+    flex-wrap: wrap;
+  }
+
+  .venly-field-row > dt,
+  .venly-field-row > .venly-field-label {
+    width: 100%;
+    flex: 1 0 100%;
+  }
+
+  .venly-toolbar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--space-md);
+  }
+
+  .venly-toolbar-end {
+    margin-left: 0;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+/* Dark values for the existing token set. shadcn convention: the same
+   map is applied by prefers-color-scheme and by an explicit .dark class
+   so a host can follow the OS or pin the theme. */
+.dark {
+  --surface-page: #09090b;
+  --surface-raised: #18181b;
+  --surface-sunken: #09090b;
+
+  --border-hairline: rgba(250, 250, 250, 0.12);
+  --border-strong: rgba(250, 250, 250, 0.28);
+  --hover-tint: rgba(250, 250, 250, 0.04);
+  --selected-tint: rgba(250, 250, 250, 0.08);
+
+  --text-primary: rgba(250, 250, 250, 0.92);
+  --text-secondary: rgba(250, 250, 250, 0.68);
+  --text-tertiary: rgba(250, 250, 250, 0.62);
+
+  --accent: #fafafa;
+  --accent-fg: #18181b;
+
+  --state-success-fg: #86efac;
+  --state-success-bg: #14532d;
+  --state-pending-fg: #fcd34d;
+  --state-pending-bg: #713f12;
+  --state-danger-fg: #fca5a5;
+  --state-danger-bg: #7f1d1d;
+  --state-neutral-fg: rgba(250, 250, 250, 0.6);
+  --state-neutral-bg: rgba(250, 250, 250, 0.08);
+
+  --shadow-overlay: -8px 0 24px rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --surface-page: #09090b;
+    --surface-raised: #18181b;
+    --surface-sunken: #09090b;
+
+    --border-hairline: rgba(250, 250, 250, 0.12);
+    --border-strong: rgba(250, 250, 250, 0.28);
+    --hover-tint: rgba(250, 250, 250, 0.04);
+    --selected-tint: rgba(250, 250, 250, 0.08);
+
+    --text-primary: rgba(250, 250, 250, 0.92);
+    --text-secondary: rgba(250, 250, 250, 0.68);
+    --text-tertiary: rgba(250, 250, 250, 0.62);
+
+    --accent: #fafafa;
+    --accent-fg: #18181b;
+
+    --state-success-fg: #86efac;
+    --state-success-bg: #14532d;
+    --state-pending-fg: #fcd34d;
+    --state-pending-bg: #713f12;
+    --state-danger-fg: #fca5a5;
+    --state-danger-bg: #7f1d1d;
+    --state-neutral-fg: rgba(250, 250, 250, 0.6);
+    --state-neutral-bg: rgba(250, 250, 250, 0.08);
+
+    --shadow-overlay: -8px 0 24px rgba(0, 0, 0, 0.45);
+  }
+}
+
+@media (prefers-color-scheme: dark) and (max-width: 40rem) {
+  :root:not(.light) {
+    --shadow-overlay: 0 -8px 24px rgba(0, 0, 0, 0.45);
+  }
+}
+
+@media (max-width: 40rem) {
+  .dark {
+    --shadow-overlay: 0 -8px 24px rgba(0, 0, 0, 0.45);
+  }
 }
