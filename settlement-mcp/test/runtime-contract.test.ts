@@ -90,9 +90,10 @@ const JOURNEY_HOOKS = {
     "useWallets",
     "useTransfers",
     "useVirtualBankAccounts",
+    "useVenlyMock",
   ],
   "console-pricing-config": ["useCompanyFees"],
-  "console-simulator": [],
+  "console-simulator": ["useVenlyMock"],
 } as const;
 
 for (const [journey, expectedHooks] of Object.entries(JOURNEY_HOOKS)) {
@@ -155,6 +156,51 @@ for (const [journey, expectedHooks] of Object.entries(JOURNEY_HOOKS)) {
           new RegExp(`\\b${hook}\\b`),
           `${hook} must resolve against react/src/index.ts`,
         );
+      }
+    } finally {
+      await h.close();
+    }
+  });
+}
+
+// The blueprint prose and the machine-readable contract are two halves of one
+// promise, and nothing was checking them against each other: the simulator
+// journey shipped `Hooks: useVenlyMock` in its prose and `hooks: []` in its
+// contract, so an agent trusting requiredHooks - the entire point of shipping
+// it - would have got none for a screen that is nothing but hooks. Caught by a
+// cold reader, not by this suite. Now it is caught here.
+for (const [journey, expectedHooks] of Object.entries(JOURNEY_HOOKS)) {
+  test(`get_journey_blueprint: ${journey} prose and contract name the same hooks`, async () => {
+    const h = await makeHarness({ VENLY_ENV: "mock" });
+    try {
+      const response: any = await h.client.callTool({
+        name: "get_journey_blueprint",
+        arguments: { journey },
+      });
+      const prose: string = response.content[0].text;
+
+      // Every declared hook must be named somewhere in the prose, so a reader
+      // of the blueprint is told about everything the contract requires.
+      for (const hook of expectedHooks) {
+        assert.ok(
+          prose.includes(hook),
+          `${journey}: contract requires ${hook}, prose never names it`,
+        );
+      }
+
+      // And every use*-shaped identifier on the prose's Hooks line must be in
+      // the contract, so prose cannot promise a hook the contract omits. The
+      // line may also cite non-hook helpers (an MCP tool, a describe* fn),
+      // which is why only use* identifiers are compared.
+      const hooksLine = /^Hooks: (.*(?:\n(?!\w+:).*)*)$/m.exec(prose);
+      if (hooksLine) {
+        const named = new Set(hooksLine[1].match(/\buse[A-Z][A-Za-z]*/g) ?? []);
+        for (const hook of named) {
+          assert.ok(
+            (expectedHooks as readonly string[]).includes(hook),
+            `${journey}: prose names ${hook} on its Hooks line, contract omits it`,
+          );
+        }
       }
     } finally {
       await h.close();

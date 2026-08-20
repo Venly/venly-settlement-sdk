@@ -100,10 +100,9 @@ Registry items: venly-tokens, data-table, status-pill, money, list-error. The
 registry has no console block yet: compose these primitives.
 Hooks: useAccounts, useParties. The queue's own state is DERIVED on every
 render - never stored, never cached as a status.
-Grouping: sections are ACTORS, not statuses - your move, waiting on the
-customer, waiting on a provider, then a collapsed closed section. Grouping by
-actor makes the reviewer's own worklist the top band by construction, which is
-the whole job of the screen.
+Binding: sections are ACTORS, not statuses - your move, waiting on the customer,
+waiting on a provider, then a collapsed closed section, so the reviewer's own
+worklist is the top band by construction.
 States that must exist: loading, your move, waiting on the customer, waiting on a provider, closed, empty queue, filtered to nothing, list error.
 Rules that must hold: the whose-move value is a pure function of enum values on
 the row - no clock reading, no threshold, no configuration and no default, and a
@@ -116,7 +115,7 @@ duration the API itself computes may be called time in state; empty sections are
 still drawn as a zero header row, because nothing-to-do is information; loading
 is a skeleton that preserves column geometry exactly, never prose; a row click
 opens a side panel and never navigates; one status pill per row - the whose-move
-value is plain text, because two pills read as two states.`,
+value is plain text, since two pills read as two states.`,
   "console-decision-detail": `# Console decision detail (evidence, ceremony, audit trail)
 Shell: side panel about 30% wide over the queue - no scrim, the table stays
 visible clipped at the panel edge and the source row stays tinted. Escalate to a
@@ -125,20 +124,19 @@ LEFT: this is a judging task, not an authoring one.
 Registry items: venly-tokens, side-panel, timeline, field-list, status-pill,
 money, data-table.
 Hooks: useAccount, useParty, useWallets, useTransfers,
-useVirtualBankAccounts.
+useVirtualBankAccounts, useVenlyMock (the trail reads the mock's event log).
 Two timeline columns, not one feed: the decision chain (who decided what, when,
 in which seat) beside money movement on the same subject. Different actors,
 different audiences; merging them is what makes an audit trail unreadable.
 States that must exist: loading, evidence present, evidence unavailable, decision owed, decision applied, stale decision, terminal decision, frozen, empty trail.
 Rules that must hold: every evidence row is either a real field path or a
 labelled omission, and an omission is a FIRST-CLASS type in the component's
-props so a build cannot accidentally render a placeholder where a gap belongs;
+props, so a placeholder cannot be rendered where a gap belongs;
 omission copy states only what is verified and never implies a result, a
 pending state, or a clean one - and never mentions the API contract, which is
 developer diagnostics rather than operator language; a field the API cannot
 carry is captured anyway when the work needs it, and rendered with a visible
-badge saying it is a console note rather than API state - hiding that asymmetry
-is the dishonesty, showing it is the product; every decision carries the
+badge saying it is a console note rather than API state; every decision carries the
 optimistic-locking version, and a conflict means refetch and re-decide against
 fresh state, never auto-retry; every transition the console causes leaves a
 timeline node with actor, role and a timezone-qualified absolute timestamp, so a
@@ -161,7 +159,7 @@ Rules that must hold: a worked arithmetic ladder is mandatory on the tier
 section - a sample amount times the tier percentage, with the operator glyphs in
 a left gutter - because a pricing screen that shows only stored numbers teaches
 nothing; the ladder renders ONLY over data that exists, never over the omitted
-section, since arithmetic over absent numbers is invented arithmetic; the tier
+section; the tier
 a sample amount falls into is highlighted in the table so the row and the ladder
 are visibly the same fact; a single-member enum renders as a disabled
 single-value field that says so, not a select pretending at choice; a date
@@ -176,10 +174,8 @@ signals the register change.
 Registry items: venly-tokens, field-list, status-pill, money.
 Hooks: useVenlyMock. Every control maps to exactly one call on the mock's
 simulations namespace - no control without a call, and no call renamed.
-Why it is separate: inbound credits, provider progression and screening verdicts
-are things OTHER parties do. Putting them in the operator's workflow recreates
-the role confusion with better styling, which is the failure this drawer exists
-to prevent.
+Binding: inbound credits, provider progression and screening verdicts are things
+OTHER parties do, so they live here rather than in the operator's workflow.
 States that must exist: drawer closed, drawer open, sharing, not sharing, credit landed, verdict returned, payout advanced, books balanced, books do not balance, reset.
 Rules that must hold: controls are phrased as events that happen to you, in the
 third person, while operator controls elsewhere are imperative decisions - a
@@ -188,12 +184,11 @@ transition emits the SAME event the real path emits, and the trail attributes it
 to the simulator plainly rather than to an operator; the drawer is reachable
 only from the top bar, never from a queue row or a decision panel, because those
 paths make another party's action look like the operator's; the ledger check gets
-a visible surface, because it is the one control here that is not a fiction - it
-is an assertion about the fiction's consistency; the channel footer states the
-adapter, session and peer count, and says so IN WORDS when the surface is not
-actually sharing - the default channel shares nothing and cross-context sharing
-is same-origin only, so a demo that silently is not sharing renders a green
-screen while proving nothing.`,
+a visible surface: it is the one control here that asserts something true, namely
+that the simulated books balance; the channel footer states the adapter, session
+and peer count, and says IN WORDS when the surface is not actually sharing - the
+default channel shares nothing and cross-context sharing is same-origin only, so
+without that line a two-context demo can prove nothing while looking correct.`,
 } as const;
 
 type JourneyKey = keyof typeof JOURNEYS;
@@ -253,10 +248,9 @@ type RuntimeBlock = keyof typeof RUNTIME_PACKAGES_BY_BLOCK;
  * no npm dependencies, so deriving `requiredPackages` from blocks alone would
  * tell an agent that a surface living entirely on hooks needs no packages.
  *
- * Pinned to the sdk major this repo actually ships. The composite blocks still
- * carry `^0.5.0`, stamped into ui/r/*.json from ui/package.json - a stale pin
- * across the 0.6.0 release that made mock transfers debit balances. Fixing it
- * is one line there plus a registry regeneration, not a change here.
+ * The sdk range is the one `@venlyfinance/react` actually requires for these
+ * hooks. Composite block registry items stamp their own range from
+ * ui/package.json; where the two differ, this is the newer of them.
  */
 const DATA_PLANE_PACKAGES = {
   "@venlyfinance/react": "^0.4.0",
@@ -331,7 +325,7 @@ const JOURNEY_RUNTIME: Record<JourneyKey, {
     extraForbidden: [
       "a whose-move or needs-attention value computed from anything other than enum values on the row",
       "a target time, breach threshold or overdue state (the API publishes no targets)",
-      "an age column labelled time-in-state over a created-at delta",
+      "labelling a created-at delta \"time in state\" rather than \"Age\" (only an API-computed duration may use that phrase)",
     ],
   },
   "console-decision-detail": {
@@ -352,6 +346,7 @@ const JOURNEY_RUNTIME: Record<JourneyKey, {
       "useWallets",
       "useTransfers",
       "useVirtualBankAccounts",
+      "useVenlyMock",
     ],
     extraForbidden: [
       "a rendered placeholder where an unavailable field belongs (omission is a prop type, not a string)",
@@ -374,7 +369,7 @@ const JOURNEY_RUNTIME: Record<JourneyKey, {
     blocks: [],
     registryItems: ["venly-tokens", "field-list", "status-pill", "money"],
     dataPlane: true,
-    hooks: [],
+    hooks: ["useVenlyMock"],
     extraForbidden: [
       "counterparty or provider simulation rendered inside operator chrome",
       "a simulator control reachable from a queue row or a decision panel",
