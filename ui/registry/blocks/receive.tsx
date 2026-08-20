@@ -291,7 +291,7 @@ export function ReceiveBlock({
    // provision form. Offering "set up bank details" to an account that holds
    // closed details hides the do-not-use warning the contract requires.
   if (validItems.length === 0 && closedItems.length > 0) {
-    return <DetailPage vba={closedItems[0]} account={account} />;
+    return <DetailPage vba={closedItems[0]} account={account} onRefresh={() => void vbaQuery.refetch()} />;
    }
 
    // No VBA at all → provisioning
@@ -308,8 +308,8 @@ export function ReceiveBlock({
    // Auto-select single → single detail
   if (autoSelectSingle) {
     return (
-       <DetailPage vba={validItems[0]} account={account} />
-     );
+       <DetailPage vba={validItems[0]} account={account} onRefresh={() => void vbaQuery.refetch()} />
+      );
    }
 
    // Multiple valid → picker
