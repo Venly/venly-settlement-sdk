@@ -8,7 +8,6 @@ import {
   RowText,
   TableSkeleton,
   type DataTableColumn,
-  type TableColumnShape,
 } from "../components/data-table.js";
 
 /**
@@ -195,40 +194,12 @@ export interface BalancesViewProps {
 
 /** Presentational half: everything below the data fetch. */
 /**
- * The balance table's column geometry, shared with the loading skeleton so the
- * placeholder cannot drift from the real header row. `test/ui-skeleton.test.mjs`
- * asserts these headers still match the columns built in `BalancesView`.
+ * The balance table's columns, module-level so the loading skeleton can take the
+ * SAME definitions the real table takes - identical geometry, no drift possible.
+ * Mirrors the transferColumns()/unifiedColumns() convention in the activity block.
  */
-const BALANCE_COLUMN_SHAPE: readonly TableColumnShape[] = [
-  { key: "asset", header: "Asset" },
-  { key: "total", header: "Total", money: true },
-  { key: "reserved", header: "Reserved", money: true },
-  { key: "available", header: "Available", money: true },
-];
-
-export function BalancesView({
-  rows,
-  primaryAsset,
-  qualifier,
-  masked = false,
-  onToggleMasked,
-  onReservedDrill,
-  style,
-  className,
-}: BalancesViewProps): ReactElement {
-  const primary = rows.find((r) => r.asset === primaryAsset) ?? rows[0];
-
-  if (!primary) {
-    return (
-      <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
-        <p style={{ color: "var(--text-secondary)", fontSize: "var(--font-size-body)" }}>
-          No balances yet. Funds arriving on your account details will appear here.
-        </p>
-      </section>
-    );
-  }
-
-  const columns: DataTableColumn<AssetBalanceRow>[] = [
+export function assetBalanceColumns(masked: boolean): DataTableColumn<AssetBalanceRow>[] {
+  return [
     {
       key: "asset",
       header: "Asset",
@@ -271,6 +242,31 @@ export function BalancesView({
       ),
     },
   ];
+}
+
+export function BalancesView({
+  rows,
+  primaryAsset,
+  qualifier,
+  masked = false,
+  onToggleMasked,
+  onReservedDrill,
+  style,
+  className,
+}: BalancesViewProps): ReactElement {
+  const primary = rows.find((r) => r.asset === primaryAsset) ?? rows[0];
+
+  if (!primary) {
+    return (
+      <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
+        <p style={{ color: "var(--text-secondary)", fontSize: "var(--font-size-body)" }}>
+          No balances yet. Funds arriving on your account details will appear here.
+        </p>
+      </section>
+    );
+  }
+
+  const columns = assetBalanceColumns(masked);
 
   return (
     <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
@@ -368,7 +364,7 @@ export function BalancesBlock({
   if (isPending) {
     return (
       <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
-        <TableSkeleton columns={BALANCE_COLUMN_SHAPE} rows={3} label="Loading balances" />
+        <TableSkeleton columns={assetBalanceColumns(masked ?? false)} label="Loading balances" />
       </section>
     );
   }

@@ -268,19 +268,25 @@ export function RowText({
  * skeleton that keeps its column geometry, never a prose "Loading..." line
  * (which shifts the whole page on every screen open).
  */
-export type TableColumnShape = Pick<
-  DataTableColumn<unknown>,
-  "key" | "header" | "money" | "align" | "width"
->;
+/** Default placeholder rows - a measured four is about one ledger screen. */
+export const TABLE_SKELETON_ROWS = 4;
 
-export function TableSkeleton({
+/**
+ * Ragged bar widths: a uniform grid of identical bars reads as a wireframe,
+ * while varied lengths read as content that has not arrived yet. Money columns
+ * stay narrow because figures are.
+ */
+const barWidth = (columnIndex: number, money?: boolean): string =>
+  money ? "4.5em" : ["82%", "58%", "70%"][columnIndex % 3];
+
+export function TableSkeleton<Row = unknown>({
   columns,
-  rows = 5,
+  rows = TABLE_SKELETON_ROWS,
   label = "Loading",
   style,
 }: {
-  /** The real `DataTable` columns, or just their shape. */
-  columns: readonly TableColumnShape[];
+  /** The SAME column definitions the real table takes - identical geometry. */
+  columns: DataTableColumn<Row>[];
   /** Placeholder row count. Match the list's typical page, not its maximum. */
   rows?: number;
   /** Accessible description of what is loading, e.g. "Loading balances". */
@@ -331,7 +337,7 @@ export function TableSkeleton({
               borderBottom: "var(--border-w-hairline) solid var(--border-hairline)",
             }}
           >
-            {columns.map((col) => (
+            {columns.map((col, colIndex) => (
               <td
                 key={col.key}
                 style={{
@@ -344,7 +350,7 @@ export function TableSkeleton({
                   style={{
                     display: "inline-block",
                     height: "0.75em",
-                    width: col.money ? "4.5em" : "7em",
+                    width: barWidth(colIndex, col.money),
                     maxWidth: "100%",
                     borderRadius: "var(--radius-pill)",
                     background: "var(--border-hairline)",

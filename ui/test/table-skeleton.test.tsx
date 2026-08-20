@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DataTable, TableSkeleton, type DataTableColumn } from "../registry/components/data-table.js";
 import { unifiedColumns } from "../registry/blocks/activity.js";
+import { assetBalanceColumns } from "../registry/blocks/balances.js";
 
 type Row = { a: string; b: string };
 const columns: DataTableColumn<Row>[] = [
@@ -34,20 +35,13 @@ test("row count is configurable and drives the placeholder rows", () => {
   assert.equal(cells(three, "td"), 3 * columns.length);
 });
 
-// Drift guard: the balances block keeps a column *shape* for its skeleton
-// because its real columns are built inside the view. If a column is added or
-// renamed there, this fails and the shape must be updated with it.
-test("balances skeleton shape matches the block's real headers", async () => {
-  const src = await import("node:fs/promises").then((fs) =>
-    fs.readFile(new URL("../registry/blocks/balances.tsx", import.meta.url), "utf8"),
-  );
-  const shapeBlock = src.slice(src.indexOf("BALANCE_COLUMN_SHAPE"), src.indexOf("export function BalancesView"));
-  const shapeHeaders = [...shapeBlock.matchAll(/header: "([^"]+)"/g)].map((m) => m[1]);
-  const realHeaders = [...src.slice(src.indexOf("export function BalancesView")).matchAll(/header: "([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(shapeHeaders, realHeaders);
-});
-
 test("activity loading states reuse the real column definitions", () => {
   const html = renderToStaticMarkup(<TableSkeleton columns={unifiedColumns()} />);
   assert.equal(cells(html, "th"), unifiedColumns().length);
+});
+
+test("balances loading state passes the real column definitions", () => {
+  const html = renderToStaticMarkup(<TableSkeleton columns={assetBalanceColumns(false)} />);
+  assert.equal(cells(html, "th"), assetBalanceColumns(false).length);
+  assert.match(html, /Available/);
 });
