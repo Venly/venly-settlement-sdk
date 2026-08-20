@@ -13,9 +13,9 @@ Start in explicit mock mode with no credentials or network. Move the same SDK
 business logic to staging only after reviewing capabilities, compliance state and
 the normalized write requests. Staging and production writes fail closed.
 
-The Venly Finance builder surface documented here is the v0.2.0 release line.
+The Venly Finance builder surface documented here is the v0.7.0 release line.
 
-Building with a coding agent? Start from [AGENTS.md](AGENTS.md) - the MCP also serves it as the \venly://frontend/agents resource.
+Building with a coding agent? Start from [AGENTS.md](AGENTS.md) - the MCP also serves it as the `venly://frontend/agents` resource and pushes the core runtime doctrine in its initialize response.
 
 ## What it is
 
@@ -124,8 +124,12 @@ Delivery of UI source rides the shadcn registry standard – add
 to `components.json`, then `npx shadcn@latest add @venlyfinance/receive`. The MCP carries
 what a registry cannot:
 
-- `get_journey_blueprint` – screen inventory, required states, registry items and binding
-  hooks for eight money-product journeys.
+- `get_journey_blueprint` – screen inventory and required states for eleven
+  money-product journeys, plus a machine-readable `runtime_contract` containing
+  exact package versions, qualified hooks, provider setup, forbidden patterns,
+  install commands and completion checks.
+- `verify_runtime_contract` – deterministic runtime-contract checks over supplied
+  source and package metadata, using the same profiles and rules as the CLI.
 - `review_screen` – deterministic design audit of a screen's source (raw colours,
   hyphen-minus amounts, success styling on cancelled steps, masked review values,
   invented timing/custody copy, crypto codes inside `Intl.NumberFormat` currency
@@ -156,6 +160,22 @@ Scope the glob to component source, never to token or theme files: the
 `raw-colour` rule fires on any hex/rgba literal by design, and a tokens/theme
 css file is the one legitimate home of raw colour values (theming stays a
 one-file edit). `"src/**/*.tsx"` is the right default.
+
+### Runtime-contract CLI
+
+Gate the data-plane composition alongside the screen audit:
+
+```bash
+npx @venlyfinance/settlement-mcp verify "src/**/*.{ts,tsx}"
+```
+
+The verifier auto-detects `direct-sdk` (browser provider + hooks) or
+`backend-proxy` (browser proxy options + SDK-backed server routes). Override
+with `--profile direct-sdk` or `--profile backend-proxy`. Exit codes are `0`
+when no error findings exist, `1` when any error exists, and `2` for usage or
+no-match failures; warnings print but do not fail. The same
+`venly-allow:<rule-id>` token suppresses a deliberate finding on its line or
+the line above.
 
 ## Safety model (fail closed)
 
@@ -323,6 +343,7 @@ settlement-mcp/
     resources.ts          capability, safety and workflow resources
     prompts.ts            build_international_account prompt
     results.ts            text + structured output and error redaction
+    verify-cli.ts         runtime-contract profiles, checks and CLI
     staging-smoke.ts      safe discovery/read/dry-run staging verification
     client/
       sdk-client.ts       Adapter over @venlyfinance/sdk

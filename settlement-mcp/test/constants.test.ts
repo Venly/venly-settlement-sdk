@@ -72,6 +72,11 @@ test("package and MCP server versions stay aligned", () => {
   const packageJson = JSON.parse(
     readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
   );
-  assert.equal(packageJson.version, "0.6.0");
+  const packageLock = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../package-lock.json", import.meta.url)), "utf8"),
+  );
+  assert.equal(packageJson.version, "0.7.0");
   assert.equal(SERVER_VERSION, packageJson.version);
+  assert.equal(packageLock.version, packageJson.version);
+  assert.equal(packageLock.packages[""].version, packageJson.version);
 });

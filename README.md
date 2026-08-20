@@ -11,7 +11,7 @@ Building with a coding agent? Start from [AGENTS.md](AGENTS.md).
 | Package | What it is |
 |---|---|
 | [`@venlyfinance/sdk`](.) (root) | The TypeScript SDK: typed client for every Finance + Fundflow operation |
-| [`@venlyfinance/settlement-mcp`](settlement-mcp/) | Venly Finance MCP: SDK-backed tools, product resources and prompts for building and operating international money experiences. Mock-first; live writes fail closed. |
+| [`@venlyfinance/settlement-mcp`](settlement-mcp/) | Venly Finance MCP: SDK-backed tools, runtime-contract blueprints and deterministic review/verify gates for building international money experiences. Mock-first; live writes fail closed. |
 | [`@venlyfinance/react`](react/) | Headless React layer: provider, TanStack Query hooks, and flow state machines for staged transfers, four-eyes approval, and ramp lifecycles |
 | [`@venlyfinance/ui`](ui/) | Copy-owned UI kit: design tokens (the white-label contract) plus components encoding fintech density, money typography, and state-legibility rules. Not npm-published |
 | [`examples/mock-bank`](examples/mock-bank/) | Runnable example assembling the two: a full account experience in mock mode – fake data, zero credentials. `npm install && npm run dev` |
@@ -21,7 +21,10 @@ Building with a coding agent? Start from [AGENTS.md](AGENTS.md).
 The MCP extends this SDK rather than maintaining a second API client. In explicit
 mock mode it gives a coding agent atomic party, account, wallet/balance, EUR receiving
 account and transfer tools without credentials or network access. It also publishes a
-`build_international_account` prompt plus capability and safety resources.
+`build_international_account` prompt plus capability and safety resources. Its
+initialize response and journey blueprints push the package/provider/hook
+contract, while the `review` and `verify` CLIs gate screen and runtime
+composition in generated apps.
 
 The product boundary is deliberate: Venly supplies financial infrastructure through
 regulated partners. Creating a party does not complete KYC/KYB; the current public
