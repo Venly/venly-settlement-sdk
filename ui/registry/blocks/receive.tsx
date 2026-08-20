@@ -301,6 +301,7 @@ export function ReceiveBlock({
         accountId={accountId}
         createMutation={createMutation}
         onError={() => {}}
+        onCreated={() => void vbaQuery.refetch()}
        />
      );
    }
@@ -754,10 +755,12 @@ function ProvisionForm({
   accountId,
   createMutation,
   onError,
+  onCreated,
 }: {
   accountId: string;
   createMutation: ReturnType<typeof useCreateVirtualBankAccount>;
   onError?: (msg: string) => void;
+  onCreated?: () => void;
 }): ReactElement {
   const [name, setName] = useState("");
   const [crypto, setCrypto] = useState("USDC");
@@ -784,8 +787,9 @@ function ProvisionForm({
           idempotencyKey,
          },
        });
-       // On success the SDK refetches; the parent component will re-render with the VBA.
-      window.location.reload();
+       // On success, call onCreated so the parent refetches vbaQuery and renders the
+       // newly created VBA in place — no full page reload (which would drop the session).
+      onCreated?.();
      } catch (_err) {
       const msg = "Bank details weren't created. Try again.";
       setError(msg);
