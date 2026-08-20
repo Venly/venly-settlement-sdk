@@ -5,13 +5,17 @@ import { QueryClient } from "@tanstack/react-query";
 import { VenlyProvider, venlyKeys } from "@venlyfinance/react";
 import type { Transfer } from "@venlyfinance/sdk";
 import {
+  STATEMENT_DATE_COLUMN_WIDTH,
+  STATEMENT_OMISSION_NO_WALLET,
   StatementsBlock,
   StatementsView,
   customPeriod,
   deriveOpeningClosing,
   lastCompleteMonth,
   monthPeriod,
+  periodTurnover,
   runningBalances,
+  statementCoverage,
   statementIdentity,
   statementLines,
   type StatementLine,
@@ -150,6 +154,8 @@ test("the document renders coverage, Money figures, and table containment", () =
       decimals={6}
       opening={1250}
       closing={1200}
+      totalIn={50}
+      totalOut={100}
       lines={lines}
     />,
   );
@@ -159,17 +165,56 @@ test("the document renders coverage, Money figures, and table containment", () =
   assert.match(html, /DE89370400440532013000/);
   assert.match(html, /1,250\.00/);
   assert.match(html, /1,200\.00/);
+  assert.match(html, /Total in/);
+  assert.match(html, /Total out/);
   assert.match(html, /venly-table-scroll/);
   assert.match(html, /Pay-in sessions are not included/);
+  assert.match(html, /for July 2026/);
   assert.doesNotMatch(html, /toFixed/);
   assert.match(html, /aria-label="Statement period"/);
+  assert.match(html, new RegExp(`min-width:${STATEMENT_DATE_COLUMN_WIDTH}`));
+});
+
+test("coverage and omission strings contain no pagination vocabulary", () => {
+  const coverage = statementCoverage("July 2026");
+  const bundle = [
+    coverage,
+    STATEMENT_OMISSION_NO_WALLET,
+    statementCoverage("1 Jan 2026 – 31 Jan 2026"),
+  ].join("\n");
+  assert.doesNotMatch(bundle, /page/i);
+  assert.doesNotMatch(bundle, /loaded pages/i);
+  assert.doesNotMatch(bundle, /pagination/i);
+  assert.match(coverage, /for July 2026/);
+});
+
+test("date column width is pinned so an ISO date cannot ellipsis", () => {
+  assert.equal(STATEMENT_DATE_COLUMN_WIDTH, "10em");
+});
+
+test("period turnover is total in / total out from countable lines, omitted when a line cannot be counted", () => {
+  const lines: StatementLine[] = [
+    { key: "t1", kind: "transfer", label: "Transfer sent", signedAmount: -100, countsTowardBalance: true },
+    { key: "t2", kind: "transfer", label: "Transfer received", signedAmount: 50, countsTowardBalance: true },
+    { key: "r1", kind: "ramp", label: "Withdrawal", signedAmount: -40, countsTowardBalance: false },
+  ];
+  assert.deepEqual(periodTurnover(lines), { totalIn: 50, totalOut: 100 });
+  const broken: StatementLine[] = [
+    { key: "t1", kind: "transfer", label: "Transfer sent", countsTowardBalance: true },
+  ];
+  assert.equal(periodTurnover(broken).totalIn, undefined);
+  assert.match(periodTurnover(broken).omitted ?? "", /Funds are unaffected/);
 });
 
 test("connected block: malformed envelope is an error, never an empty statement", () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   const malformed = { items: [], resultPresent: false, pagination: undefined };
-  qc.setQueryData(venlyKeys.transfers(ACCT, undefined), malformed);
-  qc.setQueryData(venlyKeys.rampRequests(undefined), { items: [], resultPresent: true, pagination: undefined });
+  const july = monthPeriod(2026, 7);
+  qc.setQueryData(venlyKeys.transfersForPeriod(ACCT, { start: july.start, end: july.end }), malformed);
+  qc.setQueryData(
+    venlyKeys.rampRequests({ fromDate: "2026-07-01", toDate: "2026-07-31" }),
+    { items: [], resultPresent: true, pagination: undefined },
+  );
   qc.setQueryData(venlyKeys.wallets(ACCT, undefined), { items: [], resultPresent: true, pagination: undefined });
   qc.setQueryData(venlyKeys.virtualBankAccounts(ACCT, undefined), {
     items: [],

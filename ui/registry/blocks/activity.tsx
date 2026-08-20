@@ -588,9 +588,9 @@ export function filterByClientActivity<T>(
 
 /** Filtered-from-fetched, and the client-side limit, in one sentence. */
 export function activityFilterScopeSentence(shown: number, fetched: number, filtersOn: boolean): string {
-  const base = `Showing ${shown} of ${fetched} fetched row${fetched === 1 ? "" : "s"}`;
+  const base = `Showing ${shown} of ${fetched} loaded transaction${fetched === 1 ? "" : "s"}`;
   return filtersOn
-    ? `${base}. Search, date and amount filters run on fetched pages — the list API has no text parameter.`
+    ? `${base}. Search, date and amount filters apply to the transactions currently loaded.`
     : `${base}.`;
 }
 
@@ -727,7 +727,7 @@ export function ActivityFilterRow({
 export function ActivityFilterEmpty({ onClear }: { onClear: () => void }): ReactElement {
   return (
     <p style={{ margin: 0, fontSize: "var(--font-size-body)", color: "var(--text-secondary)" }}>
-      No rows match these filters.{" "}
+      No transactions match these filters.{" "}
       <button
         type="button"
         onClick={onClear}
@@ -763,7 +763,7 @@ export function rampSigned(ramp: RampActivityItem): { amount: number; signed: bo
 }
 
 export function unifiedToCsv(rows: UnifiedActivityRow[], accountId?: string, accountName?: string): string {
-  const header = "source,id,reference,type,date,scope,amount,currency,convertedAmount,convertedCurrency,status";
+  const header = "source,id,reference,type,date,scope,amount,currency,Converted amount,convertedCurrency,status";
   const lines = rows.map((row) => {
     if (row.kind === "transfer") {
       const t = row.transfer;
@@ -1137,9 +1137,9 @@ export function UnifiedActivityBlock({
                 }}
               >
                 <p style={{ margin: "0 0 var(--space-md)", fontSize: "var(--font-size-label)", color: "var(--text-secondary)" }}>
-                  Exports the {visible.length} rows matching your current filters – this
+                  Exports the {visible.length} transactions matching your current filters – this
                   account&rsquo;s transfers plus the company&rsquo;s withdrawals and Add money
-                  rows – out of {all.length}.
+                  transactions – out of {all.length}.
                 </p>
                 <div style={{ display: "flex", gap: "var(--space-sm)" }}>
                   <button

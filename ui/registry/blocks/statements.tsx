@@ -3,7 +3,7 @@ import type { SupportedAsset, Transfer, VirtualBankAccount, WalletBalance } from
 import {
   useRampRequests,
   useSupportedAssets,
-  useTransfers,
+  useTransfersForPeriod,
   useVirtualBankAccounts,
   useWallets,
 } from "@venlyfinance/react";
@@ -43,11 +43,27 @@ function assetDecimals(
  * Pay-in sessions are not in this feed: the document says so.
  */
 
-export const STATEMENT_COVERAGE =
-  "This statement covers this account's transfers and the company's withdrawals and add-money requests from the pages already loaded. Pay-in sessions are not included.";
+export function statementCoverage(periodLabel: string): string {
+  return `This statement covers this account's transfers and the company's withdrawals and add-money requests for ${periodLabel}. Pay-in sessions are not included.`;
+}
 
 export const STATEMENT_BALANCE_NOTE =
-  "Opening and closing are derived from this account's completed transfers, walked from the current wallet total. Company-wide payouts do not move this account's running balance.";
+  "Opening and closing are calculated from this account's completed transfers, based on the current wallet balance. Company-wide payouts do not move this account's running balance.";
+
+export const STATEMENT_OMISSION_NO_WALLET =
+  "The wallet balance for this asset is unavailable, so opening, closing and period totals are not shown. Funds are unaffected. Refresh this statement, or contact support if this continues.";
+
+export const STATEMENT_OMISSION_NO_AMOUNT =
+  "A completed transfer has no amount, so opening, closing and period totals are not shown. Funds are unaffected. Refresh this statement, or contact support if this continues.";
+
+export const STATEMENT_OMISSION_NO_TIMESTAMP =
+  "A completed transfer has no date, so opening, closing and period totals are not shown. Funds are unaffected. Refresh this statement, or contact support if this continues.";
+
+export const STATEMENT_OMISSION_TURNOVER =
+  "A transaction in this period has no amount, so total in and total out are not shown. Funds are unaffected. Refresh this statement, or contact support if this continues.";
+
+/** Wide enough for YYYY-MM-DD at the kit body face (widest ISO date ~105px). */
+export const STATEMENT_DATE_COLUMN_WIDTH = "10em";
 
 export type StatementPeriod = {
   kind: "month" | "custom";
@@ -171,7 +187,7 @@ export function deriveOpeningClosing(input: {
   periodEnd: string;
 }): DerivedBalances {
   if (input.currentTotal === undefined) {
-    return { omitted: "No wallet total for this asset – opening and closing are not shown." };
+    return { omitted: STATEMENT_OMISSION_NO_WALLET };
   }
   let after = 0;
   let inRange = 0;
@@ -180,11 +196,11 @@ export function deriveOpeningClosing(input: {
     if (transfer.asset !== input.asset) continue;
     const signed = signedTransferAmount(transfer, input.accountId);
     if (signed === undefined) {
-      return { omitted: "A completed transfer in the loaded pages has no amount – opening and closing are not shown." };
+      return { omitted: STATEMENT_OMISSION_NO_AMOUNT };
     }
     const at = transfer.createdAt;
     if (!at) {
-      return { omitted: "A completed transfer in the loaded pages has no timestamp – opening and closing are not shown." };
+      return { omitted: STATEMENT_OMISSION_NO_TIMESTAMP };
     }
     if (at > input.periodEnd) after += signed;
     else if (inPeriod(at, input.periodStart, input.periodEnd)) inRange += signed;
@@ -242,6 +258,21 @@ export function runningBalances(opening: number | undefined, lines: StatementLin
   });
 }
 
+export type PeriodTurnover = { totalIn?: number; totalOut?: number; omitted?: string };
+
+/** Total in / total out from the same lines as the running balance. */
+export function periodTurnover(lines: StatementLine[]): PeriodTurnover {
+  let totalIn = 0;
+  let totalOut = 0;
+  for (const line of lines) {
+    if (!line.countsTowardBalance) continue;
+    if (line.signedAmount === undefined) return { omitted: STATEMENT_OMISSION_TURNOVER };
+    if (line.signedAmount > 0) totalIn += line.signedAmount;
+    else if (line.signedAmount < 0) totalOut += -line.signedAmount;
+  }
+  return { totalIn, totalOut };
+}
+
 export function defaultStatementAsset(
   wallets: WalletBalance[],
   vbas: VirtualBankAccount[],
@@ -275,6 +306,8 @@ export function serializeStatementHtml(input: {
 }): string {
   const { identity, period, asset, decimals, opening, closing, omitted, lines, generatedAt } = input;
   const run = runningBalances(opening, lines);
+  const turnover = periodTurnover(lines);
+  const coverage = statementCoverage(period.label);
   const money = (amount: number | undefined) =>
     amount === undefined ? "—" : `${formatAmount(amount, 2, decimals)} ${asset}`;
   const identityRows = [
@@ -306,10 +339,10 @@ th{width:8em}td:nth-child(3),td:nth-child(4),th:nth-child(3),th:nth-child(4){tex
 <h2>Account</h2>
 <table>${identityRows}</table>
 <h2>Balances</h2>
-${omitted ? `<p>${omitted}</p>` : `<table><tr><th>Opening</th><td>${money(opening)}</td></tr><tr><th>Closing</th><td>${money(closing)}</td></tr></table>`}
+${omitted ? `<p>${omitted}</p>` : `<table><tr><th>Opening</th><td>${money(opening)}</td></tr><tr><th>Closing</th><td>${money(closing)}</td></tr>${turnover.omitted || turnover.totalIn === undefined ? "" : `<tr><th>Total in</th><td>${money(turnover.totalIn)}</td></tr><tr><th>Total out</th><td>${money(turnover.totalOut)}</td></tr>`}</table>`}
 <h2>Activity</h2>
 <table><thead><tr><th>Date</th><th>Activity</th><th>Amount</th><th>Balance</th></tr></thead><tbody>${body}</tbody></table>
-<p>${STATEMENT_COVERAGE}</p>
+<p>${coverage}</p>
 <p>${STATEMENT_BALANCE_NOTE}</p>
 </body></html>`;
 }
@@ -343,6 +376,9 @@ export function StatementsView({
   closing,
   omitted,
   lines,
+  totalIn,
+  totalOut,
+  turnoverOmitted,
   onDownload,
   style,
   className,
@@ -362,6 +398,9 @@ export function StatementsView({
   closing?: number;
   omitted?: string;
   lines: StatementLine[];
+  totalIn?: number;
+  totalOut?: number;
+  turnoverOmitted?: string;
   onDownload?: () => void;
   style?: CSSProperties;
   className?: string;
@@ -369,7 +408,16 @@ export function StatementsView({
   const run = runningBalances(opening, lines);
   const monthValue = period.kind === "month" && period.year && period.month ? `${period.year}-${period.month}` : "custom";
   const columns: DataTableColumn<StatementLine & { running?: number }>[] = [
-    { key: "date", header: "Date", cell: (line) => line.createdAt?.slice(0, 10) },
+    {
+      key: "date",
+      header: "Date",
+      width: STATEMENT_DATE_COLUMN_WIDTH,
+      cell: (line) => (
+        <span style={{ display: "inline-block", minWidth: STATEMENT_DATE_COLUMN_WIDTH, fontVariantNumeric: "tabular-nums" }}>
+          {line.createdAt?.slice(0, 10)}
+        </span>
+      ),
+    },
     {
       key: "what",
       header: "Activity",
@@ -531,10 +579,30 @@ export function StatementsView({
               <Money amount={closing} currency={asset} emphasis="value" maxFractionDigits={decimals} />
             )}
           </div>
+          <div>
+            <div style={{ fontSize: "var(--font-size-micro)", color: "var(--text-tertiary)" }}>Total in</div>
+            {omitted || turnoverOmitted || totalIn === undefined ? (
+              <Money amount={null} emphasis="value" />
+            ) : (
+              <Money amount={totalIn} currency={asset} emphasis="value" maxFractionDigits={decimals} />
+            )}
+          </div>
+          <div>
+            <div style={{ fontSize: "var(--font-size-micro)", color: "var(--text-tertiary)" }}>Total out</div>
+            {omitted || turnoverOmitted || totalOut === undefined ? (
+              <Money amount={null} emphasis="value" />
+            ) : (
+              <Money amount={totalOut} currency={asset} emphasis="value" maxFractionDigits={decimals} />
+            )}
+          </div>
         </div>
         {omitted ? (
           <p style={{ margin: "0 0 var(--space-lg)", fontSize: "var(--font-size-label)", color: "var(--text-secondary)" }}>
             {omitted}
+          </p>
+        ) : turnoverOmitted ? (
+          <p style={{ margin: "0 0 var(--space-lg)", fontSize: "var(--font-size-label)", color: "var(--text-secondary)" }}>
+            {turnoverOmitted}
           </p>
         ) : null}
 
@@ -548,7 +616,7 @@ export function StatementsView({
         </div>
 
         <p style={{ margin: "var(--space-lg) 0 0", fontSize: "var(--font-size-label)", color: "var(--text-secondary)" }}>
-          {STATEMENT_COVERAGE}
+          {statementCoverage(period.label)}
         </p>
         <p style={{ margin: "var(--space-xs) 0 0", fontSize: "var(--font-size-label)", color: "var(--text-secondary)" }}>
           {STATEMENT_BALANCE_NOTE}
@@ -581,8 +649,11 @@ export function StatementsBlock({
   const [customTo, setCustomTo] = useState("");
   const [assetOverride, setAssetOverride] = useState<string | null>(null);
 
-  const transfersQuery = useTransfers(accountId);
-  const rampsQuery = useRampRequests();
+  const transfersQuery = useTransfersForPeriod(accountId, { start: period.start, end: period.end });
+  const rampsQuery = useRampRequests({
+    fromDate: period.start.slice(0, 10),
+    toDate: period.end.slice(0, 10),
+  });
   const walletsQuery = useWallets(accountId);
   const vbaQuery = useVirtualBankAccounts(accountId);
   const assetsQuery = useSupportedAssets();
@@ -612,6 +683,7 @@ export function StatementsBlock({
     assetsQuery.data.resultPresent === false;
 
   const transfers = transfersQuery.data?.items ?? [];
+  const ledger = transfersQuery.data?.ledger ?? transfers;
   const ramps = (rampsQuery.data?.items ?? []) as RampActivityItem[];
   const wallets = walletsQuery.data?.items ?? [];
   const vbas = vbaQuery.data?.items ?? [];
@@ -624,12 +696,13 @@ export function StatementsBlock({
   const lines = statementLines(unified, accountId, resolvedAsset, period);
   const derived = deriveOpeningClosing({
     currentTotal: resolvedAsset ? walletTotalForAsset(wallets, resolvedAsset) : undefined,
-    transfers,
+    transfers: ledger,
     accountId,
     asset: resolvedAsset,
     periodStart: period.start,
     periodEnd: period.end,
   });
+  const turnover = periodTurnover(lines);
 
   const handleDownload = (): void => {
     const html = serializeStatementHtml({
@@ -651,7 +724,7 @@ export function StatementsBlock({
       <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
         <TableSkeleton
           columns={[
-            { key: "date", header: "Date", cell: () => null },
+            { key: "date", header: "Date", width: STATEMENT_DATE_COLUMN_WIDTH, cell: () => null },
             { key: "what", header: "Activity", cell: () => null },
             { key: "amount", header: "Amount", money: true, cell: () => null },
             { key: "balance", header: "Balance", money: true, cell: () => null },
@@ -730,6 +803,9 @@ export function StatementsBlock({
         closing={derived.closing}
         omitted={derived.omitted}
         lines={lines}
+        totalIn={turnover.totalIn}
+        totalOut={turnover.totalOut}
+        turnoverOmitted={turnover.omitted}
         onDownload={handleDownload}
       />
     </div>

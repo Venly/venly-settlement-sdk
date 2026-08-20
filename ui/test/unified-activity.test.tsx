@@ -110,7 +110,7 @@ test("csv: both ledgers, scope column says which is which, ramp rows carry the f
   const rows = unifyActivity([transfer({ id: "t1" })], [ramp({ id: "r1" })]);
   const csv = unifiedToCsv(rows, ACCT, "Main EUR");
   const lines = csv.split("\n");
-  assert.equal(lines[0], "source,id,reference,type,date,scope,amount,currency,convertedAmount,convertedCurrency,status");
+  assert.equal(lines[0], "source,id,reference,type,date,scope,amount,currency,Converted amount,convertedCurrency,status");
   const rampLine = lines.find((l) => l.startsWith("ramp,"));
   assert.ok(rampLine?.includes("Company-wide"));
   assert.ok(rampLine?.includes("92") && rampLine.includes("EUR"), "the gross fiat leg exports too");
@@ -208,11 +208,11 @@ test("date and amount ranges are client-side over fetched rows", () => {
 test("filter row states filtered-from-fetched; no-match empty is distinct from no activity", () => {
   assert.equal(
     activityFilterScopeSentence(2, 10, true),
-    "Showing 2 of 10 fetched rows. Search, date and amount filters run on fetched pages — the list API has no text parameter.",
+    "Showing 2 of 10 loaded transactions. Search, date and amount filters apply to the transactions currently loaded.",
   );
-  assert.equal(activityFilterScopeSentence(10, 10, false), "Showing 10 of 10 fetched rows.");
+  assert.equal(activityFilterScopeSentence(10, 10, false), "Showing 10 of 10 loaded transactions.");
   const empty = renderToStaticMarkup(<ActivityFilterEmpty onClear={() => undefined} />);
-  assert.match(empty, /No rows match these filters/);
+  assert.match(empty, /No transactions match these filters/);
   assert.match(empty, /Clear filters/);
   assert.doesNotMatch(empty, /No activity yet/);
   const row = renderToStaticMarkup(
@@ -223,7 +223,7 @@ test("filter row states filtered-from-fetched; no-match empty is distinct from n
     />,
   );
   assert.match(row, /aria-label="Search activity"/);
-  assert.match(row, /Showing 0 of 4 fetched rows/);
-  assert.match(row, /list API has no text parameter/);
+  assert.match(row, /Showing 0 of 4 loaded transactions/);
+  assert.doesNotMatch(row, /list API/);
 });
 
