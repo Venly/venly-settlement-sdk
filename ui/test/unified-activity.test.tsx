@@ -3,11 +3,16 @@ import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { FundflowComponents, Transfer } from "@venlyfinance/sdk";
 import {
+  ActivityFilterEmpty,
+  ActivityFilterRow,
   RampActivityPanel,
+  activityFilterScopeSentence,
+  filterByClientActivity,
   filterUnified,
   rampSigned,
   unifiedBand,
   unifiedColumns,
+  unifiedSearchHaystack,
   unifiedSummary,
   unifiedToCsv,
   unifiedTypeLabel,
@@ -154,3 +159,71 @@ test("ramp panel: gross fiat is 'Converted amount', never 'bank receives'; drill
   );
   assert.doesNotMatch(on, /View withdrawal/, "Add money has no entity page yet");
 });
+
+test("client-side search matches merchantReference, description, counterparty id and id", () => {
+  const rows = unifyActivity(
+    [
+      transfer({ id: "t-ref", merchantReference: "PAY-2026-001234", description: "Supplier settlement" }),
+      transfer({ id: "t-other", merchantReference: "NOPE", description: "Other" }),
+    ],
+    [ramp({ id: "r-pay", paymentReference: "PAY-9" })],
+  );
+  const hit = filterByClientActivity(
+    rows,
+    { query: "PAY-2026", dateFrom: "", dateTo: "", amountMin: "", amountMax: "" },
+    unifiedSearchHaystack,
+    (row) => row.createdAt,
+    () => undefined,
+  );
+  assert.deepEqual(hit.map((r) => r.key), ["transfer:t-ref"]);
+});
+
+test("date and amount ranges are client-side over fetched rows", () => {
+  const rows = unifyActivity(
+    [
+      transfer({ id: "t1", amount: 100, createdAt: "2026-07-01T10:00:00Z" }),
+      transfer({ id: "t2", amount: 500, createdAt: "2026-07-18T10:00:00Z" }),
+      transfer({ id: "t3", amount: 50, createdAt: "2026-08-01T10:00:00Z" }),
+    ],
+    [],
+  );
+  const dated = filterByClientActivity(
+    rows,
+    { query: "", dateFrom: "2026-07-01", dateTo: "2026-07-31", amountMin: "", amountMax: "" },
+    unifiedSearchHaystack,
+    (row) => row.createdAt,
+    (row) => (row.kind === "transfer" ? row.transfer.amount : undefined),
+  );
+  assert.deepEqual(dated.map((r) => r.key), ["transfer:t2", "transfer:t1"]);
+  const amounts = filterByClientActivity(
+    rows,
+    { query: "", dateFrom: "", dateTo: "", amountMin: "80", amountMax: "200" },
+    unifiedSearchHaystack,
+    (row) => row.createdAt,
+    (row) => (row.kind === "transfer" ? row.transfer.amount : undefined),
+  );
+  assert.deepEqual(amounts.map((r) => r.key), ["transfer:t1"]);
+});
+
+test("filter row states filtered-from-fetched; no-match empty is distinct from no activity", () => {
+  assert.equal(
+    activityFilterScopeSentence(2, 10, true),
+    "Showing 2 of 10 fetched rows. Search, date and amount filters run on fetched pages — the list API has no text parameter.",
+  );
+  assert.equal(activityFilterScopeSentence(10, 10, false), "Showing 10 of 10 fetched rows.");
+  const empty = renderToStaticMarkup(<ActivityFilterEmpty onClear={() => undefined} />);
+  assert.match(empty, /No rows match these filters/);
+  assert.match(empty, /Clear filters/);
+  assert.doesNotMatch(empty, /No activity yet/);
+  const row = renderToStaticMarkup(
+    <ActivityFilterRow
+      filters={{ query: "PAY", dateFrom: "2026-07-01", dateTo: "", amountMin: "", amountMax: "" }}
+      onChange={() => undefined}
+      scopeSentence={activityFilterScopeSentence(0, 4, true)}
+    />,
+  );
+  assert.match(row, /aria-label="Search activity"/);
+  assert.match(row, /Showing 0 of 4 fetched rows/);
+  assert.match(row, /list API has no text parameter/);
+});
+

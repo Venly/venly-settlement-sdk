@@ -502,6 +502,252 @@ export function filterUnified(
   return out;
 }
 
+export type ClientActivityFilters = {
+  query: string;
+  dateFrom: string;
+  dateTo: string;
+  amountMin: string;
+  amountMax: string;
+};
+
+export const EMPTY_ACTIVITY_FILTERS: ClientActivityFilters = {
+  query: "",
+  dateFrom: "",
+  dateTo: "",
+  amountMin: "",
+  amountMax: "",
+};
+
+export function activityFiltersActive(filters: ClientActivityFilters): boolean {
+  return Boolean(
+    filters.query.trim() || filters.dateFrom || filters.dateTo || filters.amountMin || filters.amountMax,
+  );
+}
+
+export function transferSearchHaystack(transfer: Transfer): string {
+  return [transfer.id, transfer.description, transfer.merchantReference, transfer.senderAccountId, transfer.receiverAccountId]
+    .filter((part): part is string => Boolean(part))
+    .join(" ")
+    .toLowerCase();
+}
+
+export function unifiedSearchHaystack(row: UnifiedActivityRow): string {
+  if (row.kind === "transfer") return transferSearchHaystack(row.transfer);
+  return [row.ramp.id, row.ramp.paymentReference, row.ramp.createdBy]
+    .filter((part): part is string => Boolean(part))
+    .join(" ")
+    .toLowerCase();
+}
+
+export function parseAmountBound(raw: string): number | undefined {
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+export function matchesDateRange(iso: string | undefined, from: string, to: string): boolean {
+  if (!from && !to) return true;
+  const day = iso?.slice(0, 10);
+  if (!day) return false;
+  if (from && day < from) return false;
+  if (to && day > to) return false;
+  return true;
+}
+
+export function matchesAmountRange(
+  amount: number | undefined,
+  min: number | undefined,
+  max: number | undefined,
+): boolean {
+  if (min === undefined && max === undefined) return true;
+  if (amount === undefined) return false;
+  const abs = Math.abs(amount);
+  if (min !== undefined && abs < min) return false;
+  if (max !== undefined && abs > max) return false;
+  return true;
+}
+
+export function filterByClientActivity<T>(
+  rows: T[],
+  filters: ClientActivityFilters,
+  haystack: (row: T) => string,
+  createdAt: (row: T) => string | undefined,
+  amount: (row: T) => number | undefined,
+): T[] {
+  const query = filters.query.trim().toLowerCase();
+  const min = parseAmountBound(filters.amountMin);
+  const max = parseAmountBound(filters.amountMax);
+  return rows.filter((row) => {
+    if (query && !haystack(row).includes(query)) return false;
+    if (!matchesDateRange(createdAt(row), filters.dateFrom, filters.dateTo)) return false;
+    if (!matchesAmountRange(amount(row), min, max)) return false;
+    return true;
+  });
+}
+
+/** Filtered-from-fetched, and the client-side limit, in one sentence. */
+export function activityFilterScopeSentence(shown: number, fetched: number, filtersOn: boolean): string {
+  const base = `Showing ${shown} of ${fetched} fetched row${fetched === 1 ? "" : "s"}`;
+  return filtersOn
+    ? `${base}. Search, date and amount filters run on fetched pages — the list API has no text parameter.`
+    : `${base}.`;
+}
+
+const filterControlStyle = (active: boolean): CSSProperties => ({
+  fontFamily: "var(--font-family)",
+  fontSize: "var(--font-size-label)",
+  color: active ? "var(--text-primary)" : "var(--text-secondary)",
+  background: active ? "var(--selected-tint)" : "var(--surface-raised)",
+  border: "var(--border-w-hairline) solid var(--border-hairline)",
+  borderRadius: "var(--radius-control)",
+  padding: "var(--space-2xs) var(--space-sm)",
+});
+
+export function ActivityFilterRow({
+  filters,
+  onChange,
+  scopeSentence,
+}: {
+  filters: ClientActivityFilters;
+  onChange: (next: ClientActivityFilters) => void;
+  scopeSentence: string;
+}): ReactElement {
+  const set = (patch: Partial<ClientActivityFilters>): void => onChange({ ...filters, ...patch });
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: "var(--space-sm)",
+        marginBottom: "var(--space-md)",
+      }}
+    >
+      <input
+        type="search"
+        aria-label="Search activity"
+        placeholder="Search counterparty, description, reference, id"
+        value={filters.query}
+        onChange={(event) => set({ query: event.target.value })}
+        style={{ ...filterControlStyle(Boolean(filters.query.trim())), flex: "1 1 var(--card-max-width)" }}
+      />
+      <label
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "var(--space-2xs)",
+          fontSize: "var(--font-size-label)",
+          color: "var(--text-secondary)",
+          fontFamily: "var(--font-family)",
+        }}
+      >
+        From
+        <input
+          type="date"
+          aria-label="From date"
+          value={filters.dateFrom}
+          onChange={(event) => set({ dateFrom: event.target.value })}
+          style={filterControlStyle(Boolean(filters.dateFrom))}
+        />
+      </label>
+      <label
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "var(--space-2xs)",
+          fontSize: "var(--font-size-label)",
+          color: "var(--text-secondary)",
+          fontFamily: "var(--font-family)",
+        }}
+      >
+        To
+        <input
+          type="date"
+          aria-label="To date"
+          value={filters.dateTo}
+          onChange={(event) => set({ dateTo: event.target.value })}
+          style={filterControlStyle(Boolean(filters.dateTo))}
+        />
+      </label>
+      <label
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "var(--space-2xs)",
+          fontSize: "var(--font-size-label)",
+          color: "var(--text-secondary)",
+          fontFamily: "var(--font-family)",
+        }}
+      >
+        Min
+        <input
+          type="number"
+          inputMode="decimal"
+          aria-label="Minimum amount"
+          value={filters.amountMin}
+          onChange={(event) => set({ amountMin: event.target.value })}
+          style={filterControlStyle(Boolean(filters.amountMin))}
+        />
+      </label>
+      <label
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "var(--space-2xs)",
+          fontSize: "var(--font-size-label)",
+          color: "var(--text-secondary)",
+          fontFamily: "var(--font-family)",
+        }}
+      >
+        Max
+        <input
+          type="number"
+          inputMode="decimal"
+          aria-label="Maximum amount"
+          value={filters.amountMax}
+          onChange={(event) => set({ amountMax: event.target.value })}
+          style={filterControlStyle(Boolean(filters.amountMax))}
+        />
+      </label>
+      <p
+        style={{
+          flex: "1 0 100%",
+          margin: 0,
+          fontSize: "var(--font-size-label)",
+          color: "var(--text-secondary)",
+        }}
+      >
+        {scopeSentence}
+      </p>
+    </div>
+  );
+}
+
+export function ActivityFilterEmpty({ onClear }: { onClear: () => void }): ReactElement {
+  return (
+    <p style={{ margin: 0, fontSize: "var(--font-size-body)", color: "var(--text-secondary)" }}>
+      No rows match these filters.{" "}
+      <button
+        type="button"
+        onClick={onClear}
+        style={{
+          border: "none",
+          background: "none",
+          cursor: "pointer",
+          color: "var(--text-primary)",
+          fontSize: "var(--font-size-body)",
+          fontFamily: "var(--font-family)",
+          textDecoration: "underline",
+          padding: 0,
+        }}
+      >
+        Clear filters
+      </button>
+    </p>
+  );
+}
+
 /**
  * Signed amount for the row's primary (crypto) figure. Direction is
  * carried by this sign + the Type label; the fiat side stays unsigned
@@ -702,6 +948,7 @@ export function UnifiedActivityBlock({
   accountId,
   accountName,
   initialScope = "all",
+  initialFilters = EMPTY_ACTIVITY_FILTERS,
   onOpenWithdrawal,
   style,
   className,
@@ -710,6 +957,7 @@ export function UnifiedActivityBlock({
   /** Renders in the Scope column for transfer rows. */
   accountName?: string;
   initialScope?: ActivityScope;
+  initialFilters?: ClientActivityFilters;
   /** Entity drill for OFF_RAMP panel rows, e.g. navigate to the withdrawal. */
   onOpenWithdrawal?: (id: string) => void;
   style?: CSSProperties;
@@ -721,6 +969,7 @@ export function UnifiedActivityBlock({
   const { data: rampData, isPending: rampsPending } = rampsQuery;
   const [scope, setScope] = useState<ActivityScope>(initialScope);
   const [typeFilter, setTypeFilter] = useState<UnifiedTypeFilter>("all");
+  const [clientFilters, setClientFilters] = useState<ClientActivityFilters>(initialFilters);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
@@ -730,7 +979,21 @@ export function UnifiedActivityBlock({
     [transferData, rampData],
   );
   const summary = useMemo(() => unifiedSummary(all), [all]);
-  const visible = useMemo(() => filterUnified(all, typeFilter, scope), [all, typeFilter, scope]);
+  const typed = useMemo(() => filterUnified(all, typeFilter, scope), [all, typeFilter, scope]);
+  const visible = useMemo(
+    () =>
+      filterByClientActivity(
+        typed,
+        clientFilters,
+        unifiedSearchHaystack,
+        (row) => row.createdAt,
+        (row) =>
+          row.kind === "transfer"
+            ? signedTransferAmount(row.transfer, accountId)
+            : rampSigned(row.ramp)?.amount,
+      ),
+    [typed, clientFilters, accountId],
+  );
   const visibleOrdered = useMemo(() => {
     const order: UnifiedBand[] = ["pending", "completed", "incomplete"];
     return order.flatMap((band) => visible.filter((row) => unifiedBand(row) === band));
@@ -743,7 +1006,9 @@ export function UnifiedActivityBlock({
     selectedKey && steppableKeys.includes(selectedKey)
       ? (visibleOrdered.find((row) => row.key === selectedKey) ?? null)
       : null;
-  const filtered = typeFilter !== "all" || scope !== "all";
+  const clientOn = activityFiltersActive(clientFilters);
+  const filtered = typeFilter !== "all" || scope !== "all" || clientOn;
+  const scopeSentence = activityFilterScopeSentence(visible.length, all.length, clientOn);
 
   useEffect(() => {
     if (!selected) return;
@@ -904,33 +1169,22 @@ export function UnifiedActivityBlock({
         </div>
       </div>
 
+      {all.length > 0 ? (
+        <ActivityFilterRow filters={clientFilters} onChange={setClientFilters} scopeSentence={scopeSentence} />
+      ) : null}
+
       {all.length === 0 ? (
         <p style={{ margin: 0, fontSize: "var(--font-size-body)", color: "var(--text-secondary)" }}>
           No activity yet. Transfers and withdrawals appear here as soon as they&rsquo;re created.
         </p>
       ) : visible.length === 0 ? (
-        <p style={{ margin: 0, fontSize: "var(--font-size-body)", color: "var(--text-secondary)" }}>
-          Nothing matches these filters.{" "}
-          <button
-            type="button"
-            onClick={() => {
-              setTypeFilter("all");
-              setScope("all");
-            }}
-            style={{
-              border: "none",
-              background: "none",
-              cursor: "pointer",
-              color: "var(--text-primary)",
-              fontSize: "var(--font-size-body)",
-              fontFamily: "var(--font-family)",
-              textDecoration: "underline",
-              padding: 0,
-            }}
-          >
-            Clear filters
-          </button>
-        </p>
+        <ActivityFilterEmpty
+          onClear={() => {
+            setTypeFilter("all");
+            setScope("all");
+            setClientFilters(EMPTY_ACTIVITY_FILTERS);
+          }}
+        />
       ) : (
         <div className="venly-table-scroll">
           <DataTable
@@ -968,12 +1222,14 @@ export function UnifiedActivityBlock({
 export function ActivityBlock({
   accountId,
   initialScope = "all",
+  initialFilters = EMPTY_ACTIVITY_FILTERS,
   style,
   className,
 }: {
   accountId: string;
   /** Landing scope, e.g. "pending" when arriving from a reserved drill. */
   initialScope?: ActivityScope;
+  initialFilters?: ClientActivityFilters;
   style?: CSSProperties;
   className?: string;
 }): ReactElement {
@@ -981,6 +1237,7 @@ export function ActivityBlock({
   const { data, isPending } = transfersQuery;
   const [scope, setScope] = useState<ActivityScope>(initialScope);
   const [assetFilter, setAssetFilter] = useState<string | null>(null);
+  const [clientFilters, setClientFilters] = useState<ClientActivityFilters>(initialFilters);
   const [exportOpen, setExportOpen] = useState(false);
   // Collapse state is lifted out of the table so the keyboard stepper
   // knows exactly which rows are rendered.
@@ -1005,7 +1262,18 @@ export function ActivityBlock({
     [all, assetFilter],
   );
   const summary = useMemo(() => activitySummary(assetFiltered), [assetFiltered]);
-  const visible = useMemo(() => scopeTransfers(assetFiltered, scope), [assetFiltered, scope]);
+  const scoped = useMemo(() => scopeTransfers(assetFiltered, scope), [assetFiltered, scope]);
+  const visible = useMemo(
+    () =>
+      filterByClientActivity(
+        scoped,
+        clientFilters,
+        transferSearchHaystack,
+        (t) => t.createdAt,
+        (t) => signedTransferAmount(t, accountId),
+      ),
+    [scoped, clientFilters, accountId],
+  );
   // Display order mirrors the grouped table: pending above settled.
   const visibleOrdered = useMemo(
     () => [
@@ -1025,7 +1293,9 @@ export function ActivityBlock({
     selectedId && steppableIds.includes(selectedId)
       ? (visibleOrdered.find((t) => t.id === selectedId) ?? null)
       : null;
-  const filtered = assetFilter !== null || scope !== "all";
+  const clientOn = activityFiltersActive(clientFilters);
+  const filtered = assetFilter !== null || scope !== "all" || clientOn;
+  const scopeSentence = activityFilterScopeSentence(visible.length, all.length, clientOn);
 
   // ↑/↓ step the open panel through the visible rows; Esc closes. The
   // listener exists only while the panel is open, and never fights a
@@ -1221,16 +1491,34 @@ export function ActivityBlock({
             </div>
           </div>
 
-          <GroupedActivityTable
-            transfers={visible}
-            accountId={accountId}
-            selectedId={selected?.id}
-            onSelect={(t) => setSelectedId(t.id ?? null)}
-            collapsedGroups={collapsedGroups}
-            onGroupToggle={(key, isCollapsed) =>
-              setCollapsedGroups((c) => ({ ...c, [key]: isCollapsed }))
-            }
-          />
+          {all.length > 0 ? (
+            <ActivityFilterRow filters={clientFilters} onChange={setClientFilters} scopeSentence={scopeSentence} />
+          ) : null}
+
+          {all.length === 0 ? (
+            <p style={{ margin: 0, fontSize: "var(--font-size-body)", color: "var(--text-secondary)" }}>
+              No activity yet.
+            </p>
+          ) : visible.length === 0 ? (
+            <ActivityFilterEmpty
+              onClear={() => {
+                setScope("all");
+                setAssetFilter(null);
+                setClientFilters(EMPTY_ACTIVITY_FILTERS);
+              }}
+            />
+          ) : (
+            <GroupedActivityTable
+              transfers={visible}
+              accountId={accountId}
+              selectedId={selected?.id}
+              onSelect={(t) => setSelectedId(t.id ?? null)}
+              collapsedGroups={collapsedGroups}
+              onGroupToggle={(key, isCollapsed) =>
+                setCollapsedGroups((c) => ({ ...c, [key]: isCollapsed }))
+              }
+            />
+          )}
         </>
       )}
       {selected ? (

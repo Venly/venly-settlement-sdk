@@ -209,6 +209,13 @@ const BLOCKS = [
     deps: ["data-table", "status-pill", "side-panel", "timeline", "field-list", "withdraw", "list-error"],
   },
   {
+    name: "statements",
+    title: "Statements block",
+    description:
+      "A fixed-period account statement: calendar-month or custom range, identity (party, account, vIBAN when present), opening and closing walked from the current wallet total through completed transfers, ordered rows, and a print-to-PDF download that reuses the receive pipeline. Coverage is labelled: pay-in sessions are not in this feed.",
+    deps: ["data-table", "field-list", "list-error", "activity"],
+  },
+  {
     name: "reconciliation",
     title: "Reconciliation block",
     description:
