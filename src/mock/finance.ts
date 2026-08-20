@@ -9,6 +9,36 @@ import {
 } from "./transport.js";
 import { errorPresets } from "./errors.js";
 import { FinanceMockStore, type FinanceSeeds, type VerificationStatusInput, type MockInboundCredit } from "./store.js";
+import {
+  broadcastChannel,
+  memoryChannel,
+  type MockChannelMessage,
+  type MockStateChannel,
+} from "./channel.js";
+import {
+  EventLog,
+  deterministicClock,
+  systemClock,
+  type MockClock,
+  type MockEvent,
+  type MockIdSource,
+} from "./runtime.js";
+import type { RequestOptions } from "../core/http.js";
+import type { LedgerSnapshot } from "./ledger.js";
+import type { SeedProfile } from "./seed-profiles.js";
+
+/** Options for a mock transport. Every default preserves today's behaviour. */
+export interface FinanceMockOptions {
+  /** Contexts sharing a sessionId and a channel share one world. */
+  sessionId?: string;
+  channel?: "memory" | "broadcast" | MockStateChannel;
+  /** Fixed clock + counter ids, so a scripted run replays deep-equal. */
+  deterministic?: boolean;
+  clock?: MockClock;
+  ids?: MockIdSource;
+  eventBufferSize?: number;
+  onHandlerError?: (error: unknown) => void;
+}
 
 type schemas = components["schemas"];
 
@@ -155,13 +185,17 @@ export const accounts = [
 
 // Contract 1.3.0: `listWallets` returns per-asset balance rows only. The
 // wallet wrapper (id/chain/address/amlStatus) is no longer part of the public
-// read surface — see the gap register (wallet identity is unobtainable while
+// read surface (wallet identity is unobtainable while
 // the permit endpoints still key on {walletId}).
 export const wallet = [
   {
     asset: "USDC",
     contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-    amount: { total: 15230.5, available: 15100.5, reserved: 130 },
+    // reserved backs transfers[31], the seeded PENDING 420.5 USDC send. It is
+    // not a round 130 because a reserve with no hold behind it is money the
+    // fixtures cannot account for. `available` is
+    // untouched: that is the number a UI renders as spendable.
+    amount: { total: 15521.0, available: 15100.5, reserved: 420.5 },
   },
   {
     asset: "EURC",
@@ -200,6 +234,15 @@ const walletSeeds: Record<string, schemas["WalletBalanceDto"][]> = {
     },
   ],
   [accounts[4].id]: [
+    {
+      // The payouts account funds USDC payout routes, so it has to hold USDC.
+      // Without this row every payout on the seeded route fails for want of
+      // funds - the routes deposit USDC while the wallet held only USDT, a
+      // mismatch that was invisible while payouts moved no money at all.
+      asset: "USDC",
+      contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      amount: { total: 6000, available: 6000, reserved: 0 },
+    },
     {
       asset: "USDT",
       contractAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
@@ -448,6 +491,20 @@ export const transfers = [
     status: "FAILED",
     errorMessage: "Insufficient available balance",
     createdAt: "2026-07-22T09:12:00Z",
+  },
+  {
+    // The hold behind acct-escrow's fully-reserved wallet: every unit of its
+    // 4200 USDC is committed to this send, which is why `available` is 0 and
+    // why a UI that renders `total` as spendable is lying.
+    id: "tr5e8c66-7777-4a70-9bb8-000000000006",
+    senderAccountId: accounts[5].id,
+    receiverAccountId: accounts[1].id,
+    chain: "BASE",
+    asset: "USDC",
+    amount: 4200.0,
+    description: "Escrow release",
+    status: "PENDING",
+    createdAt: "2026-08-14T09:20:00Z",
   },
   {
     id: "tr5e8c66-7777-4a70-9bb8-000000000005",
@@ -724,6 +781,11 @@ export function createFinanceRoutes(store: FinanceMockStore): RouteTable {
       kind: "handler",
       handle: (ctx) => store.deleteParty(ctx),
     },
+    "GET /parties/{partyId}/iv-verification": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.getIvVerification(ctx)),
+    },
+
     // Accounts
     "GET /accounts": {
       kind: "handler",
@@ -901,16 +963,274 @@ export interface VenlyFinanceMock extends VenlyMock {
   ): schemas["PayoutRouteDto"];
   /** Restore the seed fixtures and clear the call log. */
   reset(): void;
+  /**
+   * Mock-only drivers, separated from the transport controls above. Present
+   * only on a mock transport: a credential-configured client has no `mock`
+   * object at all, so there is nothing to reach this through.
+   */
+  simulations: VenlyFinanceSimulations;
+}
+
+export interface ChannelInfo {
+  adapter: "memory" | "broadcast" | "custom";
+  sessionId: string;
+  originId: string;
+  origin?: string;
+  peers: number;
+  epoch: number;
+  revision: number;
+}
+
+/**
+ * Drivers that change the simulated world: advance a verification, land an
+ * inbound payment, walk a payout to its next status, load a seed profile.
+ *
+ * Separate from the transport controls (`failNext`, `respondNext`, `calls`,
+ * `clear`), which change how the mock TRANSPORT behaves rather than what
+ * happens in the world it simulates.
+ */
+export interface VenlyFinanceSimulations {
+  reset(): void;
+  /**
+   * Load a profile over the seeds and check every balance rule.
+   *
+   * Each top-level key in `profile.seeds` REPLACES the seeded one wholesale
+   * rather than merging, so a profile supplying `wallets` must also supply the
+   * `transfers` and `payouts` that reserve against them — otherwise those
+   * reserves have nothing behind them and the profile is refused.
+   */
+  seed(profile: SeedProfile): void;
+  channelInfo(): ChannelInfo;
+  events: {
+    subscribe(handler: (e: MockEvent) => void, opts?: { since?: string }): () => void;
+    list(opts?: { since?: string; accountId?: string }): MockEvent[];
+  };
+  ledger: {
+    snapshot(): LedgerSnapshot;
+    /**
+     * Throws `MockLedgerError` if any balance stops adding up: total not equal
+     * to available + reserved, a negative amount, or money reserved with no
+     * pending operation behind it. To check that the system-wide total only
+     * moved on money entering or leaving, compare two `snapshot()` calls.
+     */
+    verify(): void;
+  };
+  inbound: {
+    credit(vbaId: string, amount: number, referenceCode?: string | null): MockInboundCredit;
+    list(vbaId?: string): MockInboundCredit[];
+  };
+  verification: {
+    advance(id: string, status?: VerificationStatusInput): void;
+    advanceIv(
+      partyId: string,
+      status: NonNullable<schemas["PartyIvVerificationDto"]["status"]>,
+    ): schemas["PartyIvVerificationDto"];
+  };
+  transfer: { advance(id: string, status?: "COMPLETED" | "FAILED"): void };
+  paymentSession: {
+    advance(id: string, to: NonNullable<schemas["PayInSessionDto"]["status"]>): schemas["PayInSessionDto"];
+  };
+  payout: {
+    advance(
+      id: string,
+      to: NonNullable<schemas["PayoutDto"]["status"]>,
+      opts?: { settledFiatAmount?: number; failureReason?: string; sendTxHash?: string },
+    ): schemas["PayoutDto"];
+  };
+  payoutRoute: {
+    advance(id: string, to: NonNullable<schemas["PayoutRouteDto"]["status"]>): schemas["PayoutRouteDto"];
+  };
+  payoutBankAccount: {
+    advance(
+      id: string,
+      to?: NonNullable<schemas["PayoutBankAccountDto"]["status"]>,
+    ): schemas["PayoutBankAccountDto"];
+  };
+}
+
+function createSimulations(transport: FinanceMockTransport): VenlyFinanceSimulations {
+  const store = () => transport.$store;
+  // Every driver replicates what it changed, the same way the request path
+  // does, so a console driving the mock is visible in the consumer tab.
+  const driven = <T>(run: () => T): T => {
+    const cursor = store().events.list().at(-1)?.id;
+    const result = run();
+    transport.$afterDriver(cursor);
+    return result;
+  };
+  return {
+    reset: () => transport.reset(),
+    seed: (profile) =>
+      driven(() => {
+        store().applyProfile(profile.seeds);
+        // Transitions that must be driven rather than seeded, so states which
+        // carry a decision also carry its event.
+        profile.after?.(transport.simulations);
+      }),
+    channelInfo: () => transport.$channelInfo(),
+    events: {
+      subscribe: (handler, opts) => store().events.subscribe(handler, opts),
+      list: (opts) => store().events.list(opts),
+    },
+    ledger: {
+      snapshot: () => store().ledger.snapshot(),
+      verify: () => store().ledger.verify(),
+    },
+    inbound: {
+      credit: (vbaId, amount, referenceCode) =>
+        driven(() => store().simulateInboundCredit(vbaId, amount, referenceCode)),
+      list: (vbaId) => store().listInboundCredits(vbaId),
+    },
+    verification: {
+      advance: (id, status) => driven(() => store().advanceVerification(id, status)),
+      advanceIv: (partyId, status) => driven(() => store().advanceIvVerification(partyId, status)),
+    },
+    transfer: { advance: (id, status) => driven(() => store().advanceTransfer(id, status)) },
+    paymentSession: { advance: (id, to) => driven(() => store().advancePaymentSession(id, to)) },
+    payout: { advance: (id, to, opts) => driven(() => store().advancePayout(id, to, opts)) },
+    payoutRoute: { advance: (id, to) => driven(() => store().advancePayoutRoute(id, to)) },
+    payoutBankAccount: {
+      advance: (id, to) => driven(() => store().advancePayoutBankAccount(id, to)),
+    },
+  };
 }
 
 /** Stateful finance mock transport wired to a fresh store per client. */
 export class FinanceMockTransport extends MockTransport implements VenlyFinanceMock {
   private readonly store: FinanceMockStore;
+  private readonly channel: MockStateChannel;
+  private readonly sessionId: string;
+  private revision = 0;
+  /** Highest (revision, originId) this replica has adopted or produced. */
+  private highWater = { epoch: 0, revision: 0, originId: "" };
+  readonly simulations: VenlyFinanceSimulations;
 
-  constructor() {
-    const store = new FinanceMockStore(financeSeeds);
+  constructor(options: FinanceMockOptions = {}) {
+    const merged = { ...defaultMockOptions, ...options };
+    const sessionId = merged.sessionId ?? "default";
+    const channel =
+      typeof merged.channel === "object"
+        ? merged.channel
+        : merged.channel === "broadcast"
+          ? broadcastChannel(sessionId)
+          : memoryChannel();
+    const clock =
+      merged.clock ?? (merged.deterministic ? deterministicClock() : systemClock);
+    const events = new EventLog(
+      channel.originId,
+      () => clock,
+      merged.eventBufferSize ?? 500,
+      merged.onHandlerError ?? (() => {}),
+    );
+    const store = new FinanceMockStore(financeSeeds, {
+      deterministic: merged.deterministic,
+      clock,
+      ids: merged.ids,
+      events,
+    });
     super(createFinanceRoutes(store), errorPresets, financeRequestShapes);
     this.store = store;
+    this.channel = channel;
+    this.sessionId = sessionId;
+    this.highWater = { epoch: 0, revision: 0, originId: channel.originId };
+    this.simulations = createSimulations(this);
+    transportsConstructed += 1;
+
+    channel.subscribe((message) => this.receive(message));
+    if (channel.adapter !== "memory") channel.post({ kind: "hello", originId: channel.originId });
+  }
+
+  /**
+   * Every mutating call replicates itself once it has succeeded. Hooking the
+   * request path rather than each handler means a new route cannot forget to.
+   */
+  override async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+    const before = this.store.events.list().at(-1)?.id;
+    const result = await super.request<T>(method, path, options);
+    if (method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE") {
+      this.broadcast(this.newEventsSince(before));
+    }
+    return result;
+  }
+
+  /** Events this replica minted during the call that just completed. */
+  private newEventsSince(cursor: string | undefined): MockEvent[] {
+    return cursor === undefined ? this.store.events.list() : this.store.events.list({ since: cursor });
+  }
+
+  /** Replicate after a simulation driver mutated the world. */
+  $afterDriver(cursor: string | undefined): void {
+    this.broadcast(this.newEventsSince(cursor));
+  }
+
+  /** Internal: the store, for the simulations namespace. */
+  get $store(): FinanceMockStore {
+    return this.store;
+  }
+
+  get $channel(): MockStateChannel {
+    return this.channel;
+  }
+
+  $channelInfo(): ChannelInfo {
+    return {
+      adapter: this.channel.adapter,
+      sessionId: this.sessionId,
+      originId: this.channel.originId,
+      origin: globalThis.location?.origin,
+      peers: this.channel.peers(),
+      epoch: this.store.events.epoch,
+      revision: this.revision,
+    };
+  }
+
+  private broadcast(events: MockEvent[] = []): void {
+    if (this.channel.adapter === "memory") return;
+    this.revision += 1;
+    this.highWater = {
+      epoch: this.store.events.epoch,
+      revision: this.revision,
+      originId: this.channel.originId,
+    };
+    this.channel.post({
+      kind: "snapshot",
+      epoch: this.store.events.epoch,
+      revision: this.revision,
+      originId: this.channel.originId,
+      state: this.store.snapshotState(),
+      events,
+    });
+  }
+
+  private receive(message: MockChannelMessage): void {
+    if (message.kind === "hello") {
+      // Answer with state only. A `hello` answer never replays a tail, which
+      // is why a late joiner gets store.resync rather than history it missed.
+      if (this.revision > 0) this.broadcast();
+      return;
+    }
+    const mine = this.highWater;
+    const theirs = { epoch: message.epoch, revision: message.revision, originId: message.originId };
+    // The full triple, in order. A peer that reset has a higher epoch and may
+    // legitimately carry a LOWER revision, so comparing revision alone would
+    // reject the reset and leave this replica holding a world that no longer
+    // exists.
+    const newer =
+      theirs.epoch > mine.epoch ||
+      (theirs.epoch === mine.epoch &&
+        (theirs.revision > mine.revision ||
+          (theirs.revision === mine.revision && theirs.originId > mine.originId)));
+    if (!newer) return;
+    this.store.restoreState(message.state);
+    this.revision = message.revision;
+    this.highWater = theirs;
+    // Adopt the peer's epoch before ingesting, so this replica's own sequence
+    // restarts at 1 for the new (originId, epoch) pair as the contract says.
+    if (message.epoch !== this.store.events.epoch) this.store.events.rollEpoch(message.epoch);
+    for (const event of message.events) this.store.events.ingest(event);
+    // The view was replaced wholesale, including state whose events this
+    // replica already delivered. Say so rather than let a subscriber diverge.
+    this.store.events.resync(`adopted revision ${message.revision} from ${message.originId}`);
   }
 
   advanceVerification(id: string, status?: VerificationStatusInput): void {
@@ -960,7 +1280,47 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
   reset(): void {
     this.store.reset();
     this.clear();
+    this.broadcast();
   }
+}
+
+/** Module-level defaults for transports the caller cannot pass options to. */
+let defaultMockOptions: FinanceMockOptions = {};
+/** Counted so late configuration can warn instead of failing silently. */
+let transportsConstructed = 0;
+
+/**
+ * Set the options a later `new FinanceMockTransport()` uses when given none.
+ * This exists because `new VenlyFinanceClient({ environment: "mock" })`
+ * constructs the transport with no arguments, so a browser app that only
+ * reaches the client constructor has no other way to ask for a shared channel.
+ *
+ * Two hazards, both real:
+ *  - ORDER: call it before constructing any client, or that client keeps the
+ *    defaults in force at its own construction time.
+ *  - MODULE IDENTITY: the package ships dual ESM/CJS builds and
+ *    `@venlyfinance/react` is a separate package, so a bundler resolving two
+ *    module instances gives you two of these objects and one client silently
+ *    falls back to `memory`. `simulations.channelInfo()` is how you catch it -
+ *    check `adapter` and `peers` rather than assuming the call took.
+ */
+export function configureFinanceMockDefaults(options: FinanceMockOptions): void {
+  if (transportsConstructed > 0 && typeof console !== "undefined") {
+    console.warn(
+      `[venly mock] configureFinanceMockDefaults() was called after ${transportsConstructed} ` +
+        `mock client(s) had already been created. Those clients keep the settings that were in ` +
+        `force when they were built, so they will not share state with clients created from ` +
+        `now on. Call this once at startup, before creating any client, and check ` +
+        `client.mock.simulations.channelInfo() to confirm what a given client actually joined.`,
+    );
+  }
+  defaultMockOptions = { ...options };
+}
+
+/** Clear the module-level defaults (mostly for tests). */
+export function resetFinanceMockDefaults(): void {
+  defaultMockOptions = {};
+  transportsConstructed = 0;
 }
 
 /** @deprecated Construct `FinanceMockTransport` instead; kept for 0.1.x compatibility. */

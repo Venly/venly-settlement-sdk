@@ -2,8 +2,23 @@ export { MockTransport, listEnvelope, itemEnvelope, pathParams } from "./transpo
 export type { MockCall, VenlyMock, RouteEntry, RouteTable, HandlerContext } from "./transport.js";
 export { errorPresets, fundflowErrorPresets } from "./errors.js";
 export type { ErrorPresetName, ErrorSpec } from "./errors.js";
-export { financeRoutes, createFinanceRoutes, financeSeeds, FinanceMockTransport } from "./finance.js";
-export type { VenlyFinanceMock } from "./finance.js";
+export {
+  financeRoutes,
+  createFinanceRoutes,
+  financeSeeds,
+  FinanceMockTransport,
+  configureFinanceMockDefaults,
+  resetFinanceMockDefaults,
+} from "./finance.js";
+export type { VenlyFinanceMock, VenlyFinanceSimulations, FinanceMockOptions, ChannelInfo } from "./finance.js";
+export { seedProfiles, demoCast } from "./seed-profiles.js";
+export type { SeedProfile } from "./seed-profiles.js";
+export { Ledger, MockLedgerError } from "./ledger.js";
+export type { FundsPhase, LedgerSnapshot, LedgerRow, MockLedgerErrorKind } from "./ledger.js";
+export { EventLog, deterministicClock, deterministicIds, systemClock, systemIds } from "./runtime.js";
+export type { MockEvent, MockEventType, MockClock, MockIdSource } from "./runtime.js";
+export { memoryChannel, broadcastChannel } from "./channel.js";
+export type { MockStateChannel, MockChannelMessage } from "./channel.js";
 export { FinanceMockStore } from "./store.js";
 export type { FinanceSeeds, VerificationStatusInput } from "./store.js";
 export { fundflowRoutes, createFundflowRoutes, fundflowSeeds, FundflowMockTransport } from "./fundflow.js";
