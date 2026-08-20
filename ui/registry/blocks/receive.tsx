@@ -326,9 +326,10 @@ export function ReceiveBlock({
 interface DetailPageProps {
   vba: VirtualBankAccount;
   account: Account;
+  onRefresh?: () => void;
 }
 
-function DetailPage({ vba, account }: DetailPageProps): ReactElement {
+function DetailPage({ vba, account, onRefresh }: DetailPageProps): ReactElement {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
 
@@ -525,22 +526,24 @@ function DetailPage({ vba, account }: DetailPageProps): ReactElement {
            },
          ]}
        />
-       <div style={{ marginTop: "var(--space-sm)" }}>
-         <button
-          type="button"
-          onClick={() => window.location.reload()}
-          style={{
-            border: "none",
-            background: "none",
-            color: "var(--text-secondary)",
-            cursor: "pointer",
-            fontSize: "var(--font-size-label)",
-            textDecoration: "underline",
-           }}
-         >
-          Reload bank details
-         </button>
-       </div>
+{onRefresh && (
+        <div style={{ marginTop: "var(--space-sm)" }}>
+          <button
+           type="button"
+           onClick={onRefresh}
+           style={{
+             border: "none",
+             background: "none",
+             color: "var(--text-secondary)",
+             cursor: "pointer",
+             fontSize: "var(--font-size-label)",
+             textDecoration: "underline",
+            }}
+          >
+           Reload bank details
+          </button>
+        </div>
+)}
      </BlockedSection>
    );
 }
