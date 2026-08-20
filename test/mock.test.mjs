@@ -80,7 +80,7 @@ test("mock: every namespace method returns a plausible fixture", async () => {
       "wallets.list",
       f.wallets.list(acct),
       // Contract 1.3.0: balance rows (no wallet wrapper), amounts as numbers.
-      (r) => r.items[0].asset === "USDC" && r.items[0].amount.total === 15230.5,
+      (r) => r.items[0].asset === "USDC" && r.items[0].amount.total === 15521.0,
     ],
     [
       "virtualBankAccounts.list",

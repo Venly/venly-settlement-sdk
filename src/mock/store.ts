@@ -1,6 +1,17 @@
 import type { components } from "../generated/finance.js";
 import { financeResponseShapes } from "../generated/finance-shapes.js";
 import { mockError, type HandlerContext } from "./transport.js";
+import { Ledger, MockLedgerError, type FundsPhase, type LedgerLeg, type LedgerSnapshot } from "./ledger.js";
+import {
+  EventLog,
+  deterministicClock,
+  deterministicIds,
+  systemClock,
+  systemIds,
+  type MockClock,
+  type MockEvent,
+  type MockIdSource,
+} from "./runtime.js";
 
 type schemas = components["schemas"];
 type Party = schemas["PartyDto"];
@@ -36,7 +47,14 @@ export interface FinanceSeeds {
   accounts: Account[];
   /** Wallets per account id. Accounts absent here have no wallet yet. */
   wallets: Record<string, Wallet[]>;
+  /** Fallback role applied to every account that `rolesByAccount` does not cover. */
   partyRole: PartyRole;
+  /**
+   * Per-account roles. Without these every account shares one holder, so a
+   * profile's "denied applicant" account would read as held by a verified
+   * party - a join the fixtures assert and the story contradicts.
+   */
+  rolesByAccount?: Record<string, PartyRole[]>;
   virtualBankAccounts: VirtualBankAccount[];
   transfers: Transfer[];
   /** Beneficiary bank accounts per party (flat; each row carries partyId). */
@@ -48,6 +66,77 @@ export interface FinanceSeeds {
   supportedAssets: SupportedAsset[];
   /** Account-scoped rows (adds permitStatus) per account id. */
   accountSupportedAssets: Record<string, AccountSupportedAsset[]>;
+  /** Party IV verifications. A party with no row reads as NOT_LINKED. */
+  ivVerifications?: schemas["PartyIvVerificationDto"][];
+}
+
+/** Contract status -> what the money did. */
+const TRANSFER_PHASE: Record<string, FundsPhase> = {
+  PENDING: "HELD",
+  COMPLETED: "DEBITED",
+  FAILED: "RELEASED",
+};
+
+const PAYOUT_PHASE: Record<string, FundsPhase> = {
+  REQUESTED: "HELD",
+  SENDING: "DEBITED",
+  PROVIDER_PROCESSING: "DEBITED",
+  COMPLETED: "DEBITED",
+  REJECTED: "RELEASED",
+  FAILED: "RELEASED",
+  RETURNED: "RETURNED",
+};
+
+/**
+ * Map a ledger failure onto the status and code its cause deserves.
+ *
+ * `402 insufficient-funds` means exactly one thing: the account does not hold
+ * enough. A client branching on 402 shows a top-up screen, so an over-precise
+ * amount or a mistyped asset symbol must not land there — those are `400`, with
+ * their own codes so a handler can tell them apart without reading the message.
+ */
+function ledgerError(ctx: HandlerContext, error: MockLedgerError): never {
+  if (error.kind === "insufficient-funds") {
+    mockError(
+      { status: 402, code: "insufficient-funds", message: error.message },
+      ctx.method,
+      ctx.path,
+    );
+  }
+  // Each 400 gets its own code, because each wants a different client response:
+  // reformat the amount, correct the asset symbol, or flag the form field. An
+  // `invariant` failure is none of those - reporting it as an amount problem
+  // would be the same wrong-cause-to-the-client defect this mapping exists to
+  // fix - so it keeps the generic code.
+  const code =
+    error.kind === "unsupported-asset"
+      ? "unsupported-asset"
+      : error.kind === "invalid-amount"
+        ? "invalid-amount"
+        : "invalid-request";
+  mockError({ status: 400, code, message: error.message }, ctx.method, ctx.path);
+}
+
+/**
+ * Amounts are validated before anything is minted, so a refusal never quotes
+ * the id of a resource that was not created — an id in an error message is an
+ * invitation to look it up, and that one would 404.
+ */
+function assertPositiveAmount(ctx: HandlerContext, amount: number | undefined, field: string): void {
+  if (!(typeof amount === "number" && amount > 0)) {
+    mockError(
+      {
+        status: 400,
+        code: "invalid-amount",
+        message:
+          `${field} must be greater than zero, got ${amount}. Direction is decided by the ` +
+          `operation — a negative amount would move money backwards, taking it from the ` +
+          `counterparty instead of sending it.`,
+      },
+      ctx.method,
+      ctx.path,
+    );
+  }
 }
 
 export type VerificationStatusInput =
@@ -57,19 +146,13 @@ export type VerificationStatusInput =
   | "REJECTED"
   | "DENIED";
 
-function now(): string {
-  return new Date().toISOString();
-}
-
-function mintAddress(): string {
-  return "0x" + crypto.randomUUID().replace(/-/g, "").slice(0, 40);
-}
-
-function mintHash(): string {
-  return (
-    "0x" +
-    (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "").slice(0, 64)
-  );
+/** Options a caller may hand the store; every default preserves today's behaviour. */
+export interface FinanceMockStoreOptions {
+  clock?: MockClock;
+  ids?: MockIdSource;
+  /** Fixed clock + counter ids, so a scripted run replays deep-equal. */
+  deterministic?: boolean;
+  events?: EventLog;
 }
 
 /** Keep only the fields the route's response schema actually declares. */
@@ -92,7 +175,10 @@ function idempotencyConflict(ctx: HandlerContext): never {
     {
       status: 409,
       code: "concurrent-modification",
-      message: "This request conflicts with an earlier use of the same idempotency key.",
+      message:
+        "This idempotency key was already used for a different request body, or for an " +
+        "attempt that failed. A failed attempt is never retried under the same key - issue a " +
+        "new idempotency key for a fresh attempt.",
     },
     ctx.method,
     ctx.path,
@@ -167,27 +253,79 @@ export class FinanceMockStore {
     outcome: "failed" | "succeeded";
     result?: Payout;
   }>();
+  private transferIntents = new Map<string, {
+    fingerprint: string;
+    outcome: "failed" | "succeeded";
+    result?: Transfer;
+  }>();
   private virtualBankAccountIntents = new Map<string, {
     fingerprint: string;
     outcome: "failed" | "succeeded";
     result?: VirtualBankAccount;
   }>();
 
-  private counter = 0;
-  private readonly seeds: FinanceSeeds;
+  /** Party IV verification, keyed by partyId. Absent reads as NOT_LINKED. */
+  ivVerifications = new Map<string, schemas["PartyIvVerificationDto"]>();
 
-  constructor(seeds: FinanceSeeds) {
+  private counter = 0;
+  private initialised = false;
+  private seeds: FinanceSeeds;
+  private clock: MockClock;
+  private ids: MockIdSource;
+  readonly ledger: Ledger;
+  events: EventLog;
+  /** Set by the transport so a mutation can replicate itself. */
+  onMutation: (() => void) | undefined;
+
+  constructor(seeds: FinanceSeeds, options: FinanceMockStoreOptions = {}) {
     this.seeds = seeds;
+    this.clock = options.clock ?? (options.deterministic ? deterministicClock() : systemClock);
+    this.ids = options.ids ?? (options.deterministic ? deterministicIds() : systemIds);
+    this.events = options.events ?? new EventLog("local", () => this.clock);
+    this.ledger = new Ledger(() => this.wallets, () => this.supportedAssets);
     this.reset();
+  }
+
+  private now(): string {
+    return this.clock.now();
+  }
+
+  private mintAddress(): string {
+    return this.ids.next("address");
+  }
+
+  private mintHash(): string {
+    return this.ids.next("hash");
+  }
+
+  /** Emit, then replicate. Both happen only after the mutation has succeeded. */
+  private emit(input: Parameters<EventLog["emit"]>[0]): void {
+    this.events.emit(input);
   }
 
   /** Restore the seed fixtures, discarding everything created since. */
   reset(): void {
+    if (this.initialised) {
+      // store.reset is the LAST event of the outgoing epoch; the epoch then
+      // rolls and sequence restarts at 1, so ids stay unique across resets
+      // while a deterministic replay still compares within one epoch.
+      this.emit({ type: "store.reset", resource: { kind: "store", id: "store" }, data: {} });
+      this.events.rollEpoch(this.events.epoch + 1);
+    }
+    // Rewind first: a replay that mints different ids is not a replay, and the
+    // seeds themselves are stamped from this clock.
+    this.clock.reset?.();
+    this.ids.reset?.();
     const s = structuredClone(this.seeds);
     this.parties = s.parties;
     this.accounts = s.accounts;
     this.wallets = new Map(Object.entries(s.wallets));
-    this.rolesByAccount = new Map(s.accounts.map((a) => [a.id as string, [{ ...s.partyRole }]]));
+    this.rolesByAccount = new Map(
+      s.accounts.map((a) => [
+        a.id as string,
+        s.rolesByAccount?.[a.id as string] ?? [{ ...s.partyRole }],
+      ]),
+    );
     this.virtualBankAccounts = s.virtualBankAccounts;
     this.transfers = s.transfers;
     this.paymentSessions = [];
@@ -198,14 +336,150 @@ export class FinanceMockStore {
     this.supportedAssets = s.supportedAssets;
     this.accountSupportedAssets = new Map(Object.entries(s.accountSupportedAssets));
     this.virtualBankAccountIntents.clear();
+    this.transferIntents.clear();
     this.payoutIntents.clear();
     this.payoutProofWallets.clear();
     this.counter = 0;
+    this.ivVerifications = new Map(
+      (s.ivVerifications ?? []).map((iv) => [iv.partyId as string, iv] as const),
+    );
+    this.ledger.reset();
+    this.hydrateLedger();
+    this.initialised = true;
+    // A seed that cannot satisfy the invariants is a fixture teaching a
+    // falsehood, and it fails here rather than halfway through a demo.
+    this.ledger.verify();
+  }
+
+  /**
+   * Seeded balances are the *post* state, so hydration records each seeded
+   * money object at the phase its status implies and posts no delta. The
+   * reserve check then confirms that every reserved amount has a pending
+   * operation behind it.
+   */
+  private hydrateLedger(): void {
+    for (const transfer of this.transfers) {
+      if (!transfer.id || !transfer.asset || transfer.amount === undefined) continue;
+      const phase = TRANSFER_PHASE[transfer.status ?? "PENDING"];
+      if (transfer.senderAccountId) {
+        this.ledger.hydrateHold(
+          transfer.id,
+          transfer.senderAccountId,
+          transfer.asset,
+          transfer.amount,
+          phase,
+        );
+      }
+      if (transfer.status === "COMPLETED" && transfer.receiverAccountId) {
+        this.ledger.hydrateCredit(
+          transfer.id,
+          transfer.receiverAccountId,
+          transfer.asset,
+          transfer.amount,
+        );
+      }
+    }
+    for (const payout of this.payouts) {
+      const asset = payout.payoutRoute?.depositAsset?.name;
+      if (!payout.id || !payout.accountId || !asset || payout.cryptoAmount === undefined) continue;
+      if (payout.fundingMode !== "PULL") continue;
+      this.ledger.hydrateHold(
+        payout.id,
+        payout.accountId,
+        asset,
+        payout.cryptoAmount,
+        PAYOUT_PHASE[payout.status ?? "REQUESTED"],
+      );
+    }
+  }
+
+  /**
+   * Everything a peer needs to reproduce this store's world. Ledger holds are
+   * rebuilt by re-hydrating from the restored rows rather than shipped, so the
+   * snapshot stays plain JSON.
+   */
+  snapshotState(): Record<string, unknown> {
+    return structuredClone({
+      parties: this.parties,
+      accounts: this.accounts,
+      wallets: Object.fromEntries(this.wallets),
+      rolesByAccount: Object.fromEntries(this.rolesByAccount),
+      virtualBankAccounts: this.virtualBankAccounts,
+      transfers: this.transfers,
+      paymentSessions: this.paymentSessions,
+      inboundCredits: this.inboundCredits,
+      payoutBankAccounts: this.payoutBankAccounts,
+      payoutRoutes: Object.fromEntries(this.payoutRoutes),
+      payouts: this.payouts,
+      supportedAssets: this.supportedAssets,
+      accountSupportedAssets: Object.fromEntries(this.accountSupportedAssets),
+      ivVerifications: [...this.ivVerifications.values()],
+      // The rendered wallet rows above cannot carry an 18-decimal balance, so
+      // the authoritative minor-unit amounts travel alongside them. Without
+      // this a peer rebuilds its ledger from the lossy view and the two
+      // replicas silently disagree about a balance while both verify() green.
+      ledgerBalances: this.ledger.exportBalances(),
+    });
+  }
+
+  restoreState(state: Record<string, unknown>): void {
+    const s = structuredClone(state) as Record<string, never>;
+    this.parties = s.parties;
+    this.accounts = s.accounts;
+    this.wallets = new Map(Object.entries(s.wallets ?? {}));
+    this.rolesByAccount = new Map(Object.entries(s.rolesByAccount ?? {}));
+    this.virtualBankAccounts = s.virtualBankAccounts;
+    this.transfers = s.transfers;
+    this.paymentSessions = s.paymentSessions;
+    this.inboundCredits = s.inboundCredits;
+    this.payoutBankAccounts = s.payoutBankAccounts;
+    this.payoutRoutes = new Map(Object.entries(s.payoutRoutes ?? {}));
+    this.payouts = s.payouts;
+    this.supportedAssets = s.supportedAssets;
+    this.accountSupportedAssets = new Map(Object.entries(s.accountSupportedAssets ?? {}));
+    this.ivVerifications = new Map(
+      ((s.ivVerifications ?? []) as schemas["PartyIvVerificationDto"][]).map(
+        (iv) => [iv.partyId as string, iv] as const,
+      ),
+    );
+    // Adopted state is a post-state, exactly like seeds, so holds are
+    // re-derived at their implied phase and post no delta.
+    this.ledger.reset();
+    const balances = (state as { ledgerBalances?: Record<string, { total: string; available: string; reserved: string }> })
+      .ledgerBalances;
+    if (balances) this.ledger.adoptBalances(balances);
+    this.hydrateLedger();
+  }
+
+  /**
+   * Load a cast over the seeds, then check every balance rule.
+   *
+   * Each top-level key REPLACES the seeded one wholesale rather than merging,
+   * so a profile that supplies `wallets` must also supply the `transfers` and
+   * `payouts` that reserve against them. Replacing balances while keeping the
+   * seeded pending operations leaves reserves with nothing behind them, and the
+   * check will refuse the profile.
+   */
+  applyProfile(profile: Partial<FinanceSeeds>): void {
+    // Transactional: the check that refuses a bad profile must not install it.
+    // Assigning first and validating inside reset() left the poisoned seeds in
+    // place when the check fired, so the store served the bad fixture over the
+    // public wallets read and every later reset() threw on the same seed - the
+    // refusal bricked the mock instead of protecting it.
+    const previous = this.seeds;
+    this.seeds = { ...this.seeds, ...structuredClone(profile) };
+    try {
+      this.reset();
+    } catch (error) {
+      this.seeds = previous;
+      this.reset();
+      throw error;
+    }
   }
 
   private mintId(): string {
     this.counter += 1;
-    return crypto.randomUUID();
+    return this.ids.next("id");
   }
 
   // ── Parties ──────────────────────────────────────────────────────────
@@ -239,7 +513,7 @@ export class FinanceMockStore {
         // Venly admin completes it. Advance with mock.advanceVerification(id).
         kycStatus: "VERIFICATION_PENDING",
         address: b.address,
-        createdAt: now(),
+        createdAt: this.now(),
         version: 0,
       };
     } else if (b.partyType === "ORGANISATION") {
@@ -258,7 +532,7 @@ export class FinanceMockStore {
         vatNumber: b.vatNumber,
         kybStatus: "PENDING",
         address: b.address,
-        createdAt: now(),
+        createdAt: this.now(),
         version: 0,
       };
     } else {
@@ -283,7 +557,7 @@ export class FinanceMockStore {
       (party as Record<string, unknown>)[key] = value;
     }
     party.version = (party.version ?? 0) + 1;
-    party.updatedAt = now();
+    party.updatedAt = this.now();
     return party;
   }
 
@@ -314,7 +588,7 @@ export class FinanceMockStore {
       // Venly admin approves it. Advance with mock.advanceVerification(id).
       kycStatus: "VERIFICATION_PENDING",
       status: "ACTIVE",
-      createdAt: now(),
+      createdAt: this.now(),
       version: 0,
     };
     this.accounts.push(account);
@@ -387,6 +661,49 @@ export class FinanceMockStore {
     return undefined;
   }
 
+  /**
+   * `GET /parties/{partyId}/iv-verification`. A party the seeds never linked
+   * reads as NOT_LINKED rather than 404: the contract models identity
+   * verification as a state every party has, not a resource some parties lack.
+   */
+  getIvVerification(ctx: HandlerContext): schemas["PartyIvVerificationDto"] {
+    const party = this.getParty(ctx);
+    return (
+      this.ivVerifications.get(party.id as string) ?? {
+        partyId: party.id,
+        status: "NOT_LINKED",
+      }
+    );
+  }
+
+  /** Mock-only driver: walk a party's IV case to any documented status. */
+  advanceIvVerification(
+    partyId: string,
+    to: NonNullable<schemas["PartyIvVerificationDto"]["status"]>,
+  ): schemas["PartyIvVerificationDto"] {
+    const party = this.parties.find((p) => p.id === partyId);
+    if (!party) {
+      throw new Error(`advanceIvVerification: no party with id ${partyId} in the mock store.`);
+    }
+    const current = this.ivVerifications.get(partyId);
+    const previous = current?.status;
+    const next: schemas["PartyIvVerificationDto"] = {
+      ...current,
+      partyId,
+      status: to,
+      ivCaseReference: current?.ivCaseReference ?? `IV-${partyId.slice(0, 8).toUpperCase()}`,
+      linkedAt: current?.linkedAt ?? (to === "NOT_LINKED" ? undefined : this.now()),
+    };
+    this.ivVerifications.set(partyId, next);
+    this.emit({
+      type: "party.iv_status_changed",
+      resource: { kind: "party", id: partyId },
+      previous: { status: previous },
+      data: next,
+    });
+    return next;
+  }
+
   // ── Virtual bank accounts ────────────────────────────────────────────
 
   listVirtualBankAccounts(ctx: HandlerContext): VirtualBankAccount[] {
@@ -432,7 +749,7 @@ export class FinanceMockStore {
       bankName: "Example Bank N.V.",
       beneficiaryName: account.name ?? "Account holder",
       referenceCode: `REF-MOCK-${String(this.counter).padStart(3, "0")}`,
-      createdAt: now(),
+      createdAt: this.now(),
     };
     this.virtualBankAccounts.push(vba);
     this.virtualBankAccountIntents.set(intentKey, { fingerprint, outcome: "succeeded", result: vba });
@@ -483,9 +800,105 @@ export class FinanceMockStore {
     return { receiverAccountId: receiver.id, receiverExternalId: b.receiverExternalId };
   }
 
+  /**
+   * Same key + same body replays the original transfer; same key + a different
+   * body is a 409; an attempt that failed stays failed under that key, so a
+   * retry needs a fresh one.
+   */
+  private transferIntent(
+    ctx: HandlerContext,
+    senderId: string,
+    body: { idempotencyKey?: string },
+  ): { replay?: Transfer; commit: (t: Transfer) => void; fail: () => never } {
+    const key = ctx.idempotencyKey ?? body.idempotencyKey;
+    const intentKey = `${senderId}:${key}`;
+    const fingerprint = requestFingerprint(body);
+    const existing = key === undefined ? undefined : this.transferIntents.get(intentKey);
+    if (existing) {
+      if (existing.outcome === "failed" || existing.fingerprint !== fingerprint || !existing.result) {
+        idempotencyConflict(ctx);
+      }
+      return { replay: existing.result, commit: () => {}, fail: () => idempotencyConflict(ctx) };
+    }
+    return {
+      commit: (transfer) => {
+        if (key !== undefined) {
+          this.transferIntents.set(intentKey, { fingerprint, outcome: "succeeded", result: transfer });
+        }
+      },
+      fail: () => {
+        if (key !== undefined) this.transferIntents.set(intentKey, { fingerprint, outcome: "failed" });
+        return undefined as never;
+      },
+    };
+  }
+
+  /**
+   * Reserve the amount against the sender and record the transfer. The hold is
+   * what makes `available` mean something: a UI reading `total` as spendable
+   * now disagrees with the API.
+   */
+  private postTransfer(ctx: HandlerContext, transfer: Transfer, routeKey: string): Transfer {
+    const asset = transfer.asset as string;
+    const sender = transfer.senderAccountId as string;
+    try {
+      this.ledger.movePhase(
+        transfer.id as string,
+        "HELD",
+        { accountId: sender, asset, amount: transfer.amount as number },
+        `transfer ${transfer.id}`,
+      );
+    } catch (error) {
+      // The intent is recorded as failed BEFORE the throw: replaying a request
+      // that failed must conflict, not silently retry into a second attempt.
+      const key = ctx.idempotencyKey ?? (ctx.body as { idempotencyKey?: string })?.idempotencyKey;
+      if (key !== undefined) {
+        this.transferIntents.set(`${sender}:${key}`, {
+          fingerprint: requestFingerprint(ctx.body),
+          outcome: "failed",
+        });
+      }
+      if (error instanceof MockLedgerError) ledgerError(ctx, error);
+      throw error;
+    }
+    this.transfers.push(transfer);
+    this.transferIntents.set(
+      `${sender}:${ctx.idempotencyKey ?? (ctx.body as { idempotencyKey?: string })?.idempotencyKey}`,
+      { fingerprint: requestFingerprint(ctx.body), outcome: "succeeded", result: transfer },
+    );
+    this.emit({
+      type: "transfer.created",
+      resource: { kind: "transfer", id: transfer.id as string },
+      accountId: sender,
+      data: transfer,
+    });
+    this.emitBalance(sender, asset);
+    return toResponseShape(routeKey, transfer as Record<string, unknown>) as Transfer;
+  }
+
+  /** Emitted after the causing event, so a balance-only subscriber is correct. */
+  private emitBalance(accountId: string, asset: string): void {
+    const row = (this.wallets.get(accountId) ?? []).find((w) => w.asset === asset);
+    if (!row) return;
+    this.emit({
+      type: "wallet.balance_changed",
+      resource: { kind: "wallet", id: `${accountId}:${asset}` },
+      accountId,
+      data: { accountId, asset, amount: row.amount },
+    });
+  }
+
   createFiatTransfer(ctx: HandlerContext): Transfer {
     const sender = this.getAccount(ctx, ctx.params.senderAccountId);
     const b = ctx.body as schemas["CreateFiatTransferInput"];
+    assertPositiveAmount(ctx, b.amount, "amount");
+    const intent = this.transferIntent(ctx, sender.id as string, b);
+    if (intent.replay) {
+      return toResponseShape(
+        "POST /accounts/{senderAccountId}/transfers/fiat",
+        intent.replay as Record<string, unknown>,
+      ) as Transfer;
+    }
     const receiver = this.resolveReceiver(ctx, b);
     const transfer: Transfer = {
       id: this.mintId(),
@@ -501,18 +914,22 @@ export class FinanceMockStore {
       // Transfers settle asynchronously; poll get() or use
       // mock.advanceTransfer(id) to move PENDING → COMPLETED (or FAILED).
       status: "PENDING",
-      createdAt: now(),
+      createdAt: this.now(),
     };
-    this.transfers.push(transfer);
-    return toResponseShape(
-      "POST /accounts/{senderAccountId}/transfers/fiat",
-      transfer as Record<string, unknown>,
-    ) as Transfer;
+    return this.postTransfer(ctx, transfer, "POST /accounts/{senderAccountId}/transfers/fiat");
   }
 
   createCryptoTransfer(ctx: HandlerContext): Transfer {
     const sender = this.getAccount(ctx, ctx.params.senderAccountId);
     const b = ctx.body as schemas["CreateCryptoTransferInput"];
+    assertPositiveAmount(ctx, b.amount, "amount");
+    const intent = this.transferIntent(ctx, sender.id as string, b);
+    if (intent.replay) {
+      return toResponseShape(
+        "POST /accounts/{senderAccountId}/transfers/crypto",
+        intent.replay as Record<string, unknown>,
+      ) as Transfer;
+    }
     const receiver = this.resolveReceiver(ctx, b);
     const transfer: Transfer = {
       id: this.mintId(),
@@ -525,13 +942,9 @@ export class FinanceMockStore {
       merchantReference: b.merchantReference,
       idempotencyKey: b.idempotencyKey,
       status: "PENDING",
-      createdAt: now(),
+      createdAt: this.now(),
     };
-    this.transfers.push(transfer);
-    return toResponseShape(
-      "POST /accounts/{senderAccountId}/transfers/crypto",
-      transfer as Record<string, unknown>,
-    ) as Transfer;
+    return this.postTransfer(ctx, transfer, "POST /accounts/{senderAccountId}/transfers/crypto");
   }
 
   listTransfers(ctx: HandlerContext): Transfer[] {
@@ -572,6 +985,7 @@ export class FinanceMockStore {
   advanceVerification(id: string, status: VerificationStatusInput = "VERIFIED"): void {
     const party = this.parties.find((p) => p.id === id);
     if (party) {
+      const previousStatus = party.partyType === "ORGANISATION" ? party.kybStatus : party.kycStatus;
       if (party.partyType === "ORGANISATION") {
         party.kybStatus = (status === "REJECTED" ? "DENIED" : status) as Party["kybStatus"];
       } else {
@@ -579,15 +993,29 @@ export class FinanceMockStore {
           ? "VERIFICATION_PENDING"
           : status) as Party["kycStatus"];
       }
-      party.updatedAt = now();
+      party.updatedAt = this.now();
+      this.emit({
+        type: "party.verification_changed",
+        resource: { kind: "party", id },
+        previous: { status: previousStatus },
+        data: party,
+      });
       return;
     }
     const account = this.accounts.find((a) => a.id === id);
     if (account) {
+      const previousAccountStatus = account.kycStatus;
       account.kycStatus = (status === "PENDING"
         ? "VERIFICATION_PENDING"
         : status) as Account["kycStatus"];
       account.version = (account.version ?? 0) + 1;
+      this.emit({
+        type: "account.verification_changed",
+        resource: { kind: "account", id },
+        accountId: id,
+        previous: { status: previousAccountStatus },
+        data: account,
+      });
       return;
     }
     throw new Error(`advanceVerification: no party or account with id ${id} in the mock store.`);
@@ -598,12 +1026,60 @@ export class FinanceMockStore {
     if (!transfer) {
       throw new Error(`advanceTransfer: no transfer with id ${id} in the mock store.`);
     }
+    const previous = transfer.status;
+    const asset = transfer.asset as string;
+    const amount = transfer.amount as number;
+    const sender = transfer.senderAccountId as string;
+    // The receiver only exists in the ledger if it is an account this mock
+    // knows; a transfer out to an external counterparty legitimately has no
+    // credit leg, and `sum(total)` moves by the amount (an external outflow).
+    const receiver = transfer.receiverAccountId;
+    const receiverKnown =
+      receiver !== undefined && this.accounts.some((a) => a.id === receiver);
+
+    // Both legs are computed and validated before either is applied. A refused
+    // credit reversal must not leave the sender's release standing, or
+    // `sum(total)` drifts up by the amount - a conservation breach created by
+    // the rule that exists to stop a negative balance.
+    const creditLegs: LedgerLeg[] = receiverKnown
+      ? this.ledger.creditLegs(
+          id,
+          status === "COMPLETED" ? "CREDITED" : "NONE",
+          { accountId: receiver as string, asset, amount },
+          `transfer ${id} receiver leg`,
+        )
+      : [];
+
+    this.ledger.movePhase(
+      id,
+      TRANSFER_PHASE[status],
+      { accountId: sender, asset, amount },
+      `transfer ${id}`,
+      creditLegs,
+    );
+    if (receiverKnown) {
+      this.ledger.commitCredit(id, status === "COMPLETED" ? "CREDITED" : "NONE", {
+        accountId: receiver as string,
+        asset,
+        amount,
+      });
+    }
+
     transfer.status = status;
-    if (status === "COMPLETED") transfer.transactionHash = mintHash();
+    if (status === "COMPLETED") transfer.transactionHash = this.mintHash();
     if (status === "FAILED") {
       transfer.errorMessage = transfer.errorMessage ?? "Insufficient available balance";
     }
-    transfer.updatedAt = now();
+    transfer.updatedAt = this.now();
+    this.emit({
+      type: "transfer.status_changed",
+      resource: { kind: "transfer", id },
+      accountId: sender,
+      previous: { status: previous },
+      data: transfer,
+    });
+    this.emitBalance(sender, asset);
+    if (receiverKnown) this.emitBalance(receiver as string, asset);
   }
 
   createPaymentSession(ctx: HandlerContext): PaymentSession {
@@ -611,8 +1087,8 @@ export class FinanceMockStore {
     const id = this.mintId();
     const session: PaymentSession = {
       id,
-      createdAt: now(),
-      updatedAt: now(),
+      createdAt: this.now(),
+      updatedAt: this.now(),
       status: "CREATED",
       inAmount: Number(b.inAmount),
       inCurrency: b.inCurrency,
@@ -639,7 +1115,7 @@ export class FinanceMockStore {
       throw new Error(`advancePaymentSession: no payment session with id ${id} in the mock store.`);
     }
     session.status = to;
-    session.updatedAt = now();
+    session.updatedAt = this.now();
     return session;
   }
 
@@ -648,8 +1124,9 @@ export class FinanceMockStore {
    * The Finance API models no such resource — this exists only so tests can
    * assert that money arrived, the way advanceTransfer exists for transfers.
    *
-   * referenceCode defaults to the VBA own referenceCode (or null). Pass null
-   * explicitly to simulate an unmatched credit — see MG-5 / J6 reconciliation.
+   * referenceCode defaults to the VBA's own referenceCode (or null). Pass null
+   * explicitly to simulate a credit that arrives with no reference, which a
+   * reconciliation flow has to match by hand.
    */
   simulateInboundCredit(
     virtualBankAccountId: string,
@@ -664,11 +1141,20 @@ export class FinanceMockStore {
     }
     // Every field on the generated VirtualBankAccount is optional, so a currency
     // is not guaranteed. Refuse rather than default: a credit denominated in a
-    // currency the account never declared is a fixture teaching a falsehood,
-    // which is the MG-11 rule.
+    // currency the account never declared would teach a falsehood, so refuse.
     if (!vba.currency) {
       throw new Error(
         `simulateInboundCredit: virtual bank account ${virtualBankAccountId} has no currency, so nothing can land on it.`,
+      );
+    }
+    // The asset is the VBA's DECLARED target, never a guess from the fiat
+    // currency: the seeded EUR account targets USDC, so a currency->stablecoin
+    // mapping would credit the wrong coin - a fixture teaching a falsehood.
+    const asset = vba.targetCryptocurrency;
+    if (!asset) {
+      throw new Error(
+        `simulateInboundCredit: virtual bank account ${virtualBankAccountId} declares no ` +
+          `targetCryptocurrency, so the mock cannot know which asset the credit converts to.`,
       );
     }
     const credit: MockInboundCredit = {
@@ -678,9 +1164,34 @@ export class FinanceMockStore {
         referenceCode === undefined ? (vba.referenceCode ?? null) : referenceCode,
       amount,
       currency: vba.currency,
-      receivedAt: now(),
+      receivedAt: this.now(),
     };
+    const accountId = vba.accountId as string;
+    if (!(amount > 0)) {
+      throw new Error(
+        `simulateInboundCredit: amount must be greater than zero, got ${amount}. ` +
+          `A credit that removes money is a debit, and there is no such simulation.`,
+      );
+    }
+    this.ledger.applyAtomic([
+      {
+        accountId,
+        asset,
+        deltaTotal: this.ledger.toMinor(asset, amount),
+        deltaAvailable: this.ledger.toMinor(asset, amount),
+        deltaReserved: 0n,
+        createIfMissing: true,
+        because: `inbound credit on ${virtualBankAccountId}`,
+      },
+    ]);
     this.inboundCredits.push(credit);
+    this.emit({
+      type: "inbound_credit.received",
+      resource: { kind: "inboundCredit", id: credit.id },
+      accountId,
+      data: credit,
+    });
+    this.emitBalance(accountId, asset);
     return credit;
   }
 
@@ -703,7 +1214,8 @@ export class FinanceMockStore {
   // request payouts against the ACTIVE route. Where the contract is silent on
   // transition semantics (who activates a bank account, when a route needs
   // proof), the mock takes the least-opinionated reading and leaves the rest
-  // to explicit drivers – documented as MG-14 in the program's mock-gap ledger.
+  // to explicit drivers, so no fixture asserts a transition the contract does
+  // not document.
 
   listPayoutBankAccounts(ctx: HandlerContext): PayoutBankAccount[] {
     this.getParty(ctx);
@@ -751,7 +1263,7 @@ export class FinanceMockStore {
       // New beneficiary accounts start PENDING; activation is an operator
       // decision the public API does not expose. Driver: advancePayoutBankAccount.
       status: "PENDING",
-      createdAt: now(),
+      createdAt: this.now(),
     };
     this.payoutBankAccounts.push(bankAccount);
     return toResponseShape(
@@ -789,8 +1301,8 @@ export class FinanceMockStore {
       status: "AWAITING_OWNERSHIP_PROOF",
       depositAsset: b.depositAsset,
       fiatCurrency: bankAccount.fiatCurrency,
-      depositAddress: mintAddress(),
-      createdAt: now(),
+      depositAddress: this.mintAddress(),
+      createdAt: this.now(),
     };
     const routes = this.payoutRoutes.get(account.id as string) ?? [];
     routes.push(route);
@@ -811,14 +1323,14 @@ export class FinanceMockStore {
     // stable so a repeated prepare returns the same message.
     let walletAddress = this.payoutProofWallets.get(route.id as string);
     if (!walletAddress) {
-      walletAddress = mintAddress();
+      walletAddress = this.mintAddress();
       this.payoutProofWallets.set(route.id as string, walletAddress);
     }
     return {
       walletAddress,
       blockchain: route.depositAsset?.chain,
       message: `venly-ownership-proof:${route.id}:${walletAddress}`,
-      signedOnUtc: now(),
+      signedOnUtc: this.now(),
     };
   }
 
@@ -829,7 +1341,7 @@ export class FinanceMockStore {
       badRequest(ctx, "A REJECTED route cannot be activated.");
     }
     route.status = "ACTIVE";
-    route.updatedAt = now();
+    route.updatedAt = this.now();
     return route;
   }
 
@@ -930,10 +1442,41 @@ export class FinanceMockStore {
       // integrator pushes to the route's deposit address themselves.
       fundingMode: "PULL",
       status: "REQUESTED",
-      requestedAt: now(),
+      requestedAt: this.now(),
     };
+    // PULL payouts are funded from the account's Venly-managed wallet, so the
+    // amount is reserved now and leaves `total` at SENDING. A PUSH payout is
+    // funded off-SDK to the deposit address and never touches the wallet.
+    if (payout.fundingMode === "PULL") {
+      const asset = route.depositAsset?.name;
+      if (!asset) {
+        this.payoutIntents.set(intentKey, { fingerprint, outcome: "failed" });
+        badRequest(ctx, `Payout route ${route.id} declares no deposit asset.`);
+      }
+      try {
+        this.ledger.movePhase(
+          payout.id as string,
+          "HELD",
+          { accountId: account.id as string, asset, amount: b.cryptoAmount },
+          `payout ${payout.id}`,
+        );
+      } catch (error) {
+        this.payoutIntents.set(intentKey, { fingerprint, outcome: "failed" });
+        if (error instanceof MockLedgerError) ledgerError(ctx, error);
+        throw error;
+      }
+    }
     this.payouts.push(payout);
     this.payoutIntents.set(intentKey, { fingerprint, outcome: "succeeded", result: payout });
+    this.emit({
+      type: "payout.requested",
+      resource: { kind: "payout", id: payout.id as string },
+      accountId: account.id as string,
+      data: payout,
+    });
+    if (payout.fundingMode === "PULL" && route.depositAsset?.name) {
+      this.emitBalance(account.id as string, route.depositAsset.name);
+    }
     return toResponseShape("POST /accounts/{accountId}/payouts", {
       createdResourceId: payout.id,
       response: payout,
@@ -944,7 +1487,7 @@ export class FinanceMockStore {
    * Walk a payout to any documented status. COMPLETED stamps completedAt, a
    * send hash and – stablecoin par unless overridden – settledFiatAmount;
    * REJECTED/FAILED/RETURNED stamp a failureReason. The override arguments
-   * are the integrator's seam, same doctrine as simulateInboundCredit.
+   * let you control the settled amount, the send hash and the failure reason.
    */
   advancePayout(
     id: string,
@@ -955,12 +1498,26 @@ export class FinanceMockStore {
     if (!payout) {
       throw new Error(`advancePayout: no payout with id ${id} in the mock store.`);
     }
+    const previous = payout.status;
+    const asset = payout.payoutRoute?.depositAsset?.name;
+    if (payout.fundingMode === "PULL" && asset) {
+      this.ledger.movePhase(
+        id,
+        PAYOUT_PHASE[to],
+        {
+          accountId: payout.accountId as string,
+          asset,
+          amount: payout.cryptoAmount as number,
+        },
+        `payout ${id}`,
+      );
+    }
     payout.status = to;
     if (to === "SENDING" || to === "PROVIDER_PROCESSING" || to === "COMPLETED") {
-      payout.sendTxHash = opts?.sendTxHash ?? payout.sendTxHash ?? mintHash();
+      payout.sendTxHash = opts?.sendTxHash ?? payout.sendTxHash ?? this.mintHash();
     }
     if (to === "COMPLETED") {
-      payout.completedAt = now();
+      payout.completedAt = this.now();
       payout.settledFiatAmount = opts?.settledFiatAmount ?? payout.cryptoAmount;
     }
     if (to === "REJECTED" || to === "FAILED" || to === "RETURNED") {
@@ -970,6 +1527,16 @@ export class FinanceMockStore {
         (to === "RETURNED"
           ? "Returned by the receiving bank"
           : "Rejected by the payout provider");
+    }
+    this.emit({
+      type: "payout.status_changed",
+      resource: { kind: "payout", id },
+      accountId: payout.accountId as string,
+      previous: { status: previous },
+      data: payout,
+    });
+    if (payout.fundingMode === "PULL" && asset) {
+      this.emitBalance(payout.accountId as string, asset);
     }
     return payout;
   }
@@ -984,7 +1551,7 @@ export class FinanceMockStore {
       throw new Error(`advancePayoutBankAccount: no payout bank account with id ${id} in the mock store.`);
     }
     bankAccount.status = to;
-    bankAccount.updatedAt = now();
+    bankAccount.updatedAt = this.now();
     return bankAccount;
   }
 
@@ -994,7 +1561,7 @@ export class FinanceMockStore {
       const route = routes.find((r) => r.id === id);
       if (route) {
         route.status = to;
-        route.updatedAt = now();
+        route.updatedAt = this.now();
         return route;
       }
     }
