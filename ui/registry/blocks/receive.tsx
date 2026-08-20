@@ -318,6 +318,7 @@ export function ReceiveBlock({
      <PickerPage
       account={account}
       vbaList={vbaRaw.items}
+      onRefresh={() => void vbaQuery.refetch()}
      />
    );
 }
@@ -527,24 +528,24 @@ function DetailPage({ vba, account, onRefresh }: DetailPageProps): ReactElement 
            },
          ]}
        />
-{onRefresh && (
-        <div style={{ marginTop: "var(--space-sm)" }}>
-          <button
-           type="button"
-           onClick={onRefresh}
-           style={{
-             border: "none",
-             background: "none",
-             color: "var(--text-secondary)",
-             cursor: "pointer",
-             fontSize: "var(--font-size-label)",
-             textDecoration: "underline",
-            }}
-          >
-           Reload bank details
-          </button>
-        </div>
-)}
+       {onRefresh && (
+         <div style={{ marginTop: "var(--space-sm)" }}>
+           <button
+            type="button"
+            onClick={onRefresh}
+            style={{
+              border: "none",
+              background: "none",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              fontSize: "var(--font-size-label)",
+              textDecoration: "underline",
+             }}
+           >
+            Reload bank details
+           </button>
+         </div>
+       )}
      </BlockedSection>
    );
 }
@@ -918,9 +919,11 @@ function ProvisionForm({
 function PickerPage({
   account: _account,
   vbaList,
+  onRefresh,
 }: {
   account: Account;
   vbaList: (VirtualBankAccount | null)[];
+  onRefresh?: () => void;
 }): ReactElement {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -1023,7 +1026,7 @@ function PickerPage({
          </p>
        )}
 
-       {selected && <DetailPage vba={selected} account={_account} />}
+       {selected && <DetailPage vba={selected} account={_account} onRefresh={onRefresh} />}
      </section>
    );
 }

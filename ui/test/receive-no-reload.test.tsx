@@ -36,6 +36,24 @@ test("receive: no path in the surface asks for a full page reload", () => {
    );
 });
 
+// The reload button was previously unconditional, so every path that showed bank
+// details showed a way to refresh them. Making the handler an optional prop moved
+// that guarantee into each call site, and the multi-VBA path (PickerPage -> DetailPage)
+// was left without one: a user with two accounts silently lost the control. Threading
+// it through PickerPage restored it, and this asserts the guarantee at the source
+// rather than trusting each future call site to remember.
+test("receive: every path that renders bank details also offers a way to refresh them", () => {
+  const renderSites = [...SOURCE.matchAll(/<DetailPage\b[\s\S]*?\/>/g)];
+  assert.ok(renderSites.length >= 3, "expected every DetailPage render site to be found");
+  for (const [site] of renderSites) {
+    assert.match(
+       site,
+       /onRefresh=/,
+       `a DetailPage render site omits onRefresh, so its bank details cannot be refreshed: ${site}`,
+     );
+   }
+});
+
 test("receive: a successful provision shows the new details and their payment reference in the same mounted surface", async () => {
   const client = new VenlyFinanceClient({ environment: "mock" });
   const account = await client.accounts.get(ACCOUNT_ID);
