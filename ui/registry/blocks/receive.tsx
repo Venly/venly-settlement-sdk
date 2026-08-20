@@ -291,7 +291,7 @@ export function ReceiveBlock({
    // provision form. Offering "set up bank details" to an account that holds
    // closed details hides the do-not-use warning the contract requires.
   if (validItems.length === 0 && closedItems.length > 0) {
-    return <DetailPage vba={closedItems[0]} account={account} />;
+    return <DetailPage vba={closedItems[0]} account={account} onRefresh={() => void vbaQuery.refetch()} />;
    }
 
    // No VBA at all → provisioning
@@ -301,6 +301,7 @@ export function ReceiveBlock({
         accountId={accountId}
         createMutation={createMutation}
         onError={() => {}}
+        onCreated={() => void vbaQuery.refetch()}
        />
      );
    }
@@ -308,8 +309,8 @@ export function ReceiveBlock({
    // Auto-select single → single detail
   if (autoSelectSingle) {
     return (
-       <DetailPage vba={validItems[0]} account={account} />
-     );
+       <DetailPage vba={validItems[0]} account={account} onRefresh={() => void vbaQuery.refetch()} />
+      );
    }
 
    // Multiple valid → picker
@@ -317,6 +318,7 @@ export function ReceiveBlock({
      <PickerPage
       account={account}
       vbaList={vbaRaw.items}
+      onRefresh={() => void vbaQuery.refetch()}
      />
    );
 }
@@ -326,9 +328,10 @@ export function ReceiveBlock({
 interface DetailPageProps {
   vba: VirtualBankAccount;
   account: Account;
+  onRefresh?: () => void;
 }
 
-function DetailPage({ vba, account }: DetailPageProps): ReactElement {
+function DetailPage({ vba, account, onRefresh }: DetailPageProps): ReactElement {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
 
@@ -525,22 +528,24 @@ function DetailPage({ vba, account }: DetailPageProps): ReactElement {
            },
          ]}
        />
-       <div style={{ marginTop: "var(--space-sm)" }}>
-         <button
-          type="button"
-          onClick={() => window.location.reload()}
-          style={{
-            border: "none",
-            background: "none",
-            color: "var(--text-secondary)",
-            cursor: "pointer",
-            fontSize: "var(--font-size-label)",
-            textDecoration: "underline",
-           }}
-         >
-          Reload bank details
-         </button>
-       </div>
+       {onRefresh && (
+         <div style={{ marginTop: "var(--space-sm)" }}>
+           <button
+            type="button"
+            onClick={onRefresh}
+            style={{
+              border: "none",
+              background: "none",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              fontSize: "var(--font-size-label)",
+              textDecoration: "underline",
+             }}
+           >
+            Reload bank details
+           </button>
+         </div>
+       )}
      </BlockedSection>
    );
 }
@@ -751,10 +756,12 @@ function ProvisionForm({
   accountId,
   createMutation,
   onError,
+  onCreated,
 }: {
   accountId: string;
   createMutation: ReturnType<typeof useCreateVirtualBankAccount>;
   onError?: (msg: string) => void;
+  onCreated?: () => void;
 }): ReactElement {
   const [name, setName] = useState("");
   const [crypto, setCrypto] = useState("USDC");
@@ -781,8 +788,9 @@ function ProvisionForm({
           idempotencyKey,
          },
        });
-       // On success the SDK refetches; the parent component will re-render with the VBA.
-      window.location.reload();
+       // On success, call onCreated so the parent refetches vbaQuery and renders the
+       // newly created VBA in place — no full page reload (which would drop the session).
+      onCreated?.();
      } catch (_err) {
       const msg = "Bank details weren't created. Try again.";
       setError(msg);
@@ -911,9 +919,11 @@ function ProvisionForm({
 function PickerPage({
   account: _account,
   vbaList,
+  onRefresh,
 }: {
   account: Account;
   vbaList: (VirtualBankAccount | null)[];
+  onRefresh?: () => void;
 }): ReactElement {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -1016,7 +1026,7 @@ function PickerPage({
          </p>
        )}
 
-       {selected && <DetailPage vba={selected} account={_account} />}
+       {selected && <DetailPage vba={selected} account={_account} onRefresh={onRefresh} />}
      </section>
    );
 }
