@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { makeHarness } from "./helpers.ts";
@@ -23,7 +23,28 @@ const JOURNEY_BLOCKS = {
   reconciliation: ["reconciliation"],
   "proof-of-segregation": ["balances"],
   approvals: ["withdraw"],
+  // The console screens have no composite block yet: they are built from
+  // primitives, which declare no npm dependencies, so their package contract
+  // comes from DATA_PLANE_PACKAGES rather than from a block.
+  "console-review-queue": [],
+  "console-decision-detail": [],
+  "console-pricing-config": [],
+  "console-simulator": [],
 } as const;
+
+/** Mirrors DATA_PLANE_PACKAGES in src/frontend.ts. */
+const DATA_PLANE_PACKAGES = {
+  "@venlyfinance/react": "^0.4.0",
+  "@venlyfinance/sdk": "^0.6.0",
+  "@tanstack/react-query": "^5.0.0",
+} as const;
+
+const DATA_PLANE_JOURNEYS = new Set([
+  "console-review-queue",
+  "console-decision-detail",
+  "console-pricing-config",
+  "console-simulator",
+]);
 
 function registryDependencies(blocks: readonly string[]): Record<string, string> {
   const packages: Record<string, string> = {};
@@ -62,6 +83,17 @@ const JOURNEY_HOOKS = {
   reconciliation: ["useVirtualBankAccounts", "useTransfers"],
   "proof-of-segregation": ["useWallets", "useAccount"],
   approvals: ["useRampRequests", "useFourEyesApproval", "useRampLifecycle"],
+  "console-review-queue": ["useAccounts", "useParties"],
+  "console-decision-detail": [
+    "useAccount",
+    "useParty",
+    "useWallets",
+    "useTransfers",
+    "useVirtualBankAccounts",
+    "useVenlyMock",
+  ],
+  "console-pricing-config": ["useCompanyFees"],
+  "console-simulator": ["useVenlyMock"],
 } as const;
 
 for (const [journey, expectedHooks] of Object.entries(JOURNEY_HOOKS)) {
@@ -88,7 +120,30 @@ for (const [journey, expectedHooks] of Object.entries(JOURNEY_HOOKS)) {
         from: "@venlyfinance/react",
         props: { environment: "mock" },
       });
-      assert.deepEqual(contract.requiredPackages, registryDependencies(JOURNEY_BLOCKS[journey as keyof typeof JOURNEY_BLOCKS]));
+      const blocks = JOURNEY_BLOCKS[journey as keyof typeof JOURNEY_BLOCKS];
+      assert.deepEqual(
+        contract.requiredPackages,
+        DATA_PLANE_JOURNEYS.has(journey)
+          ? { ...DATA_PLANE_PACKAGES, ...registryDependencies(blocks) }
+          : registryDependencies(blocks),
+      );
+      // A hook-using surface must never be told it needs no packages.
+      if (expectedHooks.length > 0) {
+        assert.ok(
+          Object.keys(contract.requiredPackages).length > 0,
+          `${journey} declares hooks, so requiredPackages must not be empty`,
+        );
+      }
+      // Every install target must be a registry item that actually exists.
+      for (const step of contract.install as string[]) {
+        for (const match of step.matchAll(/@venlyfinance\/([a-z-]+)/g)) {
+          if (match[1] === "settlement-mcp") continue;
+          assert.ok(
+            existsSync(`${repoRoot}/ui/r/${match[1]}.json`),
+            `install references @venlyfinance/${match[1]}, which has no ui/r entry`,
+          );
+        }
+      }
       assert.ok(contract.forbiddenPatterns.length >= 4);
       assert.equal(contract.completionChecks.length, 2);
 
@@ -107,3 +162,87 @@ for (const [journey, expectedHooks] of Object.entries(JOURNEY_HOOKS)) {
     }
   });
 }
+
+// The blueprint prose and the machine-readable contract are two halves of one
+// promise, and nothing was checking them against each other: the simulator
+// journey shipped `Hooks: useVenlyMock` in its prose and `hooks: []` in its
+// contract, so an agent trusting requiredHooks - the entire point of shipping
+// it - would have got none for a screen that is nothing but hooks. Caught by a
+// cold reader, not by this suite. Now it is caught here.
+for (const [journey, expectedHooks] of Object.entries(JOURNEY_HOOKS)) {
+  test(`get_journey_blueprint: ${journey} prose and contract name the same hooks`, async () => {
+    const h = await makeHarness({ VENLY_ENV: "mock" });
+    try {
+      const response: any = await h.client.callTool({
+        name: "get_journey_blueprint",
+        arguments: { journey },
+      });
+      const prose: string = response.content[0].text;
+
+      // Every declared hook must be named somewhere in the prose, so a reader
+      // of the blueprint is told about everything the contract requires.
+      for (const hook of expectedHooks) {
+        assert.ok(
+          prose.includes(hook),
+          `${journey}: contract requires ${hook}, prose never names it`,
+        );
+      }
+
+      // And every use*-shaped identifier on the prose's Hooks line must be in
+      // the contract, so prose cannot promise a hook the contract omits. The
+      // line may also cite non-hook helpers (an MCP tool, a describe* fn),
+      // which is why only use* identifiers are compared.
+      const hooksLine = /^Hooks: (.*(?:\n(?!\w+:).*)*)$/m.exec(prose);
+      if (hooksLine) {
+        const named = new Set(hooksLine[1].match(/\buse[A-Z][A-Za-z]*/g) ?? []);
+        for (const hook of named) {
+          assert.ok(
+            (expectedHooks as readonly string[]).includes(hook),
+            `${journey}: prose names ${hook} on its Hooks line, contract omits it`,
+          );
+        }
+      }
+    } finally {
+      await h.close();
+    }
+  });
+}
+
+// A blueprint must never name a package version this repo does not ship. The
+// console entries pin the sdk range the 0.6.0-only APIs they describe actually
+// need (channelInfo, balances that move), so if the root package version ever
+// fell behind that range the blueprints would be telling an agent to install
+// something that does not exist. Offline and deterministic on purpose: it
+// asserts against the repo, not against the registry, so it cannot go red for
+// a publish that has not happened yet.
+test("blueprint package ranges are satisfied by the versions this repo ships", async () => {
+  const shipped: Record<string, string> = {
+    "@venlyfinance/sdk": JSON.parse(readFileSync(`${repoRoot}/package.json`, "utf8")).version,
+    "@venlyfinance/react": JSON.parse(readFileSync(`${repoRoot}/react/package.json`, "utf8"))
+      .version,
+  };
+
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  try {
+    for (const journey of Object.keys(JOURNEY_HOOKS)) {
+      const response: any = await h.client.callTool({
+        name: "get_journey_blueprint",
+        arguments: { journey },
+      });
+      const packages: Record<string, string> =
+        response.structuredContent.runtime_contract.requiredPackages;
+      for (const [name, range] of Object.entries(packages)) {
+        const version = shipped[name];
+        if (version === undefined) continue; // third-party ranges are not ours to assert
+        const [wantMajor, wantMinor] = range.replace(/^[^\d]*/, "").split(".").map(Number);
+        const [haveMajor, haveMinor] = version.split(".").map(Number);
+        assert.ok(
+          haveMajor > wantMajor || (haveMajor === wantMajor && haveMinor >= wantMinor),
+          `${journey}: blueprint asks for ${name}@${range}, repo ships ${version}`,
+        );
+      }
+    }
+  } finally {
+    await h.close();
+  }
+});

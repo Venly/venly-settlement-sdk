@@ -92,6 +92,103 @@ Registry items: venly-tokens, data-table, status-pill, side-panel, timeline.
 Hooks: useRampRequests, useFourEyesApproval (capability decides what renders), useRampLifecycle.
 States that must exist: queue with awaiting-approval items, detail with the decision context beside the figures, applied, stale-version (someone acted first - refetch and re-decide), creator-view (cannot approve own request - render the rule, not a disabled mystery button).
 Rules that must hold: the optimistic-locking version travels with every decision; a 409 means re-decide against fresh state, never auto-retry; reject requires a reason; the creator sees why they cannot approve.`,
+  "console-review-queue": `# Console review queue (the operator worklist)
+Shell: left nav rail + thin top bar, full-width content, and a page-edge
+environment banner naming mock mode. Not a consumer surface - density rules
+apply.
+Registry items: venly-tokens, data-table, status-pill, money, list-error. The
+registry has no console block yet: compose these primitives.
+Hooks: useAccounts, useParties. The queue's own state is DERIVED on every
+render - never stored, never cached as a status.
+Binding: sections are ACTORS, not statuses - your move, waiting on the customer,
+waiting on a provider, then a collapsed closed section, so the reviewer's own
+worklist is the top band by construction.
+States that must exist: loading, your move, waiting on the customer, waiting on a provider, closed, empty queue, filtered to nothing, list error.
+Rules that must hold: the whose-move value is a pure function of enum values on
+the row - no clock reading, no threshold, no configuration and no default, and a
+combination the mapping does not cover renders NO value plus an explicit
+not-recognised line, which is a bug report rather than a guess; never a target
+time, a breach colour or an overdue state, because the API publishes no targets
+and an invented one is the same defect as an invented fee; an age column is
+labelled for what it actually measures - a created-at delta is "Age", and only a
+duration the API itself computes may be called time in state; empty sections are
+still drawn as a zero header row, because nothing-to-do is information; loading
+is a skeleton that preserves column geometry exactly, never prose; a row click
+opens a side panel and never navigates; one status pill per row - the whose-move
+value is plain text, since two pills read as two states.`,
+  "console-decision-detail": `# Console decision detail (evidence, ceremony, audit trail)
+Shell: side panel about 30% wide over the queue - no scrim, the table stays
+visible clipped at the panel edge and the source row stays tinted. Escalate to a
+35/65 split only when the evidence outgrows the panel. Evidence goes on the
+LEFT: this is a judging task, not an authoring one.
+Registry items: venly-tokens, side-panel, timeline, field-list, status-pill,
+money, data-table.
+Hooks: useAccount, useParty, useWallets, useTransfers,
+useVirtualBankAccounts, useVenlyMock (the trail reads the mock's event log).
+Two timeline columns, not one feed: the decision chain (who decided what, when,
+in which seat) beside money movement on the same subject. Different actors,
+different audiences; merging them is what makes an audit trail unreadable.
+States that must exist: loading, evidence present, evidence unavailable, decision owed, decision applied, stale decision, terminal decision, frozen, empty trail.
+Rules that must hold: every evidence row is either a real field path or a
+labelled omission, and an omission is a FIRST-CLASS type in the component's
+props, so a placeholder cannot be rendered where a gap belongs;
+omission copy states only what is verified and never implies a result, a
+pending state, or a clean one - and never mentions the API contract, which is
+developer diagnostics rather than operator language; a field the API cannot
+carry is captured anyway when the work needs it, and rendered with a visible
+badge saying it is a console note rather than API state; every decision carries the
+optimistic-locking version, and a conflict means refetch and re-decide against
+fresh state, never auto-retry; every transition the console causes leaves a
+timeline node with actor, role and a timezone-qualified absolute timestamp, so a
+status change with no node is a bug; a store resync is a system line, not a
+decision node; the panel footer carries row-stepping key chips so the reviewer
+moves row to row without closing.`,
+  "console-pricing-config": `# Console pricing configuration
+Shell: in-shell content column. A config screen, not a queue: no whose-move
+value and no aging.
+Registry items: venly-tokens, data-table, arithmetic-ladder, field-list.
+Hooks: useCompanyFees.
+Binding: the fee data the packages actually serve is a VOLUME-TIER model - tier
+name, ramp direction, minimum and maximum volume, percentage, version - and it
+is the same model the shipped withdrawal quote consumes, so this screen shows
+where a real quote comes from. A second, richer per-rail configuration model
+exists on an internal plane and is NOT served here; it renders as a labelled
+omission, never as an empty form.
+States that must exist: loading, tiers present, no tiers, configuration unavailable, worked example, save failed.
+Rules that must hold: a worked arithmetic ladder is mandatory on the tier
+section - a sample amount times the tier percentage, with the operator glyphs in
+a left gutter - because a pricing screen that shows only stored numbers teaches
+nothing; the ladder renders ONLY over data that exists, never over the omitted
+section; the tier
+a sample amount falls into is highlighted in the table so the row and the ladder
+are visibly the same fact; a single-member enum renders as a disabled
+single-value field that says so, not a select pretending at choice; a date
+window that has not opened reads scheduled, never active; forms are single
+column with the field width capped, label above input, helper text between them
+and the error below.`,
+  "console-simulator": `# Sandbox simulator (play the counterparty)
+Shell: its own chrome - a scrimmed right-hand drawer on a distinct surface with
+a persistent sandbox label, reachable from ONE fixed affordance in the top bar.
+It is the only scrimmed drawer in the console, so the surface change alone
+signals the register change.
+Registry items: venly-tokens, field-list, status-pill, money.
+Hooks: useVenlyMock. Every control maps to exactly one call on the mock's
+simulations namespace - no control without a call, and no call renamed.
+Binding: inbound credits, provider progression and screening verdicts are things
+OTHER parties do, so they live here rather than in the operator's workflow.
+States that must exist: drawer closed, drawer open, sharing, not sharing, credit landed, verdict returned, payout advanced, books balanced, books do not balance, reset.
+Rules that must hold: controls are phrased as events that happen to you, in the
+third person, while operator controls elsewhere are imperative decisions - a
+control phrased in the wrong voice is in the wrong surface; a simulated
+transition emits the SAME event the real path emits, and the trail attributes it
+to the simulator plainly rather than to an operator; the drawer is reachable
+only from the top bar, never from a queue row or a decision panel, because those
+paths make another party's action look like the operator's; the ledger check gets
+a visible surface: it is the one control here that asserts something true, namely
+that the simulated books balance; the channel footer states the adapter, session
+and peer count, and says IN WORDS when the surface is not actually sharing - the
+default channel shares nothing and cross-context sharing is same-origin only, so
+without that line a two-context demo can prove nothing while looking correct.`,
 } as const;
 
 type JourneyKey = keyof typeof JOURNEYS;
@@ -144,10 +241,39 @@ const RUNTIME_PACKAGES_BY_BLOCK = {
 
 type RuntimeBlock = keyof typeof RUNTIME_PACKAGES_BY_BLOCK;
 
+/**
+ * The package set any hook-using screen needs, for journeys the registry has no
+ * composite block for yet - the console screens are built from primitives
+ * (data-table, side-panel, timeline …), and a primitive registry item declares
+ * no npm dependencies, so deriving `requiredPackages` from blocks alone would
+ * tell an agent that a surface living entirely on hooks needs no packages.
+ *
+ * The sdk range is the one the console screens themselves need: they render the
+ * mock's channel state and balances that move on a transfer, and both arrived in
+ * 0.6.0. Composite block registry items stamp their own range from
+ * ui/package.json, which is older; a console screen built against that range
+ * would describe states it cannot reach.
+ */
+const DATA_PLANE_PACKAGES = {
+  "@venlyfinance/react": "^0.4.0",
+  "@venlyfinance/sdk": "^0.6.0",
+  "@tanstack/react-query": "^5.0.0",
+} as const;
+
 const JOURNEY_RUNTIME: Record<JourneyKey, {
   blocks: RuntimeBlock[];
   hooks: string[];
   demoBindings?: { import: string; from: string }[];
+  /**
+   * Registry items to install when the journey has no composite block of its
+   * own. Names are registry item ids, not block ids: they carry no npm
+   * dependencies, so they inform `install` and never `requiredPackages`.
+   */
+  registryItems?: string[];
+  /** Lives on the hooks, so it needs DATA_PLANE_PACKAGES regardless of blocks. */
+  dataPlane?: boolean;
+  /** Journey-specific additions to the standard forbidden list. */
+  extraForbidden?: string[];
 }> = {
   auth: {
     blocks: ["auth"],
@@ -193,6 +319,66 @@ const JOURNEY_RUNTIME: Record<JourneyKey, {
     blocks: ["withdraw"],
     hooks: ["useRampRequests", "useFourEyesApproval", "useRampLifecycle"],
   },
+  "console-review-queue": {
+    blocks: [],
+    registryItems: ["venly-tokens", "data-table", "status-pill", "money", "list-error"],
+    dataPlane: true,
+    hooks: ["useAccounts", "useParties"],
+    extraForbidden: [
+      "a whose-move or needs-attention value computed from anything other than enum values on the row",
+      "a target time, breach threshold or overdue state (the API publishes no targets)",
+      "labelling a created-at delta \"time in state\" rather than \"Age\" (only an API-computed duration may use that phrase)",
+    ],
+  },
+  "console-decision-detail": {
+    blocks: [],
+    registryItems: [
+      "venly-tokens",
+      "side-panel",
+      "timeline",
+      "field-list",
+      "status-pill",
+      "money",
+      "data-table",
+    ],
+    dataPlane: true,
+    hooks: [
+      "useAccount",
+      "useParty",
+      "useWallets",
+      "useTransfers",
+      "useVirtualBankAccounts",
+      "useVenlyMock",
+    ],
+    extraForbidden: [
+      "a rendered placeholder where an unavailable field belongs (omission is a prop type, not a string)",
+      "a captured field the API cannot carry, rendered without the console-note badge",
+      "a status change that leaves no timeline node with actor, role and timezone-qualified stamp",
+      "auto-retry on a version conflict (refetch and let the operator re-decide)",
+    ],
+  },
+  "console-pricing-config": {
+    blocks: [],
+    registryItems: ["venly-tokens", "data-table", "arithmetic-ladder", "field-list"],
+    dataPlane: true,
+    hooks: ["useCompanyFees"],
+    extraForbidden: [
+      "an arithmetic ladder over figures the API does not serve",
+      "a single-member enum rendered as a select",
+    ],
+  },
+  "console-simulator": {
+    blocks: [],
+    registryItems: ["venly-tokens", "field-list", "status-pill", "money"],
+    dataPlane: true,
+    hooks: ["useVenlyMock"],
+    extraForbidden: [
+      "counterparty or provider simulation rendered inside operator chrome",
+      "a simulator control reachable from a queue row or a decision panel",
+      "a simulator control phrased as an imperative operator decision",
+      "a cross-context demo that does not state its channel adapter and peer count",
+    ],
+  },
 };
 
 const RUNTIME_CONTRACT_SCHEMA = z.object({
@@ -212,10 +398,17 @@ const RUNTIME_CONTRACT_SCHEMA = z.object({
 
 function runtimeContractForJourney(journey: JourneyKey): z.infer<typeof RUNTIME_CONTRACT_SCHEMA> {
   const definition = JOURNEY_RUNTIME[journey];
-  const requiredPackages: Record<string, string> = {};
+  // Base first, blocks last: a composite block's own stamped dependencies are
+  // what the registry will actually install, so they win where the two differ.
+  const requiredPackages: Record<string, string> = definition.dataPlane
+    ? { ...DATA_PLANE_PACKAGES }
+    : {};
   for (const block of definition.blocks) {
     Object.assign(requiredPackages, RUNTIME_PACKAGES_BY_BLOCK[block]);
   }
+  const installItems = definition.blocks.length
+    ? definition.blocks.map((block) => `@venlyfinance/${block}`)
+    : (definition.registryItems ?? []).map((item) => `@venlyfinance/${item}`);
   return {
     runtimeMode: "mock",
     requiredPackages,
@@ -234,11 +427,12 @@ function runtimeContractForJourney(journey: JourneyKey): z.infer<typeof RUNTIME_
       "fetch()/axios to self-owned money routes that do not wrap @venlyfinance/sdk",
       "useEffect polling loops for transfer status (useStagedTransfer/useRampLifecycle exist)",
       "clientSecret in browser code (provider throws; use proxyClientOptions())",
+      ...(definition.extraForbidden ?? []),
     ],
     install: [
       "npx shadcn@latest init -y -b radix -p nova",
       'add { "registries": { "@venlyfinance": "https://raw.githubusercontent.com/Venly/venly-settlement-sdk/main/ui/r/{name}.json" } } to components.json',
-      `npx shadcn@latest add ${definition.blocks.map((block) => `@venlyfinance/${block}`).join(" ")} -y -o`,
+      `npx shadcn@latest add ${installItems.join(" ")} -y -o`,
     ],
     completionChecks: [
       'npx @venlyfinance/settlement-mcp review "src/**/*.tsx" exits 0',
