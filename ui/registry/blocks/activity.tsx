@@ -3,7 +3,13 @@ import type { FundflowComponents, Transfer } from "@venlyfinance/sdk";
 import { describeRampStatus, useRampRequests, useTransfers } from "@venlyfinance/react";
 import { ListLoadError } from "../components/list-error.js";
 import { Money, formatAmount } from "../lib/money.js";
-import { DataTable, RowText, type DataTableColumn, type DataTableGroup } from "../components/data-table.js";
+import {
+  DataTable,
+  RowText,
+  TableSkeleton,
+  type DataTableColumn,
+  type DataTableGroup,
+} from "../components/data-table.js";
 import { StatusPill, type StatusIntent } from "../components/status-pill.js";
 import { SidePanel } from "../components/side-panel.js";
 import { Timeline, type TimelineStep } from "../components/timeline.js";
@@ -773,7 +779,7 @@ export function UnifiedActivityBlock({
   if (transfersPending || rampsPending) {
     return (
       <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
-        <p style={{ color: "var(--text-tertiary)" }}>Loading activity…</p>
+        <TableSkeleton columns={unifiedColumns()} label="Loading activity" />
       </section>
     );
   }
@@ -1059,7 +1065,7 @@ export function ActivityBlock({
   return (
     <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
       {isPending ? (
-        <p style={{ color: "var(--text-tertiary)" }}>Loading activity…</p>
+        <TableSkeleton columns={transferColumns()} label="Loading activity" />
       ) : (
         <>
           {/* Summary strip: one inline stat row, no containers, under a

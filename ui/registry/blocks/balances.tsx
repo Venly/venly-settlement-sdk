@@ -3,7 +3,13 @@ import type { SupportedAsset, WalletBalance } from "@venlyfinance/sdk";
 import { useSupportedAssets, useWallets } from "@venlyfinance/react";
 import { Money, MASK, formatAmount } from "../lib/money.js";
 import { BalanceCard } from "../components/balance-card.js";
-import { DataTable, RowText, type DataTableColumn } from "../components/data-table.js";
+import {
+  DataTable,
+  RowText,
+  TableSkeleton,
+  type DataTableColumn,
+  type TableColumnShape,
+} from "../components/data-table.js";
 
 /**
  * Balances block – the home surface, wired to the wallet balance source.
@@ -188,6 +194,18 @@ export interface BalancesViewProps {
 }
 
 /** Presentational half: everything below the data fetch. */
+/**
+ * The balance table's column geometry, shared with the loading skeleton so the
+ * placeholder cannot drift from the real header row. `test/ui-skeleton.test.mjs`
+ * asserts these headers still match the columns built in `BalancesView`.
+ */
+const BALANCE_COLUMN_SHAPE: readonly TableColumnShape[] = [
+  { key: "asset", header: "Asset" },
+  { key: "total", header: "Total", money: true },
+  { key: "reserved", header: "Reserved", money: true },
+  { key: "available", header: "Available", money: true },
+];
+
 export function BalancesView({
   rows,
   primaryAsset,
@@ -350,7 +368,7 @@ export function BalancesBlock({
   if (isPending) {
     return (
       <section className={className} style={{ fontFamily: "var(--font-family)", ...style }}>
-        <p style={{ color: "var(--text-tertiary)", fontSize: "var(--font-size-body)" }}>Loading balances…</p>
+        <TableSkeleton columns={BALANCE_COLUMN_SHAPE} rows={3} label="Loading balances" />
       </section>
     );
   }

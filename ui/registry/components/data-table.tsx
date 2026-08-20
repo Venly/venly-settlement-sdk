@@ -258,3 +258,104 @@ export function RowText({
     </span>
   );
 }
+
+/**
+ * Loading placeholder that preserves the table's geometry exactly.
+ *
+ * Takes the SAME column definitions as `DataTable`, so the header labels stay
+ * real and every placeholder cell inherits that column's width, alignment and
+ * pitch. Nothing reflows when the real rows arrive - the corpus rule is a
+ * skeleton that keeps its column geometry, never a prose "Loading..." line
+ * (which shifts the whole page on every screen open).
+ */
+export type TableColumnShape = Pick<
+  DataTableColumn<unknown>,
+  "key" | "header" | "money" | "align" | "width"
+>;
+
+export function TableSkeleton({
+  columns,
+  rows = 5,
+  label = "Loading",
+  style,
+}: {
+  /** The real `DataTable` columns, or just their shape. */
+  columns: readonly TableColumnShape[];
+  /** Placeholder row count. Match the list's typical page, not its maximum. */
+  rows?: number;
+  /** Accessible description of what is loading, e.g. "Loading balances". */
+  label?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <table
+      aria-busy="true"
+      aria-label={label}
+      style={{
+        width: "100%",
+        borderCollapse: "collapse",
+        fontSize: "var(--font-size-body)",
+        fontFamily: "var(--font-family)",
+        color: "var(--text-primary)",
+        background: "var(--surface-raised)",
+        ...style,
+      }}
+    >
+      <thead>
+        <tr style={{ height: "var(--header-pitch)", borderBottom: "var(--border-w-hairline) solid var(--border-hairline)" }}>
+          {columns.map((col) => (
+            <th
+              key={col.key}
+              scope="col"
+              style={{
+                textAlign: col.money ? "right" : (col.align ?? "left"),
+                fontSize: "var(--font-size-micro)",
+                fontWeight: 400,
+                color: "var(--text-tertiary)",
+                padding: "0 var(--cell-pad-x)",
+                width: col.width,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {col.header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {Array.from({ length: rows }, (_, rowIndex) => (
+          <tr
+            key={rowIndex}
+            style={{
+              height: "var(--row-pitch)",
+              borderBottom: "var(--border-w-hairline) solid var(--border-hairline)",
+            }}
+          >
+            {columns.map((col) => (
+              <td
+                key={col.key}
+                style={{
+                  padding: "var(--cell-pad-y) var(--cell-pad-x)",
+                  textAlign: col.money ? "right" : (col.align ?? "left"),
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: "inline-block",
+                    height: "0.75em",
+                    width: col.money ? "4.5em" : "7em",
+                    maxWidth: "100%",
+                    borderRadius: "var(--radius-pill)",
+                    background: "var(--border-hairline)",
+                    verticalAlign: "middle",
+                  }}
+                />
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
