@@ -96,8 +96,10 @@ Rules that must hold: the optimistic-locking version travels with every decision
 Shell: left nav rail + thin top bar, full-width content, and a page-edge
 environment banner naming mock mode. Not a consumer surface - density rules
 apply.
-Registry items: venly-tokens, data-table, status-pill, money, list-error. The
-registry has no console block yet: compose these primitives.
+Registry items: venly-tokens, data-table, status-pill, money, list-error;
+blocks: console-queue (ConsoleQueue, WhoseMove, AgeCell, deriveKycActor,
+derivePayoutActor - the derivation functions are exported so a consumer can
+unit-test the join).
 Hooks: useAccounts, useParties. The queue's own state is DERIVED on every
 render - never stored, never cached as a status.
 Binding: sections are ACTORS, not statuses - your move, waiting on the customer,
@@ -122,7 +124,8 @@ visible clipped at the panel edge and the source row stays tinted. Escalate to a
 35/65 split only when the evidence outgrows the panel. Evidence goes on the
 LEFT: this is a judging task, not an authoring one.
 Registry items: venly-tokens, side-panel, timeline, field-list, status-pill,
-money, data-table.
+money, data-table; blocks: console-decision (ConsoleDecisionPanel,
+EvidenceStack, DecisionForm, DualTimeline).
 Hooks: useAccount, useParty, useWallets, useTransfers,
 useVirtualBankAccounts, useVenlyMock (the trail reads the mock's event log).
 Two timeline columns, not one feed: the decision chain (who decided what, when,
@@ -196,45 +199,55 @@ const JOURNEY_KEYS = Object.keys(JOURNEYS) as [JourneyKey, ...JourneyKey[]];
 
 const RUNTIME_PACKAGES_BY_BLOCK = {
   activity: {
-    "@venlyfinance/react": "^0.5.0",
-    "@venlyfinance/sdk": "^0.6.0",
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
     "@tanstack/react-query": "^5.0.0",
   },
   auth: { "@radix-ui/react-one-time-password-field": "^0.1.16" },
   balances: {
-    "@venlyfinance/react": "^0.5.0",
-    "@venlyfinance/sdk": "^0.6.0",
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
     "@tanstack/react-query": "^5.0.0",
   },
   "bank-accounts": {
-    "@venlyfinance/react": "^0.5.0",
-    "@venlyfinance/sdk": "^0.6.0",
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  "console-decision": {
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  "console-queue": {
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
     "@tanstack/react-query": "^5.0.0",
   },
   onboarding: {
-    "@venlyfinance/react": "^0.5.0",
-    "@venlyfinance/sdk": "^0.6.0",
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
     "@tanstack/react-query": "^5.0.0",
   },
   receive: {
-    "@venlyfinance/react": "^0.5.0",
-    "@venlyfinance/sdk": "^0.6.0",
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
     "@tanstack/react-query": "^5.0.0",
   },
   reconciliation: {
-    "@venlyfinance/react": "^0.5.0",
-    "@venlyfinance/sdk": "^0.6.0",
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
     "@tanstack/react-query": "^5.0.0",
   },
   send: {
-    "@venlyfinance/react": "^0.5.0",
-    "@venlyfinance/sdk": "^0.6.0",
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
     "@tanstack/react-query": "^5.0.0",
   },
   team: { "@radix-ui/react-dialog": "^1.1.23" },
   withdraw: {
-    "@venlyfinance/react": "^0.5.0",
-    "@venlyfinance/sdk": "^0.6.0",
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
     "@tanstack/react-query": "^5.0.0",
   },
 } as const;
@@ -248,20 +261,18 @@ type RuntimeBlock = keyof typeof RUNTIME_PACKAGES_BY_BLOCK;
  * registry will not install.
  *
  * The package set any hook-using screen needs, for journeys the registry has no
- * composite block for yet - the console screens are built from primitives
+ * composite block for yet - those screens are built from primitives
  * (data-table, side-panel, timeline …), and a primitive registry item declares
  * no npm dependencies, so deriving `requiredPackages` from blocks alone would
  * tell an agent that a surface living entirely on hooks needs no packages.
  *
- * The sdk range is the one the console screens themselves need: they render the
- * mock's channel state and balances that move on a transfer, and both arrived in
- * 0.6.0. Composite block registry items stamp their own range from
- * ui/package.json, which is older; a console screen built against that range
- * would describe states it cannot reach.
+ * The ranges name the versions the console surfaces actually consume: the
+ * party IV read and the payout hooks arrived in sdk 0.7.0 / react 0.6.0, on
+ * top of the 0.6.0 mock behaviours (channel state, balances that move).
  */
 const DATA_PLANE_PACKAGES = {
-  "@venlyfinance/react": "^0.5.0",
-  "@venlyfinance/sdk": "^0.6.0",
+  "@venlyfinance/react": "^0.6.0",
+  "@venlyfinance/sdk": "^0.7.0",
   "@tanstack/react-query": "^5.0.0",
 } as const;
 
@@ -325,8 +336,7 @@ const JOURNEY_RUNTIME: Record<JourneyKey, {
     hooks: ["useRampRequests", "useFourEyesApproval", "useRampLifecycle"],
   },
   "console-review-queue": {
-    blocks: [],
-    registryItems: ["venly-tokens", "data-table", "status-pill", "money", "list-error"],
+    blocks: ["console-queue"],
     dataPlane: true,
     hooks: ["useAccounts", "useParties"],
     extraForbidden: [
@@ -336,16 +346,7 @@ const JOURNEY_RUNTIME: Record<JourneyKey, {
     ],
   },
   "console-decision-detail": {
-    blocks: [],
-    registryItems: [
-      "venly-tokens",
-      "side-panel",
-      "timeline",
-      "field-list",
-      "status-pill",
-      "money",
-      "data-table",
-    ],
+    blocks: ["console-decision"],
     dataPlane: true,
     hooks: [
       "useAccount",

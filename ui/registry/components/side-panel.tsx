@@ -24,6 +24,13 @@ export interface SidePanelProps {
   /** Rendered before the hero amount, e.g. an explicit "+" on settled credits. */
   amountPrefix?: string;
   currency?: string;
+  /**
+   * Replaces the Money hero entirely. For money records the amount IS the
+   * hero and this stays unset; a record with no amount (a KYC decision)
+   * heroes its subject instead – an em-dash hero would claim a missing
+   * amount on a record that never had one.
+   */
+  hero?: ReactNode;
   /** Grey line under the hero amount, e.g. the counterparty. */
   qualifier?: ReactNode;
   onClose?: () => void;
@@ -57,6 +64,7 @@ export function SidePanel({
   amount,
   amountPrefix,
   currency,
+  hero,
   qualifier,
   onClose,
   keyboardFooter = true,
@@ -117,12 +125,18 @@ export function SidePanel({
           ) : null}
         </div>
         <div style={{ marginTop: "var(--space-sm)" }}>
-          {amountPrefix ? (
-            <span style={{ fontSize: "var(--font-size-hero)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-              {amountPrefix}
-            </span>
-          ) : null}
-          <Money amount={amount} currency={currency} emphasis="hero" />
+          {hero !== undefined ? (
+            hero
+          ) : (
+            <>
+              {amountPrefix ? (
+                <span style={{ fontSize: "var(--font-size-hero)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                  {amountPrefix}
+                </span>
+              ) : null}
+              <Money amount={amount} currency={currency} emphasis="hero" />
+            </>
+          )}
         </div>
         {qualifier !== undefined ? (
           <div

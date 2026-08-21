@@ -237,8 +237,8 @@
       "title": "Onboarding block",
       "description": "Company details in, an application status out: creates the organisation and its account through the real operations, renders the verification status verbatim with a humane waiting state, decline-with-review, and a restricted-mode banner.",
       "dependencies": [
-        "@venlyfinance/react@^0.5.0",
-        "@venlyfinance/sdk@^0.6.0",
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -262,8 +262,8 @@
       "title": "Bank accounts block",
       "description": "The whitelisting surface withdrawals depend on: your company's own accounts (never third-party payees), seven account-type variants asking exactly the fields each requires, identifier re-entry against transcription slips, and verification status rendered verbatim.",
       "dependencies": [
-        "@venlyfinance/react@^0.5.0",
-        "@venlyfinance/sdk@^0.6.0",
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -287,8 +287,8 @@
       "title": "Withdraw block",
       "description": "Fiat out to your own verified bank account, rendered truthfully: destination picker that disables unverified accounts with the reason, a fee quote in the unit you typed, four-eyes approval that renders the rule instead of the error, deposit instructions with the mandatory reference, and an event timeline with actors and absolute timestamps.",
       "dependencies": [
-        "@venlyfinance/react@^0.5.0",
-        "@venlyfinance/sdk@^0.6.0",
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -317,8 +317,8 @@
       "title": "Receive block",
       "description": "Bank details a payer's finance team actually reads: mandatory payment-reference enforcement, warning above the fields, copy that names the field.",
       "dependencies": [
-        "@venlyfinance/react@^0.5.0",
-        "@venlyfinance/sdk@^0.6.0",
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -342,8 +342,8 @@
       "title": "Send block",
       "description": "Stage-then-confirm rendered: form, arithmetic-ladder review, a commit button that restates the amount, single execution on a pinned idempotency key, status timeline.",
       "dependencies": [
-        "@venlyfinance/react@^0.5.0",
-        "@venlyfinance/sdk@^0.6.0",
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -367,8 +367,8 @@
       "title": "Activity block",
       "description": "One feed over both money rails: the account's transfers interleaved with the company's withdrawals and add-money requests, a labelled Scope column, three bands (In progress / Completed / Didn't complete), live-synced detail panels, unified CSV export, and arrow-key row stepping. Mount UnifiedActivityBlock for the full feed, or ActivityBlock for a transfers-only ledger.",
       "dependencies": [
-        "@venlyfinance/react@^0.5.0",
-        "@venlyfinance/sdk@^0.6.0",
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -397,8 +397,8 @@
       "title": "Statements block",
       "description": "A fixed-period account statement: calendar-month or custom range, identity (party, account, vIBAN when present), opening and closing walked from the current wallet total through completed transfers, ordered rows, and a print-to-PDF download that reuses the receive pipeline. Coverage is labelled: pay-in sessions are not in this feed.",
       "dependencies": [
-        "@venlyfinance/react@^0.5.0",
-        "@venlyfinance/sdk@^0.6.0",
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -424,8 +424,8 @@
       "title": "Reconciliation block",
       "description": "Match inbound bank credits to expected payments without blurring the two feeds: the credit rows are the integrator's own bank/PSP feed (labelled so), the reference codes are Venly-issued. Sectioned exception queue with zero-counts always drawn, a judging workspace with the received evidence left of the candidates, per-signal match rationale instead of a score, a many-to-one builder with a live difference figure, four peer dispositions, and undo that reopens the expected payment.",
       "dependencies": [
-        "@venlyfinance/react@^0.5.0",
-        "@venlyfinance/sdk@^0.6.0",
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [
@@ -445,13 +445,68 @@
     },
     {
       "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "console-queue",
+      "type": "registry:block",
+      "title": "Console queue block",
+      "description": "The operator worklist: sections are actors (your move, waiting on the customer, waiting on a provider, closed), the whose-move value is a pure function of enum values on the row, empty sections stay drawn as zero header rows, ages are labelled for what they measure, and an uncovered state combination renders an explicit not-recognised line instead of a guess. The derivation functions are exported so a consumer can unit-test the join.",
+      "dependencies": [
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
+        "@tanstack/react-query@^5.0.0"
+      ],
+      "registryDependencies": [
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/money",
+        "@venlyfinance/data-table",
+        "@venlyfinance/status-pill",
+        "@venlyfinance/list-error"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/console-queue.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/console-queue.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "console-decision",
+      "type": "registry:block",
+      "title": "Console decision block",
+      "description": "Evidence, ceremony and audit trail for one decision: an evidence stack whose omissions are a first-class prop type, a reason input badged as a console note when no operation carries it, an optimistic-locking decision form whose conflict state means re-decide rather than retry, a platform-seat section boundary, and two parallel timeline columns - the decision chain beside money movement.",
+      "dependencies": [
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
+        "@tanstack/react-query@^5.0.0"
+      ],
+      "registryDependencies": [
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/money",
+        "@venlyfinance/side-panel",
+        "@venlyfinance/timeline",
+        "@venlyfinance/field-list",
+        "@venlyfinance/status-pill",
+        "@venlyfinance/data-table",
+        "@venlyfinance/console-queue"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/console-decision.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/console-decision.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
       "name": "balances",
       "type": "registry:block",
       "title": "Balances block",
       "description": "The home surface on the real wallet balance source: available/reserved hero per asset, segmented bar behind the two-bucket threshold, per-asset table, and masking that covers every figure including the chrome miniature.",
       "dependencies": [
-        "@venlyfinance/react@^0.5.0",
-        "@venlyfinance/sdk@^0.6.0",
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
         "@tanstack/react-query@^5.0.0"
       ],
       "registryDependencies": [

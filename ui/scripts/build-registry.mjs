@@ -32,8 +32,8 @@ const SCHEMA_INDEX = "https://ui.shadcn.com/schema/registry.json";
 // that cannot compile. Keep these at or above what this repo's packages
 // declare (root package.json, react/package.json).
 const RUNTIME_DEPENDENCIES = [
-  "@venlyfinance/react@^0.5.0",
-  "@venlyfinance/sdk@^0.6.0",
+  "@venlyfinance/react@^0.6.0",
+  "@venlyfinance/sdk@^0.7.0",
   "@tanstack/react-query@^5.0.0",
 ];
 
@@ -230,6 +230,20 @@ const BLOCKS = [
     // money lib, and the blueprint's item list for this journey is verbatim
     // venly-tokens + the four components above.
     money: false,
+  },
+  {
+    name: "console-queue",
+    title: "Console queue block",
+    description:
+      "The operator worklist: sections are actors (your move, waiting on the customer, waiting on a provider, closed), the whose-move value is a pure function of enum values on the row, empty sections stay drawn as zero header rows, ages are labelled for what they measure, and an uncovered state combination renders an explicit not-recognised line instead of a guess. The derivation functions are exported so a consumer can unit-test the join.",
+    deps: ["data-table", "status-pill", "list-error"],
+  },
+  {
+    name: "console-decision",
+    title: "Console decision block",
+    description:
+      "Evidence, ceremony and audit trail for one decision: an evidence stack whose omissions are a first-class prop type, a reason input badged as a console note when no operation carries it, an optimistic-locking decision form whose conflict state means re-decide rather than retry, a platform-seat section boundary, and two parallel timeline columns - the decision chain beside money movement.",
+    deps: ["side-panel", "timeline", "field-list", "status-pill", "data-table", "console-queue"],
   },
   {
     name: "balances",

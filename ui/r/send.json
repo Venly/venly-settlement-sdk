@@ -5,8 +5,8 @@
   "title": "Send block",
   "description": "Stage-then-confirm rendered: form, arithmetic-ladder review, a commit button that restates the amount, single execution on a pinned idempotency key, status timeline.",
   "dependencies": [
-    "@venlyfinance/react@^0.5.0",
-    "@venlyfinance/sdk@^0.6.0",
+    "@venlyfinance/react@^0.6.0",
+    "@venlyfinance/sdk@^0.7.0",
     "@tanstack/react-query@^5.0.0"
   ],
   "registryDependencies": [
