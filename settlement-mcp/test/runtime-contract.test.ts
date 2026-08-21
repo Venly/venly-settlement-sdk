@@ -25,11 +25,9 @@ const JOURNEY_BLOCKS = {
   approvals: ["withdraw"],
   "console-review-queue": ["console-queue"],
   "console-decision-detail": ["console-decision"],
-  // These two are built from primitives until their blocks ship: primitives
-  // declare no npm dependencies, so the package contract comes from
-  // DATA_PLANE_PACKAGES rather than from a block.
-  "console-pricing-config": [],
-  "console-simulator": [],
+  "console-pricing-config": ["console-pricing"],
+  "console-simulator": ["console-simulator"],
+  "console-webhooks": ["console-webhooks"],
 } as const;
 
 /** Mirrors DATA_PLANE_PACKAGES in src/frontend.ts. */
@@ -44,6 +42,7 @@ const DATA_PLANE_JOURNEYS = new Set([
   "console-decision-detail",
   "console-pricing-config",
   "console-simulator",
+  "console-webhooks",
 ]);
 
 function registryDependencies(blocks: readonly string[]): Record<string, string> {
@@ -94,6 +93,14 @@ const JOURNEY_HOOKS = {
   ],
   "console-pricing-config": ["useCompanyFees"],
   "console-simulator": ["useVenlyMock"],
+  "console-webhooks": [
+    "useWebhooks",
+    "useWebhook",
+    "useCreateWebhook",
+    "useUpdateWebhook",
+    "useDeleteWebhook",
+    "usePingWebhook",
+  ],
 } as const;
 
 for (const [journey, expectedHooks] of Object.entries(JOURNEY_HOOKS)) {

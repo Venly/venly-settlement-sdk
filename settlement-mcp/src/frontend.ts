@@ -148,8 +148,12 @@ decision node; the panel footer carries row-stepping key chips so the reviewer
 moves row to row without closing.`,
   "console-pricing-config": `# Console pricing configuration
 Shell: in-shell content column. A config screen, not a queue: no whose-move
-value and no aging.
-Registry items: venly-tokens, data-table, arithmetic-ladder, field-list.
+value and no aging. The whole screen sits inside a platform-view section
+boundary - fee configuration is the platform's seat.
+Registry items: venly-tokens, data-table, arithmetic-ladder, field-list,
+list-error; blocks: console-pricing (ConsolePricingTable, FeeLadder, FeePanel
+- read-only, because the fees operation is GET-only; the panel renders
+fields, never an editable form).
 Hooks: useCompanyFees.
 Binding: the fee data the packages actually serve is a VOLUME-TIER model - tier
 name, ramp direction, minimum and maximum volume, percentage, version - and it
@@ -174,7 +178,10 @@ Shell: its own chrome - a scrimmed right-hand drawer on a distinct surface with
 a persistent sandbox label, reachable from ONE fixed affordance in the top bar.
 It is the only scrimmed drawer in the console, so the surface change alone
 signals the register change.
-Registry items: venly-tokens, field-list, status-pill, money.
+Registry items: venly-tokens, field-list, status-pill, money; blocks:
+console-simulator (SimulatorDrawer, SimulatorControl, LedgerVerifyPanel,
+ChannelFooter - SimulatorControl refuses an imperative operator-decision
+label with a thrown developer error).
 Hooks: useVenlyMock. Every control maps to exactly one call on the mock's
 simulations namespace - no control without a call, and no call renamed.
 Binding: inbound credits, provider progression and screening verdicts are things
@@ -192,6 +199,34 @@ that the simulated books balance; the channel footer states the adapter, session
 and peer count, and says IN WORDS when the surface is not actually sharing - the
 default channel shares nothing and cross-context sharing is same-origin only, so
 without that line a two-context demo can prove nothing while looking correct.`,
+  "console-webhooks": `# Console webhooks (endpoint registration, honestly bounded)
+Shell: in-shell content column - a table with a panel form beside it. This
+one IS a form: the public plane carries the full lifecycle (list, create,
+read, replace, delete, ping).
+Registry items: venly-tokens, data-table, status-pill, list-error; blocks:
+console-webhooks (WebhooksTable, WebhookForm, WebhookDeliveryLog - the
+delivery log renders inside SIMULATOR chrome only, never on this screen).
+Hooks: useWebhooks, useWebhook, useCreateWebhook, useUpdateWebhook,
+useDeleteWebhook, usePingWebhook.
+Binding: webhook rows render the contract fields verbatim - url, name, and
+a status enum that has exactly one member in this release, rendered as a
+disabled single value that says so rather than a select pretending at
+choice. The authentication method is a two-variant choice (API key or
+basic); its secret fields are write-only on the contract, so the platform
+never returns a stored secret and this screen never displays one - editing
+means re-entering the credential, and the form says why.
+States that must exist: loading, webhooks listed, no webhooks yet, registration form, secret masked, ping result, delete confirmation, list error.
+Rules that must hold: Ping is the promoted per-row affordance - it is the
+one real signal the API offers about an endpoint - and its result renders
+verbatim; delivery history is NOT available from the API in this release
+and the screen says so on the screen itself, with the next step (use Ping),
+never as a silent gap; the create operation carries no idempotency
+envelope, so a replayed create registers a second webhook - any
+retry-safety a surface adds is a client-side convention badged as such,
+never presented as contract behaviour; delete is confirm-and-explain: the
+confirmation names the consequence before anything is removed; the
+simulated delivery log is a sandbox surface phrased in the third person
+and badged as simulation, rendered only inside the simulator's own chrome.`,
 } as const;
 
 type JourneyKey = keyof typeof JOURNEYS;
@@ -220,6 +255,26 @@ const RUNTIME_PACKAGES_BY_BLOCK = {
     "@tanstack/react-query": "^5.0.0",
   },
   "console-queue": {
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  "console-pricing": {
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  "console-simulator": {
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  "console-tenant": {
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
+  "console-webhooks": {
     "@venlyfinance/react": "^0.6.0",
     "@venlyfinance/sdk": "^0.7.0",
     "@tanstack/react-query": "^5.0.0",
@@ -364,18 +419,17 @@ const JOURNEY_RUNTIME: Record<JourneyKey, {
     ],
   },
   "console-pricing-config": {
-    blocks: [],
-    registryItems: ["venly-tokens", "data-table", "arithmetic-ladder", "field-list"],
+    blocks: ["console-pricing"],
     dataPlane: true,
     hooks: ["useCompanyFees"],
     extraForbidden: [
       "an arithmetic ladder over figures the API does not serve",
       "a single-member enum rendered as a select",
+      "an editable control on the tier section (the fees operation is GET-only)",
     ],
   },
   "console-simulator": {
-    blocks: [],
-    registryItems: ["venly-tokens", "field-list", "status-pill", "money"],
+    blocks: ["console-simulator"],
     dataPlane: true,
     hooks: ["useVenlyMock"],
     extraForbidden: [
@@ -383,6 +437,24 @@ const JOURNEY_RUNTIME: Record<JourneyKey, {
       "a simulator control reachable from a queue row or a decision panel",
       "a simulator control phrased as an imperative operator decision",
       "a cross-context demo that does not state its channel adapter and peer count",
+    ],
+  },
+  "console-webhooks": {
+    blocks: ["console-webhooks"],
+    dataPlane: true,
+    hooks: [
+      "useWebhooks",
+      "useWebhook",
+      "useCreateWebhook",
+      "useUpdateWebhook",
+      "useDeleteWebhook",
+      "usePingWebhook",
+    ],
+    extraForbidden: [
+      "a delivery-history surface presented as API-served (no delivery-log operation exists on any plane)",
+      "a stored secret displayed anywhere (the authentication secret fields are write-only)",
+      "retry-safety presented as contract behaviour (a replayed create registers a second webhook)",
+      "the single-member status enum rendered as a select",
     ],
   },
 };
