@@ -924,7 +924,7 @@ function PlatformAmountStep({
     (max, row) => Math.max(max, Number(row.amount?.available ?? 0)),
     0,
   );
-  // Over-balance gate (J4b precedent). Crypto: against the entered asset's
+  // Over-balance gate (the withdraw flow's precedent). Crypto: against the entered asset's
   // available. Fiat: the fiat side has no wallet row and no pre-create rate
   // exists, so the gate blocks only what no balance could fund - amounts
   // above every available row. The API stays the authority either way and
@@ -1901,7 +1901,7 @@ export function PayoutDetail({ payout, observedAt, style, className }: PayoutDet
       value:
         payout.settledFiatAmount !== undefined
           ? `${formatAmount(payout.settledFiatAmount)} ${payout.payoutRoute?.fiatCurrency ?? ""}`
-          : "— confirmed on completion",
+          : "– confirmed on completion",
       copyable: false,
       mono: payout.settledFiatAmount !== undefined,
     },

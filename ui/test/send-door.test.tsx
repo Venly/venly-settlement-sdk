@@ -133,7 +133,7 @@ test("the door: three recipient classes, the own-bank link row, and NO external-
   assert.match(html, /Your own bank account/);
   assert.match(html, /Withdraw to your bank/);
   assert.match(html, /Move money between accounts you already control\./);
-  // D13: send-to-external-wallet is an honest omission - no teaser, no row.
+  // Send-to-external-wallet is an honest omission - no teaser, no row.
   assert.doesNotMatch(html, /external wallet|wallet address|crypto address/i);
   // Masked details render from the response; the row never re-asks.
   assert.match(html, /••6769/);
@@ -312,7 +312,7 @@ test("payout detail, in flight: settled amount is an explicit null, never a gues
     <PayoutDetail payout={{ ...payoutBase, status: "PROVIDER_PROCESSING" }} />,
   );
   assert.match(html, /Provider processing – the payout provider is executing; no action needed from you\./);
-  assert.match(html, /— confirmed on completion/);
+  assert.match(html, /– confirmed on completion/);
   assert.doesNotMatch(html, /1,800\.00 EUR/, "no stablecoin-parity fiat figure is invented");
 });
 
