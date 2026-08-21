@@ -110,7 +110,7 @@ test("csv: both ledgers, scope column says which is which, ramp rows carry the f
   const rows = unifyActivity([transfer({ id: "t1" })], [ramp({ id: "r1" })]);
   const csv = unifiedToCsv(rows, ACCT, "Main EUR");
   const lines = csv.split("\n");
-  assert.equal(lines[0], "source,id,reference,type,date,scope,amount,currency,Converted amount,convertedCurrency,status");
+  assert.equal(lines[0], "source,id,reference,type,date,scope,amount,currency,convertedAmount,convertedCurrency,status");
   const rampLine = lines.find((l) => l.startsWith("ramp,"));
   assert.ok(rampLine?.includes("Company-wide"));
   assert.ok(rampLine?.includes("92") && rampLine.includes("EUR"), "the gross fiat leg exports too");
