@@ -131,6 +131,17 @@ export const venlyQueries = {
     queryFn: () => clients.finance.payoutBankAccounts.list(partyId, query),
   }),
 
+  /** Registered webhook endpoints (bare array on the wire; Page for resultPresent). */
+  webhooks: (clients: VenlyClients) => ({
+    queryKey: venlyKeys.webhooks(),
+    queryFn: () => clients.finance.webhooks.list(),
+  }),
+
+  webhook: (clients: VenlyClients, webhookId: string) => ({
+    queryKey: venlyKeys.webhook(webhookId),
+    queryFn: () => clients.finance.webhooks.get(webhookId),
+  }),
+
   rampRequests: (clients: VenlyClients, query?: RampRequestsQuery) => ({
     queryKey: venlyKeys.rampRequests(query),
     queryFn: () => clients.fundflow.rampRequests.list(query),

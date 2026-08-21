@@ -42,6 +42,9 @@ export const venlyKeys = {
   rampRequests: (query?: unknown) => ["venly", "ramp-requests", query ?? null] as const,
   rampRequest: (id: string) => ["venly", "ramp-request", id] as const,
 
+  webhooks: () => ["venly", "webhooks"] as const,
+  webhook: (webhookId: string) => ["venly", "webhook", webhookId] as const,
+
   referenceData: () => ["venly", "reference-data"] as const,
   companyBankAccounts: (query?: unknown) =>
     ["venly", "company-bank-accounts", query ?? null] as const,

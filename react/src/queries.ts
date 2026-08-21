@@ -312,6 +312,23 @@ type ReferenceData = Awaited<
   ReturnType<ReturnType<typeof venlyQueries.referenceData>["queryFn"]>
 >;
 
+/** The tenant's registered webhook endpoints. */
+export function useWebhooks(options?: Tune<WebhooksPage>) {
+  const clients = useVenly();
+  return useQuery({ ...venlyQueries.webhooks(clients), ...options });
+}
+type WebhooksPage = Awaited<ReturnType<ReturnType<typeof venlyQueries.webhooks>["queryFn"]>>;
+
+export function useWebhook(webhookId: string | undefined, options?: Tune<WebhookItem>) {
+  const clients = useVenly();
+  return useQuery({
+    ...venlyQueries.webhook(clients, webhookId ?? ""),
+    enabled: Boolean(webhookId) && (options?.enabled ?? true),
+    ...options,
+  });
+}
+type WebhookItem = Awaited<ReturnType<ReturnType<typeof venlyQueries.webhook>["queryFn"]>>;
+
 export function useCompanyFees(options?: Tune<CompanyFees>) {
   const clients = useVenly();
   return useQuery({ ...venlyQueries.companyFees(clients), ...options });
