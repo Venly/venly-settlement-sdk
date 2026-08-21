@@ -567,7 +567,10 @@ export function ConsoleQueue({
           placeholder={CONSOLE_QUEUE_COPY.searchPlaceholder}
           aria-label={CONSOLE_QUEUE_COPY.searchPlaceholder}
           style={{
-            flex: "1 1 220px",
+            flex: "1 1 160px",
+            // An input's intrinsic minimum would otherwise overflow a narrow
+            // column; the page must never widen for a toolbar control.
+            minWidth: 0,
             maxWidth: 320,
             border: "var(--border-w-hairline) solid var(--border-strong)",
             borderRadius: "var(--radius-control)",
