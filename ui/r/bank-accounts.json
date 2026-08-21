@@ -5,8 +5,8 @@
   "title": "Bank accounts block",
   "description": "The whitelisting surface withdrawals depend on: your company's own accounts (never third-party payees), seven account-type variants asking exactly the fields each requires, identifier re-entry against transcription slips, and verification status rendered verbatim.",
   "dependencies": [
-    "@venlyfinance/react@^0.4.0",
-    "@venlyfinance/sdk@^0.5.0",
+    "@venlyfinance/react@^0.5.0",
+    "@venlyfinance/sdk@^0.6.0",
     "@tanstack/react-query@^5.0.0"
   ],
   "registryDependencies": [

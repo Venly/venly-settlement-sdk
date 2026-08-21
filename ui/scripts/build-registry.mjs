@@ -26,9 +26,14 @@ const HOMEPAGE = "https://github.com/Venly/venly-settlement-sdk/tree/main/ui";
 const SCHEMA_ITEM = "https://ui.shadcn.com/schema/registry-item.json";
 const SCHEMA_INDEX = "https://ui.shadcn.com/schema/registry.json";
 
+// The npm ranges stamped into every generated registry item. A consumer runs
+// `npx shadcn add @venlyfinance/<block>` and gets exactly these, so a range
+// that excludes the version a block's source actually imports ships a block
+// that cannot compile. Keep these at or above what this repo's packages
+// declare (root package.json, react/package.json).
 const RUNTIME_DEPENDENCIES = [
-  "@venlyfinance/react@^0.4.0",
-  "@venlyfinance/sdk@^0.5.0",
+  "@venlyfinance/react@^0.5.0",
+  "@venlyfinance/sdk@^0.6.0",
   "@tanstack/react-query@^5.0.0",
 ];
 
