@@ -163,15 +163,15 @@ export function TenantView({
     return <ListLoadError what="your tenant's accounts" onRetry={onRetry} />;
   }
 
+  // Rows the record does not carry are omitted rather than rendered as the
+  // "(not required)" variant - identity facts are not payer instructions.
   const identity: FieldRow[] = [
     { label: "Company", value: company?.name, copyable: false },
     { label: "Type", value: company?.partyType, copyable: false },
     { label: "Party id", value: company?.id, mono: true },
-    {
-      label: "Created",
-      value: company?.createdAt ? formatStamp(company.createdAt) : undefined,
-      copyable: false,
-    },
+    ...(company?.createdAt
+      ? [{ label: "Created", value: formatStamp(company.createdAt), copyable: false }]
+      : []),
   ];
 
   const laneColumns: DataTableColumn<MockTenantConfig["vbaLanePreferences"][number]>[] = [
