@@ -34,7 +34,7 @@ const JOURNEY_BLOCKS = {
 
 /** Mirrors DATA_PLANE_PACKAGES in src/frontend.ts. */
 const DATA_PLANE_PACKAGES = {
-  "@venlyfinance/react": "^0.4.0",
+  "@venlyfinance/react": "^0.5.0",
   "@venlyfinance/sdk": "^0.6.0",
   "@tanstack/react-query": "^5.0.0",
 } as const;

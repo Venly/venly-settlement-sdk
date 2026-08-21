@@ -196,45 +196,45 @@ const JOURNEY_KEYS = Object.keys(JOURNEYS) as [JourneyKey, ...JourneyKey[]];
 
 const RUNTIME_PACKAGES_BY_BLOCK = {
   activity: {
-    "@venlyfinance/react": "^0.4.0",
-    "@venlyfinance/sdk": "^0.5.0",
+    "@venlyfinance/react": "^0.5.0",
+    "@venlyfinance/sdk": "^0.6.0",
     "@tanstack/react-query": "^5.0.0",
   },
   auth: { "@radix-ui/react-one-time-password-field": "^0.1.16" },
   balances: {
-    "@venlyfinance/react": "^0.4.0",
-    "@venlyfinance/sdk": "^0.5.0",
+    "@venlyfinance/react": "^0.5.0",
+    "@venlyfinance/sdk": "^0.6.0",
     "@tanstack/react-query": "^5.0.0",
   },
   "bank-accounts": {
-    "@venlyfinance/react": "^0.4.0",
-    "@venlyfinance/sdk": "^0.5.0",
+    "@venlyfinance/react": "^0.5.0",
+    "@venlyfinance/sdk": "^0.6.0",
     "@tanstack/react-query": "^5.0.0",
   },
   onboarding: {
-    "@venlyfinance/react": "^0.4.0",
-    "@venlyfinance/sdk": "^0.5.0",
+    "@venlyfinance/react": "^0.5.0",
+    "@venlyfinance/sdk": "^0.6.0",
     "@tanstack/react-query": "^5.0.0",
   },
   receive: {
-    "@venlyfinance/react": "^0.4.0",
-    "@venlyfinance/sdk": "^0.5.0",
+    "@venlyfinance/react": "^0.5.0",
+    "@venlyfinance/sdk": "^0.6.0",
     "@tanstack/react-query": "^5.0.0",
   },
   reconciliation: {
-    "@venlyfinance/react": "^0.4.0",
-    "@venlyfinance/sdk": "^0.5.0",
+    "@venlyfinance/react": "^0.5.0",
+    "@venlyfinance/sdk": "^0.6.0",
     "@tanstack/react-query": "^5.0.0",
   },
   send: {
-    "@venlyfinance/react": "^0.4.0",
-    "@venlyfinance/sdk": "^0.5.0",
+    "@venlyfinance/react": "^0.5.0",
+    "@venlyfinance/sdk": "^0.6.0",
     "@tanstack/react-query": "^5.0.0",
   },
   team: { "@radix-ui/react-dialog": "^1.1.23" },
   withdraw: {
-    "@venlyfinance/react": "^0.4.0",
-    "@venlyfinance/sdk": "^0.5.0",
+    "@venlyfinance/react": "^0.5.0",
+    "@venlyfinance/sdk": "^0.6.0",
     "@tanstack/react-query": "^5.0.0",
   },
 } as const;
@@ -242,6 +242,11 @@ const RUNTIME_PACKAGES_BY_BLOCK = {
 type RuntimeBlock = keyof typeof RUNTIME_PACKAGES_BY_BLOCK;
 
 /**
+ * Kept in step with the ranges the registry generator stamps into ui/r/*.json
+ * (`RUNTIME_DEPENDENCIES` in ui/scripts/build-registry.mjs): the runtime-contract
+ * test asserts the two agree, so a blueprint can never advertise a range the
+ * registry will not install.
+ *
  * The package set any hook-using screen needs, for journeys the registry has no
  * composite block for yet - the console screens are built from primitives
  * (data-table, side-panel, timeline …), and a primitive registry item declares
@@ -255,7 +260,7 @@ type RuntimeBlock = keyof typeof RUNTIME_PACKAGES_BY_BLOCK;
  * would describe states it cannot reach.
  */
 const DATA_PLANE_PACKAGES = {
-  "@venlyfinance/react": "^0.4.0",
+  "@venlyfinance/react": "^0.5.0",
   "@venlyfinance/sdk": "^0.6.0",
   "@tanstack/react-query": "^5.0.0",
 } as const;
