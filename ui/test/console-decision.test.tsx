@@ -41,13 +41,30 @@ test("evidence: a value row keeps the field-list affordances", () => {
 
 // ─── Decision form: the badge, the version, the conflict ─────────────────────
 
-test("decision form: the reason input always carries the console-note badge", () => {
+test("decision form: a field no operation carries is badged as a console note", () => {
   const markup = renderToStaticMarkup(
     <DecisionForm version={3} onDecide={() => {}} seat="integrator" />,
   );
   assert.match(markup, /Console note – not on the API/);
   assert.match(markup, /data-badge="console-note"/);
   assert.match(markup, /Deciding against revision 3/);
+});
+
+test("decision form: a contract-real field renders unbadged, under its own name", () => {
+  // A payout confirmation's note or a return's reason IS carried by an
+  // operation; badging it "not on the API" would be the inverse falsehood.
+  const markup = renderToStaticMarkup(
+    <DecisionForm
+      version={2}
+      reasonLabel="Note"
+      reasonCarriedByApi
+      onDecide={() => {}}
+      seat="integrator"
+    />,
+  );
+  assert.ok(!markup.includes("Console note"), "no console-note badge on a contract field");
+  assert.ok(!markup.includes('data-badge="console-note"'));
+  assert.match(markup, />Note</);
 });
 
 test("decision form: platform seat renders inside the badged section boundary", () => {

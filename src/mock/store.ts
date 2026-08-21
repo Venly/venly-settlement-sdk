@@ -52,7 +52,11 @@ export interface MockInboundCredit {
  * plane never serves a field its schema does not declare.
  *
  * Field names and enums mirror the management contract verbatim; nothing here
- * is invented. `reconciliationState` is computed by the management plane in
+ * is invented. That includes the provider vocabulary: `providerType`'s
+ * members and the `dakotaOfframpTxId` field name are the management plane's
+ * own identifiers for its payout rails, reproduced as-is. Every provider
+ * value in mock data is simulated and asserts nothing about any live
+ * integration. `reconciliationState` is computed by the management plane in
  * production; the mock stores only what a driver explicitly asserts and never
  * defaults it.
  */

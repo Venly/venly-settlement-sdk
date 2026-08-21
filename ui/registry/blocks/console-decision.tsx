@@ -146,6 +146,17 @@ export interface DecisionFormProps {
   /** e.g. "Approve" / "Reject" – imperative, because this seat decides. */
   approveLabel?: string;
   rejectLabel?: string;
+  /** Names the field the operator is filling, e.g. "Reason" or "Note". */
+  reasonLabel?: string;
+  /**
+   * True when the reason field IS carried by an operation (a payout
+   * confirmation's note, a return's reason): the console-note badge does
+   * not render, because claiming a contract-real field is "not on the API"
+   * would be the same falsehood the badge exists to prevent, inverted.
+   * False (the default) badges the field as a console note – the KYC case,
+   * where no operation carries a reason.
+   */
+  reasonCarriedByApi?: boolean;
   /**
    * The optimistic-locking version the decision travels with. Rendered so
    * the operator can see which revision they are deciding against.
@@ -183,6 +194,8 @@ const buttonBase: CSSProperties = {
 export function DecisionForm({
   approveLabel = "Approve",
   rejectLabel = "Reject",
+  reasonLabel = CONSOLE_DECISION_COPY.reasonLabel,
+  reasonCarriedByApi = false,
   version,
   conflict = false,
   onRefreshAfterConflict,
@@ -238,7 +251,7 @@ export function DecisionForm({
         htmlFor="console-decision-reason"
         style={{ display: "block", fontSize: "var(--font-size-label)", color: "var(--text-secondary)", marginBottom: "var(--space-3xs)" }}
       >
-        {CONSOLE_DECISION_COPY.reasonLabel}
+        {reasonLabel}
       </label>
       <textarea
         id="console-decision-reason"
@@ -259,14 +272,19 @@ export function DecisionForm({
           resize: "vertical",
         }}
       />
-      {/* The badge is the truth about the plumbing: this field travels no
-          API operation, it is captured by the console itself. */}
-      <p
-        data-badge="console-note"
-        style={{ margin: "var(--space-3xs) 0 0", fontSize: "var(--font-size-micro)", color: "var(--text-tertiary)" }}
-      >
-        {CONSOLE_DECISION_COPY.reasonBadge}
-      </p>
+      {/* The badge is the truth about the plumbing: it renders only when the
+          field travels no API operation and is captured by the console
+          itself. A contract-real field (a payout note or return reason)
+          renders unbadged - claiming it is "not on the API" would be the
+          inverse falsehood. */}
+      {reasonCarriedByApi ? null : (
+        <p
+          data-badge="console-note"
+          style={{ margin: "var(--space-3xs) 0 0", fontSize: "var(--font-size-micro)", color: "var(--text-tertiary)" }}
+        >
+          {CONSOLE_DECISION_COPY.reasonBadge}
+        </p>
+      )}
       {reasonError ? (
         <p role="alert" style={{ margin: "var(--space-2xs) 0 0", fontSize: "var(--font-size-micro)", color: "var(--state-danger-fg)" }}>
           <span aria-hidden="true">⚠</span> {reasonError}
