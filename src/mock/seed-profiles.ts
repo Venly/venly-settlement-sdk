@@ -30,7 +30,10 @@ const party = (
 ): schemas["PartyDto"] => ({
   id,
   partyType: type,
-  ...(type === "ORGANISATION" ? { companyName: name } : { firstName: name.split(" ")[0], lastName: name.split(" ")[1] }),
+  // `name` is the contract field for an organisation (`PartyDto.name`); an
+  // earlier revision wrote `companyName`, which no schema carries, so every
+  // seeded organisation was nameless on the wire.
+  ...(type === "ORGANISATION" ? { name } : { firstName: name.split(" ")[0], lastName: name.split(" ")[1] }),
   createdAt: "2026-07-01T09:00:00Z",
   ...status,
 });
@@ -65,6 +68,7 @@ const P = {
   inFlight: "c0a1e001-0000-4a00-9000-000000000004",
   denied: "c0a1e001-0000-4a00-9000-000000000005",
   returned: "c0a1e001-0000-4a00-9000-000000000006",
+  reviewable: "c0a1e001-0000-4a00-9000-000000000007",
 } as const;
 
 const A = {
@@ -74,6 +78,7 @@ const A = {
   inFlight: "c0a1e002-0000-4a00-9000-000000000004",
   denied: "c0a1e002-0000-4a00-9000-000000000005",
   returned: "c0a1e002-0000-4a00-9000-000000000006",
+  reviewable: "c0a1e002-0000-4a00-9000-000000000007",
 } as const;
 
 const beneficiary = {
@@ -103,16 +108,17 @@ const ROUTE_IN_FLIGHT = "c0a1e004-0000-4a00-9000-000000000002";
 const ROUTE_RETURNED = "c0a1e004-0000-4a00-9000-000000000003";
 
 /**
- * Six personas, every state contract-real. The cast exists so a demo can show
- * the states a real desk actually sees - including the two integrators forget:
- * a denied applicant, and money that came BACK.
+ * Seven personas, every state contract-real. The cast exists so a demo can
+ * show the states a real desk actually sees - including the two integrators
+ * forget (a denied applicant, and money that came BACK) plus the one an
+ * operator console lives on: screening done, account decision still owed.
  */
 export const demoCast: SeedProfile = {
   name: "demoCast",
   description:
-    "Six personas covering approved-and-transacting, identity verification in flight, " +
+    "Seven personas covering approved-and-transacting, identity verification in flight, " +
     "a payout route awaiting ownership proof, a payout at the provider, a denied " +
-    "organisation, and a returned payout.",
+    "organisation, a returned payout, and a completed screening awaiting the account decision.",
   seeds: {
     parties: [
       party(P.transacting, "Nova Retail", "ORGANISATION", { kybStatus: "VERIFIED" }),
@@ -123,6 +129,9 @@ export const demoCast: SeedProfile = {
       // carries an event, the way a real refusal does.
       party(P.denied, "Delta Holdings", "ORGANISATION", { kybStatus: "PENDING" }),
       party(P.returned, "Echo Marine", "ORGANISATION", { kybStatus: "VERIFIED" }),
+      // The review-queue row: evidence in, decision owed. The party is fine;
+      // it is the ACCOUNT decision that is open.
+      party(P.reviewable, "Foxtrot Logistics", "ORGANISATION", { kybStatus: "VERIFIED" }),
     ],
     accounts: [
       account(A.transacting, "cast-transacting", "Nova Retail – operating", { kycStatus: "VERIFIED" }),
@@ -135,6 +144,9 @@ export const demoCast: SeedProfile = {
         kycStatus: "VERIFICATION_PENDING",
       }),
       account(A.returned, "cast-payout-returned", "Echo Marine – payouts", { kycStatus: "VERIFIED" }),
+      account(A.reviewable, "cast-reviewable", "Foxtrot Logistics – onboarding", {
+        kycStatus: "VERIFICATION_PENDING",
+      }),
     ],
     wallets: {
       [A.transacting]: usdc(24500),
@@ -156,6 +168,7 @@ export const demoCast: SeedProfile = {
       [A.inFlight]: [{ partyId: P.inFlight, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" }],
       [A.denied]: [{ partyId: P.denied, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" }],
       [A.returned]: [{ partyId: P.returned, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" }],
+      [A.reviewable]: [{ partyId: P.reviewable, roleType: "ACCOUNT_HOLDER", status: "ACTIVE" }],
     },
     // Supplied per cast account: the base seeds key these by their own account
     // ids, and a profile replaces each top-level key wholesale.
@@ -260,12 +273,25 @@ export const demoCast: SeedProfile = {
         status: "SUBMITTED",
         linkedAt: "2026-08-16T09:12:00Z",
       },
+      // Screening finished; the account decision has not been made. This is
+      // the row a review queue exists for - without it the queue demos empty.
+      {
+        partyId: P.reviewable,
+        ivCaseReference: "IV-FOXTROT-0071",
+        status: "COMPLETED",
+        linkedAt: "2026-08-17T14:05:00Z",
+      },
     ],
   },
   after(simulations) {
     // A refusal is a decision someone made. Driving it produces the
     // party.verification_changed event a seeded DENIED would not have.
     simulations.verification.advance(P.denied, "DENIED");
+    // The refused subject's ACCOUNT carries the refusal too. The driver acts
+    // on a party or an account, never both, so without this second call the
+    // account stays VERIFICATION_PENDING and a queue would claim a decision
+    // is owed on a subject already refused.
+    simulations.verification.advance(A.denied, "REJECTED");
   },
 };
 
