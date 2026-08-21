@@ -21,7 +21,7 @@ test("payouts: seeds cover the happy end, in-flight, and money that came back", 
 
   const done = page.items.find((p) => p.status === "COMPLETED");
   assert.ok(done.completedAt, "COMPLETED carries completedAt");
-  assert.equal(done.settledFiatAmount, 1500, "COMPLETED carries the settled fiat amount");
+  assert.equal(done.settledFiatAmount, 1380, "COMPLETED carries the settled fiat amount - never numerically equal to the crypto side");
   // List rows carry the route SUMMARY only; beneficiary lives on the detail.
   assert.equal(done.payoutRoute?.beneficiary, undefined, "no beneficiary on list rows");
   assert.equal(done.payoutRoute?.depositAddress, undefined, "no deposit address on list rows");
@@ -113,7 +113,10 @@ test("payouts: the full ceremony from bank account to COMPLETED", async () => {
   f.mock.advancePayout(payout.id, "PROVIDER_PROCESSING");
   const completed = f.mock.advancePayout(payout.id, "COMPLETED");
   assert.ok(completed.completedAt);
-  assert.equal(completed.settledFiatAmount, 250.5, "stablecoin par unless overridden");
+  // 250.5 USDC × 0.92 EUR (the seeded rate) - a par default would make the
+  // crypto and fiat sides numerically identical, the exact falsehood the
+  // rate table exists to prevent.
+  assert.equal(completed.settledFiatAmount, 230.46, "settles at the seeded rate, never at par");
   assert.ok(completed.sendTxHash);
 });
 
@@ -284,4 +287,39 @@ test("payout twin: demoCast seeds the reconciliation axis on the in-flight payou
   const returned = rows.find((p) => p.status === "RETURNED");
   assert.equal(returned.providerType, "DAKOTA");
   assert.equal(returned.reconciliationState, undefined, "the mock never guesses a computed value");
+});
+
+test("payout settlement never defaults at par: the seeded rate converts, unknown pairs refuse", async () => {
+  const f = mockFinance();
+  const sim = f.mock.simulations;
+  const inFlight = (await f.payouts.list(PAYOUTS_ACCT)).items.find(
+    (p) => p.status === "PROVIDER_PROCESSING",
+  );
+  // The seeded in-flight payout is USDC -> EUR. Completing it without an
+  // explicit settled amount must convert at the seeded USDC/EUR rate - a
+  // 1:1 default would render "Settled 820.50 EUR / Difference 0.00" and
+  // teach that a crypto unit IS a euro.
+  const completed = sim.payout.advance(inFlight.id, "COMPLETED");
+  assert.notEqual(
+    completed.settledFiatAmount,
+    completed.cryptoAmount,
+    "the fiat side must not coincide with the crypto side",
+  );
+  assert.equal(completed.settledFiatAmount, Math.round(completed.cryptoAmount * 0.92 * 100) / 100);
+
+  // A pair the rate table does not carry is refused, not guessed.
+  const g = mockFinance();
+  const gInFlight = (await g.payouts.list(PAYOUTS_ACCT)).items.find(
+    (p) => p.status === "PROVIDER_PROCESSING",
+  );
+  g.mock.$store.payouts.find((p) => p.id === gInFlight.id).payoutRoute.fiatCurrency = "CHF";
+  assert.throws(
+    () => g.mock.simulations.payout.advance(gInFlight.id, "COMPLETED"),
+    /no exchange rate is configured for USDC\/CHF/,
+  );
+  // The explicit override still works for exactly that case.
+  const settled = g.mock.simulations.payout.advance(gInFlight.id, "COMPLETED", {
+    settledFiatAmount: 731.9,
+  });
+  assert.equal(settled.settledFiatAmount, 731.9);
 });

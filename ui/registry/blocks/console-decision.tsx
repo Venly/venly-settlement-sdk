@@ -531,7 +531,9 @@ export function ConsoleDecisionPanel({
         </span>
       }
       onClose={onClose}
-      style={style}
+      // The panel may never widen the page: cap at the viewport so small
+      // screens get a full-width slide-over whatever the width tokens say.
+      style={{ maxWidth: "100vw", minWidth: "min(var(--panel-min-width), 100vw)", ...style }}
     >
       {children}
     </SidePanel>

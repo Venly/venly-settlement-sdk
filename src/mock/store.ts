@@ -1,5 +1,6 @@
 import type { components } from "../generated/finance.js";
 import { financeResponseShapes } from "../generated/finance-shapes.js";
+import { exchangeRates } from "./fundflow.js";
 import { mockError, type HandlerContext } from "./transport.js";
 import { Ledger, MockLedgerError, type FundsPhase, type LedgerLeg, type LedgerSnapshot } from "./ledger.js";
 import {
@@ -1612,7 +1613,10 @@ export class FinanceMockStore {
 
   /**
    * Walk a payout to any documented status. COMPLETED stamps completedAt, a
-   * send hash and – stablecoin par unless overridden – settledFiatAmount;
+   * send hash and settledFiatAmount – converted at the mock's seeded
+   * non-parity exchange rate unless overridden, because a par default makes
+   * the crypto and fiat sides numerically identical and hides the unit
+   * distinction the desk exists to keep visible;
    * REJECTED/FAILED/RETURNED stamp a failureReason. The override arguments
    * let you control the settled amount, the send hash and the failure reason,
    * plus the management-ceremony fields the finance plane cannot carry:
@@ -1661,7 +1665,24 @@ export class FinanceMockStore {
     }
     if (to === "COMPLETED") {
       payout.completedAt = this.now();
-      payout.settledFiatAmount = opts?.settledFiatAmount ?? payout.cryptoAmount;
+      // Never default at par: fiat per crypto unit comes from the mock's
+      // seeded rate table, the same source every ramp reconciles against. A
+      // pair the table does not carry must be settled explicitly - guessing
+      // a rate and guessing par are the same class of taught falsehood.
+      if (opts?.settledFiatAmount !== undefined) {
+        payout.settledFiatAmount = opts.settledFiatAmount;
+      } else {
+        const fiat = payout.payoutRoute?.fiatCurrency;
+        const rate = asset && fiat ? exchangeRates[`${asset}/${fiat}`] : undefined;
+        if (rate === undefined) {
+          throw new Error(
+            `advancePayout: no exchange rate is configured for ${asset}/${fiat} in the mock - ` +
+              `pass settledFiatAmount explicitly.`,
+          );
+        }
+        payout.settledFiatAmount =
+          Math.round((payout.cryptoAmount as number) * rate * 100) / 100;
+      }
     }
     if (to === "REJECTED" || to === "FAILED" || to === "RETURNED") {
       payout.failureReason =

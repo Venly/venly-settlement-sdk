@@ -534,7 +534,11 @@ export function ConsoleQueue({
   }, [seat, showAmount, ageHeader, nowIso, locale]);
 
   if (loading) {
-    return <TableSkeleton columns={columns} rows={8} label="Loading the queue" style={style} />;
+    return (
+      <div style={{ overflowX: "auto", ...style }}>
+        <TableSkeleton columns={columns} rows={8} label="Loading the queue" />
+      </div>
+    );
   }
   if (error) {
     return <ListLoadError what={error.what} onRetry={error.onRetry} />;
@@ -596,7 +600,9 @@ export function ConsoleQueue({
 
       {filtered && visible.length === 0 ? (
         <>
-          <DataTable columns={columns} rows={[]} rowKey={(row) => row.key} emptyMessage=" " />
+          <div style={{ overflowX: "auto" }}>
+            <DataTable columns={columns} rows={[]} rowKey={(row) => row.key} emptyMessage=" " />
+          </div>
           <div style={{ padding: "var(--space-md) 0" }}>
             <p style={{ margin: 0, fontWeight: 500, color: "var(--text-primary)" }}>
               {CONSOLE_QUEUE_COPY.filteredEmpty}
@@ -621,7 +627,9 @@ export function ConsoleQueue({
         </>
       ) : trueEmpty ? (
         <>
-          <DataTable columns={columns} rows={[]} rowKey={(row) => row.key} emptyMessage=" " />
+          <div style={{ overflowX: "auto" }}>
+            <DataTable columns={columns} rows={[]} rowKey={(row) => row.key} emptyMessage=" " />
+          </div>
           <div style={{ padding: "var(--space-xl) 0", textAlign: "center" }}>
             <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>
               {empty.headline}
@@ -632,16 +640,20 @@ export function ConsoleQueue({
           </div>
         </>
       ) : (
-        <DataTable
-          columns={columns}
-          rows={[]}
-          rowKey={(row) => row.key}
-          groups={groups}
-          collapsedGroups={collapsed}
-          onGroupToggle={(key, next) => setCollapsed((c) => ({ ...c, [key]: next }))}
-          onRowClick={onOpen}
-          selectedKey={selectedKey}
-        />
+        // Wide tables scroll inside their own container - the page itself
+        // must never scroll horizontally (the mobile containment rule).
+        <div style={{ overflowX: "auto" }}>
+          <DataTable
+            columns={columns}
+            rows={[]}
+            rowKey={(row) => row.key}
+            groups={groups}
+            collapsedGroups={collapsed}
+            onGroupToggle={(key, next) => setCollapsed((c) => ({ ...c, [key]: next }))}
+            onRowClick={onOpen}
+            selectedKey={selectedKey}
+          />
+        </div>
       )}
     </section>
   );
