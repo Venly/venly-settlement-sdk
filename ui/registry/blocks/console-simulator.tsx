@@ -338,21 +338,29 @@ export interface LedgerVerifyPanelProps {
   style?: CSSProperties;
 }
 
+/**
+ * Pure outcome of one books check: pass, or the thrown message verbatim.
+ * Exported so the failure path is unit-testable - a live mock world cannot
+ * reach it without breaking its own invariants, which is the point.
+ */
+export function describeLedgerCheck(
+  verify: () => void,
+): { kind: "pass" } | { kind: "fail"; message: string } {
+  try {
+    verify();
+    return { kind: "pass" };
+  } catch (error) {
+    return { kind: "fail", message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 export function LedgerVerifyPanel({ verify, snapshot, style }: LedgerVerifyPanelProps): ReactElement {
   const [result, setResult] = useState<
     { kind: "pass" } | { kind: "fail"; message: string } | null
   >(null);
   const [rows, setRows] = useState<LedgerSnapshot | null>(null);
   const check = () => {
-    try {
-      verify();
-      setResult({ kind: "pass" });
-    } catch (error) {
-      setResult({
-        kind: "fail",
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
+    setResult(describeLedgerCheck(verify));
     setRows(snapshot());
   };
   return (

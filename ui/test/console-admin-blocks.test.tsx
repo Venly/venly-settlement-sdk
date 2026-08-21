@@ -11,6 +11,7 @@ import {
 } from "../registry/blocks/console-pricing.js";
 import {
   ChannelFooter,
+  describeLedgerCheck,
   LedgerVerifyPanel,
   SIMULATOR_COPY,
   SimulatorControl,
@@ -132,6 +133,23 @@ test("simulator: the channel footer says in words when the adapter is memory", (
   );
   assert.ok(!broadcast.includes(SIMULATOR_COPY.notSharing));
   assert.ok(broadcast.includes("peers 1"));
+});
+
+test("simulator: a driven books-check failure carries the thrown message verbatim", () => {
+  // The mock's invariants hold by construction, so the failure state is
+  // driven here by a verify() that throws - the path a live world cannot
+  // reach without breaking itself.
+  const pass = describeLedgerCheck(() => undefined);
+  assert.deepEqual(pass, { kind: "pass" });
+  const fail = describeLedgerCheck(() => {
+    throw new Error("total 10 != available 4 + reserved 5 for USDC");
+  });
+  assert.equal(fail.kind, "fail");
+  assert.equal(
+    (fail as { message: string }).message,
+    "total 10 != available 4 + reserved 5 for USDC",
+    "the failure message renders verbatim, never summarised",
+  );
 });
 
 test("simulator: the ledger panel renders the verify control with its call named", () => {
