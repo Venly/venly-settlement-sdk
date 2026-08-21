@@ -38,6 +38,17 @@ Initial release.
   shipped by sdk 0.4.0.
 - Requires `@venlyfinance/sdk` ^0.4.0.
 
+## 0.4.0 – 2026-08-15
+
+- New read hooks: `useSupportedAssets()` (tenant-wide assets, each with its
+  on-chain `decimals` – the render contract for amounts; cached hard) and
+  `useAccountSupportedAssets(accountId)` (adds per-asset `permitStatus`,
+  not frozen because status moves while an asset activates).
+- `venlyKeys.supportedAssets()` / `venlyKeys.accountSupportedAssets(id)` and
+  matching `venlyQueries` factories; the account-scoped key shares the
+  `["venly", "account", id]` prefix so account invalidations reach it.
+- Requires `@venlyfinance/sdk` ^0.5.0 (the `supportedAssets` resource).
+
 ## 0.5.0 – 2026-08-21
 
 *(Entry backfilled 2026-08-21 – this release shipped without a changelog note.)*
@@ -50,13 +61,20 @@ Initial release.
   key.
 - New exported types: `TransferPeriod`, `TransfersForPeriodPage`.
 
-## 0.4.0 – 2026-08-15
+## 0.6.0 – 2026-08-21
 
-- New read hooks: `useSupportedAssets()` (tenant-wide assets, each with its
-  on-chain `decimals` – the render contract for amounts; cached hard) and
-  `useAccountSupportedAssets(accountId)` (adds per-asset `permitStatus`,
-  not frozen because status moves while an asset activates).
-- `venlyKeys.supportedAssets()` / `venlyKeys.accountSupportedAssets(id)` and
-  matching `venlyQueries` factories; the account-scoped key shares the
-  `["venly", "account", id]` prefix so account invalidations reach it.
-- Requires `@venlyfinance/sdk` ^0.5.0 (the `supportedAssets` resource).
+- `usePartyIvVerification(partyId)`: the party's identity-verification state,
+  read off the contract operation (`getPartyIvVerification`, sdk 0.7.0).
+  `NOT_LINKED` resolves like any other state.
+- Payout read hooks over client methods that already existed but had no hook:
+  `usePayouts(accountId, query?)`, `usePayout(accountId, payoutId)`,
+  `usePayoutRoutes(accountId, query?)`, `usePayoutBankAccounts(partyId, query?)`.
+- Matching `venlyKeys` / `venlyQueries` factories; the party-scoped keys share
+  the `["venly", "party", id]` prefix and the account-scoped keys the
+  `["venly", "account", id]` prefix, so existing invalidations reach the new
+  reads.
+- New exported types: `PartyIvVerification`, `PayoutsQuery`,
+  `PayoutRoutesQuery`, `PayoutBankAccountsQuery`.
+- Requires `@venlyfinance/sdk` ^0.7.0 (the `parties.ivVerification` method).
+  The manifest range moves with the publish, alongside the lockfile
+  regeneration, per this repo's publish sequencing.
