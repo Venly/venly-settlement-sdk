@@ -66,9 +66,11 @@ function assertThirdPersonLabel(label: string): void {
     `SimulatorControl label "${label}" is phrased as an imperative operator decision. ` +
     "Simulator controls are events that happen to you, in the third person - " +
     'e.g. "A bank credit arrives", "The provider marks the payout processing".';
-  const isProductionNode =
-    typeof process !== "undefined" && process.env?.NODE_ENV === "production";
-  if (isProductionNode) {
+  // globalThis probe: browser bundles may define neither `process` nor node
+  // types, and this file compiles without either.
+  const nodeProcess = (globalThis as { process?: { env?: Record<string, string | undefined> } })
+    .process;
+  if (nodeProcess?.env?.NODE_ENV === "production") {
     console.error(message);
     return;
   }

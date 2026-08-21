@@ -155,7 +155,7 @@ export function WebhooksTable({
     {
       key: "status",
       header: "Status",
-      cell: (w) => <StatusPill label="Active" intent="positive" glyph="✓" />,
+      cell: () => <StatusPill label="Active" intent="positive" glyph="✓" />,
     },
     {
       key: "actions",
