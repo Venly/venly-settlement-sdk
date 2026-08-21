@@ -246,6 +246,39 @@ const BLOCKS = [
     deps: ["side-panel", "timeline", "field-list", "status-pill", "data-table", "console-queue"],
   },
   {
+    name: "console-pricing",
+    title: "Console pricing block",
+    description:
+      "The fee model made legible: the volume-tier table the packages actually serve (the same model the withdrawal quote consumes), ordered by minimum volume with the sample amount's landing tier highlighted, a mandatory worked arithmetic ladder (sample × tier percentage = fee, operators in the gutter), a read-only tier detail panel (the fees read is GET-only - nothing here pretends to write), and a labelled omission for the internal per-rail configuration model that names the next step.",
+    deps: ["data-table", "arithmetic-ladder", "field-list", "list-error"],
+    // Amount rendering arrives transitively via arithmetic-ladder, and the
+    // 4A contract's registry table for this item names no money entry.
+    money: false,
+  },
+  {
+    name: "console-simulator",
+    title: "Console simulator block",
+    description:
+      "Play the counterparty without ever reading as operator workflow: the console's only scrimmed drawer on a distinct dark surface with a persistent sandbox label, one third-person control per simulations call (a control phrased as an operator decision throws a developer error), a ledger check with a visible pass/fail surface, and a channel footer that states adapter, session and peers - and says in words when the surface is not actually sharing.",
+    deps: ["field-list", "status-pill"],
+  },
+  {
+    name: "console-webhooks",
+    title: "Console webhooks block",
+    description:
+      "Webhook registration over the public plane's full lifecycle: a table with Ping promoted as the real-signal affordance and its result rendered verbatim, a create/replace form with a segmented authentication choice and secrets that mask on blur and are never redisplayed, delete as confirm-and-explain, the delivery-history omission stated on the screen itself with the next step, and a simulated per-webhook delivery log for the simulator register.",
+    deps: ["data-table", "status-pill", "list-error"],
+    money: false,
+  },
+  {
+    name: "console-tenant",
+    title: "Console tenant block",
+    description:
+      "Tenant identity and honest boundaries: the operating company and its accounts verbatim from the wrapped reads, the sandbox tenant configuration (enabled providers and lane preferences, shaped against the management schemas) rendered read-only and badged, and every management-plane write rendered as a labelled omission whose copy names the next step.",
+    deps: ["data-table", "field-list", "status-pill", "list-error"],
+    money: false,
+  },
+  {
     name: "balances",
     title: "Balances block",
     description:
