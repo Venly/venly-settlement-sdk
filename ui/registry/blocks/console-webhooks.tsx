@@ -155,7 +155,16 @@ export function WebhooksTable({
     {
       key: "status",
       header: "Status",
-      cell: () => <StatusPill label="Active" intent="positive" glyph="✓" />,
+      // Single-member-aware, like the form: the row's own value renders
+      // (humanised for the one member the contract defines today), and an
+      // unrecognised future member renders verbatim rather than being
+      // silently relabelled Active.
+      cell: (w) =>
+        w.status === "ACTIVE" ? (
+          <StatusPill label="Active" intent="positive" glyph="✓" />
+        ) : (
+          <StatusPill label={w.status ?? "—"} intent="neutral" />
+        ),
     },
     {
       key: "actions",

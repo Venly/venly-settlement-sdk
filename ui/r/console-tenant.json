@@ -3,7 +3,7 @@
   "name": "console-tenant",
   "type": "registry:block",
   "title": "Console tenant block",
-  "description": "Tenant identity and honest boundaries: the operating company and its accounts verbatim from the wrapped reads, the sandbox tenant configuration (enabled providers and lane preferences, shaped against the management schemas) rendered read-only and badged, and every management-plane write rendered as a labelled omission whose copy names the next step.",
+  "description": "Tenant overview: company identity, accounts, and the sandbox tenant configuration, all read-only.",
   "dependencies": [
     "@venlyfinance/react@^0.6.0",
     "@venlyfinance/sdk@^0.7.0",

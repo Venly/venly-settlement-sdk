@@ -3,7 +3,7 @@
   "name": "console-pricing",
   "type": "registry:block",
   "title": "Console pricing block",
-  "description": "The fee model made legible: the volume-tier table the packages actually serve (the same model the withdrawal quote consumes), ordered by minimum volume with the sample amount's landing tier highlighted, a mandatory worked arithmetic ladder (sample × tier percentage = fee, operators in the gutter), a read-only tier detail panel (the fees read is GET-only - nothing here pretends to write), and a labelled omission for the internal per-rail configuration model that names the next step.",
+  "description": "Read-only fee pricing screen: the volume-tier table with a worked example computed against the tier a sample amount lands in.",
   "dependencies": [
     "@venlyfinance/react@^0.6.0",
     "@venlyfinance/sdk@^0.7.0",

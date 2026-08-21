@@ -44,7 +44,7 @@ export const SIMULATOR_COPY = {
   snapshotTitle: "Ledger snapshot",
   footerTitle: "Channel",
   notSharing:
-    "Not sharing: this tab's channel adapter is memory, so nothing simulated here reaches any other tab. Cross-tab sharing needs the broadcast channel, on one origin, configured before the first client is constructed.",
+    "Not sharing: this tab's channel adapter is memory, so nothing simulated here reaches any other tab. Cross-tab sharing needs the broadcast channel, on one origin, configured before the first client is constructed. Open a second tab on this same URL to see it sync.",
   sharing: "Sharing on this origin",
   close: "Close simulator",
 } as const;
