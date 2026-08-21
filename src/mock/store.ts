@@ -125,6 +125,16 @@ export interface FinanceSeeds {
   payoutBankAccounts: PayoutBankAccount[];
   /** Payout routes per account id (routes carry no accountId on the wire). */
   payoutRoutes: Record<string, PayoutRoute[]>;
+  /**
+   * Which beneficiary bank account each seeded route was created against
+   * (route id -> payout bank account id). The wire carries no such key, but
+   * the store must know it: a payout embeds its route's beneficiary, and
+   * serving any other account there teaches a wrong join. Routes created at
+   * runtime record the pairing from their create request; seeded routes
+   * need it declared. An unmapped route yields NO embedded beneficiary -
+   * honest absence, never a guess.
+   */
+  routeBankAccounts?: Record<string, string>;
   payouts: MockPayoutRow[];
   /** Tenant-wide supported assets; `decimals` must be each asset's real on-chain value. */
   supportedAssets: SupportedAsset[];
@@ -309,6 +319,8 @@ export class FinanceMockStore {
   inboundCredits: MockInboundCredit[] = [];
   payoutBankAccounts: PayoutBankAccount[] = [];
   payoutRoutes = new Map<string, PayoutRoute[]>();
+  /** route id -> the payout bank account it was created against. */
+  routeBankAccounts = new Map<string, string>();
   payouts: MockPayoutRow[] = [];
   supportedAssets: SupportedAsset[] = [];
   accountSupportedAssets = new Map<string, AccountSupportedAsset[]>();
@@ -396,6 +408,7 @@ export class FinanceMockStore {
     this.inboundCredits = [];
     this.payoutBankAccounts = s.payoutBankAccounts;
     this.payoutRoutes = new Map(Object.entries(s.payoutRoutes));
+    this.routeBankAccounts = new Map(Object.entries(s.routeBankAccounts ?? {}));
     this.payouts = s.payouts;
     this.supportedAssets = s.supportedAssets;
     this.accountSupportedAssets = new Map(Object.entries(s.accountSupportedAssets));
@@ -474,6 +487,7 @@ export class FinanceMockStore {
       inboundCredits: this.inboundCredits,
       payoutBankAccounts: this.payoutBankAccounts,
       payoutRoutes: Object.fromEntries(this.payoutRoutes),
+      routeBankAccounts: Object.fromEntries(this.routeBankAccounts),
       payouts: this.payouts,
       supportedAssets: this.supportedAssets,
       accountSupportedAssets: Object.fromEntries(this.accountSupportedAssets),
@@ -498,6 +512,7 @@ export class FinanceMockStore {
     this.inboundCredits = s.inboundCredits;
     this.payoutBankAccounts = s.payoutBankAccounts;
     this.payoutRoutes = new Map(Object.entries(s.payoutRoutes ?? {}));
+    this.routeBankAccounts = new Map(Object.entries(s.routeBankAccounts ?? {}));
     this.payouts = s.payouts;
     this.supportedAssets = s.supportedAssets;
     this.accountSupportedAssets = new Map(Object.entries(s.accountSupportedAssets ?? {}));
@@ -1421,6 +1436,9 @@ export class FinanceMockStore {
     const routes = this.payoutRoutes.get(account.id as string) ?? [];
     routes.push(route);
     this.payoutRoutes.set(account.id as string, routes);
+    // The create request is the only place the route<->bank-account pairing
+    // exists; remember it so payouts embed the route's REAL beneficiary.
+    this.routeBankAccounts.set(route.id as string, bankAccount.id as string);
     this.emit({
       type: "payout_route.created",
       resource: { kind: "payoutRoute", id: route.id as string },
@@ -1562,9 +1580,11 @@ export class FinanceMockStore {
       this.payoutIntents.set(intentKey, { fingerprint, outcome: "failed" });
       badRequest(ctx, "cryptoAmount must be a positive number.");
     }
-    const bankAccount = this.payoutBankAccounts.find(
-      (a) => a.fiatCurrency === route.fiatCurrency && a.status === "ACTIVE",
-    );
+    // The beneficiary is the bank account this route was CREATED against -
+    // never a lookalike picked by currency. An unmapped route (a profile
+    // that declared no pairing) embeds no beneficiary rather than a guess.
+    const routeBankAccountId = this.routeBankAccounts.get(route.id as string);
+    const bankAccount = this.payoutBankAccounts.find((a) => a.id === routeBankAccountId);
     const payout: Payout = {
       id: this.mintId(),
       accountId: account.id,

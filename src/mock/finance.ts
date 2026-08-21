@@ -684,6 +684,14 @@ const payoutRouteSeeds: Record<string, schemas["PayoutRouteDto"][]> = {
   [accounts[4].id]: payoutRoutes,
 };
 
+// The wire carries no route -> bank-account key, so seeds declare which
+// beneficiary each seeded route was created against; both seeded routes pay
+// out to Acme's EUR account, exactly as the seeded payout history asserts.
+const routeBankAccountSeeds: Record<string, string> = {
+  [payoutRoutes[0].id]: payoutBankAccounts[0].id,
+  [payoutRoutes[1].id]: payoutBankAccounts[0].id,
+};
+
 const seededBeneficiary = {
   id: payoutBankAccounts[0].id,
   partyId: payoutBankAccounts[0].partyId,
@@ -764,6 +772,7 @@ export const financeSeeds: FinanceSeeds = {
   transfers,
   payoutBankAccounts,
   payoutRoutes: payoutRouteSeeds,
+  routeBankAccounts: routeBankAccountSeeds,
   payouts,
   supportedAssets,
   accountSupportedAssets,
