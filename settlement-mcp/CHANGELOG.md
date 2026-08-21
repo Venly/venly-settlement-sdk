@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.1 – 2026-08-21
+
+- Republish so the packaged blueprints carry the corrected npm ranges for
+  `@venlyfinance/react` (`^0.5.0`) and `@venlyfinance/sdk` (`^0.6.0`). The
+  0.7.0 tarball was cut before that fix landed, so its blueprints told agents
+  to install ranges that never reach the versions the registry blocks import.
+  No behaviour change beyond the stamped ranges.
+
 ## 0.7.0 – 2026-08-19
 
 The MCP now pushes a machine-checkable runtime contract instead of relying on
