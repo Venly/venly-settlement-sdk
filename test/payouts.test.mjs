@@ -191,3 +191,97 @@ test("payout routes: list is scoped to the account", async () => {
   const other = await f.payoutRoutes.list("a10c2d31-2222-4b20-8c63-000000000001");
   assert.deepEqual(other, [], "accounts without routes answer empty, not error");
 });
+
+// ── Management twin (mock-only reconciliation + ceremony fields) ────────
+
+test("payout twin: the ceremony fields persist on the mock row and replicate through advance", async () => {
+  const f = mockFinance();
+  const sim = f.mock.simulations;
+  const page = await f.payouts.list(PAYOUTS_ACCT);
+  const inFlight = page.items.find((p) => p.status === "PROVIDER_PROCESSING");
+
+  // Confirm-completion ceremony: the management op's fields, stored as asserted.
+  const completed = sim.payout.advance(inFlight.id, "COMPLETED", {
+    settledFiatAmount: 2643.18,
+    note: "Settled against Iron statement line 4471",
+    fiatReference: "FR-2026-0815-2650",
+    dakotaOfframpTxId: "dk-off-77disc",
+    reconciliationState: "MATCHED",
+  });
+  assert.equal(completed.note, "Settled against Iron statement line 4471");
+  assert.equal(completed.fiatReference, "FR-2026-0815-2650");
+  assert.equal(completed.dakotaOfframpTxId, "dk-off-77disc");
+  assert.equal(completed.reconciliationState, "MATCHED");
+
+  // The mock-only read serves the twin; rows without asserted values stay bare.
+  const rows = sim.payout.list(PAYOUTS_ACCT);
+  const twinRow = rows.find((p) => p.id === inFlight.id);
+  assert.equal(twinRow.reconciliationState, "MATCHED");
+  const requested = rows.find((p) => p.status === "REQUESTED");
+  assert.equal(requested?.reconciliationState, undefined, "never defaulted, never guessed");
+
+  // Return ceremony on a fresh transport: reason -> failureReason, plus the
+  // provider's reference.
+  const g = mockFinance();
+  const gInFlight = (await g.payouts.list(PAYOUTS_ACCT)).items.find(
+    (p) => p.status === "PROVIDER_PROCESSING",
+  );
+  const returned = g.mock.simulations.payout.advance(gInFlight.id, "RETURNED", {
+    failureReason: "Beneficiary account closed",
+    providerReference: "RTN-100233",
+  });
+  assert.equal(returned.failureReason, "Beneficiary account closed");
+  assert.equal(returned.providerReference, "RTN-100233");
+});
+
+test("payout twin: the finance routes never serve a management-plane field", async () => {
+  const f = mockFinance();
+  const sim = f.mock.simulations;
+  const inFlight = (await f.payouts.list(PAYOUTS_ACCT)).items.find(
+    (p) => p.status === "PROVIDER_PROCESSING",
+  );
+  sim.payout.advance(inFlight.id, "COMPLETED", {
+    note: "must never reach the finance plane",
+    fiatReference: "FR-LEAK-CHECK",
+    dakotaOfframpTxId: "dk-leak-check",
+    providerReference: "PR-LEAK-CHECK",
+    reconciliationState: "MATCHED",
+  });
+
+  const TWIN_KEYS = [
+    "reconciliationState",
+    "providerType",
+    "providerPayoutId",
+    "providerReference",
+    "sourceWalletAddress",
+    "minutesInProviderProcessing",
+    "note",
+    "fiatReference",
+    "dakotaOfframpTxId",
+  ];
+  const listed = (await f.payouts.list(PAYOUTS_ACCT)).items.find((p) => p.id === inFlight.id);
+  const detail = await f.payouts.get(PAYOUTS_ACCT, inFlight.id);
+  for (const key of TWIN_KEYS) {
+    assert.equal(key in listed, false, `list must not serve ${key}`);
+    assert.equal(key in detail, false, `detail must not serve ${key}`);
+  }
+  // And the wire projection still serves every PayoutDto field it has.
+  assert.equal(detail.status, "COMPLETED");
+  assert.ok(detail.completedAt);
+  assert.ok(detail.settledFiatAmount);
+});
+
+test("payout twin: demoCast seeds the reconciliation axis on the in-flight payout", async () => {
+  const f = mockFinance();
+  const sim = f.mock.simulations;
+  const { demoCast } = await import("../dist/esm/index.js").then((m) => ({ demoCast: m.demoCast }));
+  sim.seed(demoCast);
+  const rows = sim.payout.list();
+  const atProvider = rows.find((p) => p.status === "PROVIDER_PROCESSING");
+  assert.equal(atProvider.reconciliationState, "IN_PROGRESS");
+  assert.equal(atProvider.providerType, "IRON");
+  assert.equal(typeof atProvider.minutesInProviderProcessing, "number");
+  const returned = rows.find((p) => p.status === "RETURNED");
+  assert.equal(returned.providerType, "DAKOTA");
+  assert.equal(returned.reconciliationState, undefined, "the mock never guesses a computed value");
+});

@@ -246,6 +246,14 @@ export const demoCast: SeedProfile = {
         status: "PROVIDER_PROCESSING",
         sendTxHash: "0xc0a1e0070000000000000000000000000000000000000000000000000000beef",
         requestedAt: "2026-08-15T11:00:00Z",
+        // Management twin (mock-only; never served by the finance routes):
+        // the values the management reconciliation read would compute for a
+        // payout sitting at the provider.
+        reconciliationState: "IN_PROGRESS",
+        providerType: "IRON",
+        providerPayoutId: "iron-po-91f4c2",
+        sourceWalletAddress: "0xc0a1e00400000000000000000000000000000fa4",
+        minutesInProviderProcessing: 41,
       },
       {
         id: "c0a1e007-0000-4a00-9000-000000000002",
@@ -264,6 +272,11 @@ export const demoCast: SeedProfile = {
         sendTxHash: "0xc0a1e0070000000000000000000000000000000000000000000000000000cafe",
         failureReason: "Returned by the receiving bank: beneficiary name mismatch",
         requestedAt: "2026-08-12T14:20:00Z",
+        // Management twin: the return carries the provider's reference; no
+        // reconciliationState is seeded - the management plane computes it,
+        // and asserting one here would be the mock guessing.
+        providerType: "DAKOTA",
+        providerReference: "RTN-8842-EM",
       },
     ],
     ivVerifications: [

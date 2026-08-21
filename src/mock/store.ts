@@ -41,6 +41,65 @@ export interface MockInboundCredit {
   receivedAt: string;
 }
 
+/**
+ * Management-plane twin fields on the mock's payout row.
+ *
+ * The management reconciliation read computes these per payout, and the
+ * management decision operations accept the note fields - the finance plane
+ * carries none of them. They live on the mock row so an operator surface can
+ * render the second axis and so decision notes survive the ceremony, while
+ * the finance routes project the row down to the contract shape - the public
+ * plane never serves a field its schema does not declare.
+ *
+ * Field names and enums mirror the management contract verbatim; nothing here
+ * is invented. `reconciliationState` is computed by the management plane in
+ * production; the mock stores only what a driver explicitly asserts and never
+ * defaults it.
+ */
+export interface MockPayoutManagementTwin {
+  reconciliationState?: "MATCHED" | "IN_PROGRESS" | "STUCK" | "MISMATCH" | "NEEDS_REVIEW";
+  providerType?: "IRON" | "DAKOTA";
+  providerPayoutId?: string;
+  providerReference?: string;
+  sourceWalletAddress?: string;
+  minutesInProviderProcessing?: number;
+  note?: string;
+  fiatReference?: string;
+  dakotaOfframpTxId?: string;
+}
+
+/** The payout row as the mock stores it: contract shape plus the twin. */
+export type MockPayoutRow = Payout & MockPayoutManagementTwin;
+
+/**
+ * The keys `PayoutDto` declares. Finance-plane payout reads project the mock
+ * row through this list so the twin fields above never leak onto the public
+ * plane. Kept in step with the generated schema by the payout tests.
+ */
+const PAYOUT_WIRE_KEYS = [
+  "id",
+  "accountId",
+  "payoutRoute",
+  "rail",
+  "cryptoAmount",
+  "settledFiatAmount",
+  "fundingMode",
+  "status",
+  "sendTxHash",
+  "requestedAt",
+  "completedAt",
+  "failureReason",
+] as const;
+
+function toPayoutWire(row: MockPayoutRow): Payout {
+  const out: Record<string, unknown> = {};
+  for (const key of PAYOUT_WIRE_KEYS) {
+    const value = (row as Record<string, unknown>)[key];
+    if (value !== undefined) out[key] = value;
+  }
+  return out as Payout;
+}
+
 /** Seed data the store starts from (and returns to on `reset()`). */
 export interface FinanceSeeds {
   parties: Party[];
@@ -61,7 +120,7 @@ export interface FinanceSeeds {
   payoutBankAccounts: PayoutBankAccount[];
   /** Payout routes per account id (routes carry no accountId on the wire). */
   payoutRoutes: Record<string, PayoutRoute[]>;
-  payouts: Payout[];
+  payouts: MockPayoutRow[];
   /** Tenant-wide supported assets; `decimals` must be each asset's real on-chain value. */
   supportedAssets: SupportedAsset[];
   /** Account-scoped rows (adds permitStatus) per account id. */
@@ -245,7 +304,7 @@ export class FinanceMockStore {
   inboundCredits: MockInboundCredit[] = [];
   payoutBankAccounts: PayoutBankAccount[] = [];
   payoutRoutes = new Map<string, PayoutRoute[]>();
-  payouts: Payout[] = [];
+  payouts: MockPayoutRow[] = [];
   supportedAssets: SupportedAsset[] = [];
   accountSupportedAssets = new Map<string, AccountSupportedAsset[]>();
   private payoutIntents = new Map<string, {
@@ -1400,18 +1459,22 @@ export class FinanceMockStore {
     // The list schema carries payoutRoute as PayoutRouteSummaryDto (id,
     // depositAsset, fiatCurrency, status) - no beneficiary, no depositAddress.
     // Those live on the detail (getPayout). Teaching the fat shape in a list
-    // would train integrators on fields the real list never returns.
+    // would train integrators on fields the real list never returns. The
+    // wire projection also strips the management twin: those fields exist
+    // only on the management plane, so serving them here would teach a
+    // finance read the contract does not make.
     return rows.map((p) => {
-      if (!p.payoutRoute) return p;
+      const wire = toPayoutWire(p);
+      if (!wire.payoutRoute) return wire;
       const route = [...this.payoutRoutes.values()]
         .flat()
-        .find((r) => r.id === p.payoutRoute?.id);
+        .find((r) => r.id === wire.payoutRoute?.id);
       return {
-        ...p,
+        ...wire,
         payoutRoute: {
-          id: p.payoutRoute.id,
-          depositAsset: p.payoutRoute.depositAsset,
-          fiatCurrency: p.payoutRoute.fiatCurrency,
+          id: wire.payoutRoute.id,
+          depositAsset: wire.payoutRoute.depositAsset,
+          fiatCurrency: wire.payoutRoute.fiatCurrency,
           ...(route?.status !== undefined ? { status: route.status } : {}),
         },
       } as Payout;
@@ -1424,7 +1487,20 @@ export class FinanceMockStore {
       (p) => p.id === ctx.params.payoutId && p.accountId === ctx.params.accountId,
     );
     if (!payout) notFound(ctx, "payout-not-found", `No payout with id ${ctx.params.payoutId}.`);
-    return payout;
+    return toPayoutWire(payout);
+  }
+
+  /**
+   * Mock-only read: the payout rows WITH their management twin (see
+   * `MockPayoutManagementTwin`). An operator surface reads its second axis
+   * here; the finance routes above never serve these fields.
+   */
+  listMockPayouts(accountId?: string): MockPayoutRow[] {
+    const rows =
+      accountId === undefined
+        ? this.payouts
+        : this.payouts.filter((p) => p.accountId === accountId);
+    return rows.map((p) => ({ ...p }));
   }
 
   requestPayout(ctx: HandlerContext): schemas["IdempotentResponsePayoutDto"] {
@@ -1439,7 +1515,9 @@ export class FinanceMockStore {
       }
       return toResponseShape("POST /accounts/{accountId}/payouts", {
         createdResourceId: existing.result.id,
-        response: existing.result,
+        // Wire projection: the stored intent row may have gained management
+        // twin fields from a later driver call; a replay must not leak them.
+        response: toPayoutWire(existing.result),
       } as Record<string, unknown>) as schemas["IdempotentResponsePayoutDto"];
     }
     if (account.status !== "ACTIVE" || account.kycStatus !== "VERIFIED") {
@@ -1524,7 +1602,7 @@ export class FinanceMockStore {
     }
     return toResponseShape("POST /accounts/{accountId}/payouts", {
       createdResourceId: payout.id,
-      response: payout,
+      response: toPayoutWire(payout),
     } as Record<string, unknown>) as schemas["IdempotentResponsePayoutDto"];
   }
 
@@ -1532,13 +1610,29 @@ export class FinanceMockStore {
    * Walk a payout to any documented status. COMPLETED stamps completedAt, a
    * send hash and – stablecoin par unless overridden – settledFiatAmount;
    * REJECTED/FAILED/RETURNED stamp a failureReason. The override arguments
-   * let you control the settled amount, the send hash and the failure reason.
+   * let you control the settled amount, the send hash and the failure reason,
+   * plus the management-ceremony fields the finance plane cannot carry:
+   * `note`, `fiatReference` and `dakotaOfframpTxId` (confirm-completion),
+   * `providerReference` (return), and `reconciliationState` (computed by the
+   * management plane in production; the mock stores only what a driver
+   * asserts and never defaults it). Ceremony fields persist on the mock row
+   * - see `MockPayoutManagementTwin` - and are never served by the finance
+   * routes.
    */
   advancePayout(
     id: string,
     to: NonNullable<Payout["status"]>,
-    opts?: { settledFiatAmount?: number; failureReason?: string; sendTxHash?: string },
-  ): Payout {
+    opts?: {
+      settledFiatAmount?: number;
+      failureReason?: string;
+      sendTxHash?: string;
+      note?: string;
+      fiatReference?: string;
+      dakotaOfframpTxId?: string;
+      providerReference?: string;
+      reconciliationState?: MockPayoutManagementTwin["reconciliationState"];
+    },
+  ): MockPayoutRow {
     const payout = this.payouts.find((p) => p.id === id);
     if (!payout) {
       throw new Error(`advancePayout: no payout with id ${id} in the mock store.`);
@@ -1573,6 +1667,12 @@ export class FinanceMockStore {
           ? "Returned by the receiving bank"
           : "Rejected by the payout provider");
     }
+    // Management-ceremony fields: persisted exactly as asserted, no defaults.
+    if (opts?.note !== undefined) payout.note = opts.note;
+    if (opts?.fiatReference !== undefined) payout.fiatReference = opts.fiatReference;
+    if (opts?.dakotaOfframpTxId !== undefined) payout.dakotaOfframpTxId = opts.dakotaOfframpTxId;
+    if (opts?.providerReference !== undefined) payout.providerReference = opts.providerReference;
+    if (opts?.reconciliationState !== undefined) payout.reconciliationState = opts.reconciliationState;
     this.emit({
       type: "payout.status_changed",
       resource: { kind: "payout", id },

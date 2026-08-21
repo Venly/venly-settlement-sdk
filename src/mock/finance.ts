@@ -8,7 +8,14 @@ import {
   type VenlyMock,
 } from "./transport.js";
 import { errorPresets } from "./errors.js";
-import { FinanceMockStore, type FinanceSeeds, type VerificationStatusInput, type MockInboundCredit } from "./store.js";
+import {
+  FinanceMockStore,
+  type FinanceSeeds,
+  type VerificationStatusInput,
+  type MockInboundCredit,
+  type MockPayoutManagementTwin,
+  type MockPayoutRow,
+} from "./store.js";
 import {
   broadcastChannel,
   memoryChannel,
@@ -1050,11 +1057,34 @@ export interface VenlyFinanceSimulations {
     advance(id: string, to: NonNullable<schemas["PayInSessionDto"]["status"]>): schemas["PayInSessionDto"];
   };
   payout: {
+    /**
+     * Walk a payout to any documented status. Beyond the lifecycle opts, the
+     * driver accepts the management-ceremony fields the finance plane cannot
+     * carry (`note`, `fiatReference`, `dakotaOfframpTxId` on confirm;
+     * `providerReference` on return) and `reconciliationState` - computed by
+     * the management plane in production, so the mock stores only what a
+     * driver asserts and never defaults it.
+     */
     advance(
       id: string,
       to: NonNullable<schemas["PayoutDto"]["status"]>,
-      opts?: { settledFiatAmount?: number; failureReason?: string; sendTxHash?: string },
-    ): schemas["PayoutDto"];
+      opts?: {
+        settledFiatAmount?: number;
+        failureReason?: string;
+        sendTxHash?: string;
+        note?: string;
+        fiatReference?: string;
+        dakotaOfframpTxId?: string;
+        providerReference?: string;
+        reconciliationState?: MockPayoutManagementTwin["reconciliationState"];
+      },
+    ): MockPayoutRow;
+    /**
+     * Mock-only read: payout rows WITH their management twin, for surfaces
+     * that render the reconciliation axis. The finance routes never serve
+     * these fields; this is the honest place to read them in a demo.
+     */
+    list(accountId?: string): MockPayoutRow[];
   };
   payoutRoute: {
     advance(id: string, to: NonNullable<schemas["PayoutRouteDto"]["status"]>): schemas["PayoutRouteDto"];
@@ -1112,7 +1142,10 @@ function createSimulations(transport: FinanceMockTransport): VenlyFinanceSimulat
     },
     transfer: { advance: (id, status) => driven(() => store().advanceTransfer(id, status)) },
     paymentSession: { advance: (id, to) => driven(() => store().advancePaymentSession(id, to)) },
-    payout: { advance: (id, to, opts) => driven(() => store().advancePayout(id, to, opts)) },
+    payout: {
+      advance: (id, to, opts) => driven(() => store().advancePayout(id, to, opts)),
+      list: (accountId) => store().listMockPayouts(accountId),
+    },
     payoutRoute: { advance: (id, to) => driven(() => store().advancePayoutRoute(id, to)) },
     payoutBankAccount: {
       advance: (id, to) => driven(() => store().advancePayoutBankAccount(id, to)),
