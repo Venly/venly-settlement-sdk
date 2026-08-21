@@ -27,6 +27,8 @@ type PayoutRoute = schemas["PayoutRouteDto"];
 type Payout = schemas["PayoutDto"];
 type SupportedAsset = schemas["SupportedAssetView"];
 type AccountSupportedAsset = schemas["AccountSupportedAssetView"];
+type Webhook = schemas["WebhookDto"];
+type WebhookAuthenticationMethod = NonNullable<Webhook["authenticationMethod"]>;
 
 /**
  * A simulated inbound bank credit. The Finance API models no such resource:
@@ -41,6 +43,26 @@ export interface MockInboundCredit {
   currency: string;
   receivedAt: string;
 }
+
+/**
+ * One simulated delivery of a mock event to a registered webhook. No
+ * delivery-log operation exists on any plane of the published contract:
+ * this is a SIMULATION record - the mock's event runtime noting that, had
+ * these webhooks been real endpoints, the platform would have delivered
+ * this event to them. It renders only inside simulator chrome, badged as
+ * simulation, and must never be surfaced as if an API operation served it.
+ * `status` is mock vocabulary (the simulated delivery always lands; the
+ * mock models no failing endpoint), not a contract enum.
+ */
+export interface MockWebhookDelivery {
+  webhookId: string;
+  eventType: string;
+  at: string;
+  status: "DELIVERED";
+}
+
+/** Retained per store, oldest dropped first - mirrors the event buffer. */
+const WEBHOOK_DELIVERY_BUFFER = 500;
 
 /**
  * Management-plane twin fields on the mock's payout row.
@@ -132,6 +154,12 @@ export interface FinanceSeeds {
   accountSupportedAssets: Record<string, AccountSupportedAsset[]>;
   /** Party IV verifications. A party with no row reads as NOT_LINKED. */
   ivVerifications?: schemas["PartyIvVerificationDto"][];
+  /**
+   * Registered webhooks. Seeded `authenticationMethod` secret fields must
+   * already be masked values - a seed carrying a plausible plaintext secret
+   * would teach that the API echoes secrets, which it never does.
+   */
+  webhooks?: Webhook[];
 }
 
 /** Contract status -> what the money did. */
@@ -331,6 +359,10 @@ export class FinanceMockStore {
   /** Party IV verification, keyed by partyId. Absent reads as NOT_LINKED. */
   ivVerifications = new Map<string, schemas["PartyIvVerificationDto"]>();
 
+  webhooks: Webhook[] = [];
+  /** Simulated deliveries, oldest first. See MockWebhookDelivery. */
+  webhookDeliveries: MockWebhookDelivery[] = [];
+
   private counter = 0;
   private initialised = false;
   private seeds: FinanceSeeds;
@@ -364,7 +396,28 @@ export class FinanceMockStore {
 
   /** Emit, then replicate. Both happen only after the mutation has succeeded. */
   private emit(input: Parameters<EventLog["emit"]>[0]): void {
-    this.events.emit(input);
+    const event = this.events.emit(input);
+    this.recordWebhookDeliveries(event.type, event.occurredAt);
+  }
+
+  /**
+   * The delivery-recording seam: every business event minted by this store
+   * passes through `emit()` above, so one hook covers every driver and every
+   * request-path mutation - a new route cannot forget to deliver. `store.*`
+   * events are replication plumbing, not business events the platform would
+   * deliver to an integrator endpoint, so they are excluded. Deliveries are
+   * store state, so peers adopt them through the same snapshots that carry
+   * every other row.
+   */
+  private recordWebhookDeliveries(eventType: string, at: string): void {
+    if (eventType.startsWith("store.")) return;
+    for (const webhook of this.webhooks) {
+      if (webhook.status !== "ACTIVE" || !webhook.id) continue;
+      this.webhookDeliveries.push({ webhookId: webhook.id, eventType, at, status: "DELIVERED" });
+    }
+    if (this.webhookDeliveries.length > WEBHOOK_DELIVERY_BUFFER) {
+      this.webhookDeliveries.splice(0, this.webhookDeliveries.length - WEBHOOK_DELIVERY_BUFFER);
+    }
   }
 
   /** Restore the seed fixtures, discarding everything created since. */
@@ -407,6 +460,8 @@ export class FinanceMockStore {
     this.ivVerifications = new Map(
       (s.ivVerifications ?? []).map((iv) => [iv.partyId as string, iv] as const),
     );
+    this.webhooks = s.webhooks ?? [];
+    this.webhookDeliveries = [];
     this.ledger.reset();
     this.hydrateLedger();
     this.initialised = true;
@@ -478,6 +533,8 @@ export class FinanceMockStore {
       supportedAssets: this.supportedAssets,
       accountSupportedAssets: Object.fromEntries(this.accountSupportedAssets),
       ivVerifications: [...this.ivVerifications.values()],
+      webhooks: this.webhooks,
+      webhookDeliveries: this.webhookDeliveries,
       // The rendered wallet rows above cannot carry an 18-decimal balance, so
       // the authoritative minor-unit amounts travel alongside them. Without
       // this a peer rebuilds its ledger from the lossy view and the two
@@ -506,6 +563,8 @@ export class FinanceMockStore {
         (iv) => [iv.partyId as string, iv] as const,
       ),
     );
+    this.webhooks = (s.webhooks ?? []) as Webhook[];
+    this.webhookDeliveries = (s.webhookDeliveries ?? []) as MockWebhookDelivery[];
     // Adopted state is a post-state, exactly like seeds, so holds are
     // re-derived at their implied phase and post no delta.
     this.ledger.reset();
@@ -697,6 +756,133 @@ export class FinanceMockStore {
       ...asset,
       permitStatus: hasWallet ? ("PENDING" as const) : ("NO_WALLET" as const),
     }));
+  }
+
+  // ── Webhooks ─────────────────────────────────────────────────────────
+  //
+  // Full public-plane lifecycle: GET/POST /webhooks, GET/PUT/DELETE
+  // /webhooks/{webhookId}, POST /webhooks/{webhookId}/ping. Two contract
+  // facts shape this twin:
+  //  - `createWebhook` carries NO idempotency envelope - no body field, no
+  //    header parameter - unlike transfers. A replayed create mints a second
+  //    webhook, and the tests assert that ABSENCE. Any retry-safety a client
+  //    adds on top is a client-side convention, never contract-real.
+  //  - `apiKey` and `password` are writeOnly in the contract, and the real
+  //    platform never echoes a stored secret. The mock stores MASKED values
+  //    (never the plaintext), so nothing it later serves can leak one.
+
+  /** "abcd-secret-1234" -> "••••1234"; short values mask fully. */
+  private maskSecret(value: string): string {
+    return value.length > 4 ? `••••${value.slice(-4)}` : "••••";
+  }
+
+  /**
+   * Validates the oneOf and masks the writeOnly secret before anything is
+   * stored. Discriminator note, verified against the contract: the base
+   * schema's `type` enum says `API_KEY · BASIC_AUTHENTICATION` while the
+   * discriminator carries no explicit mapping, so the generated types use
+   * the variant schema names as the literals. The mock accepts BOTH
+   * spellings on input and always serves the generated literals, so a
+   * client typed against the generated request shapes round-trips exactly.
+   */
+  private maskAuthenticationMethod(
+    ctx: HandlerContext,
+    input: unknown,
+  ): WebhookAuthenticationMethod {
+    const method = input as Record<string, unknown> | undefined;
+    const type = method?.type;
+    if (type === "ApiKeyAuthenticationMethod" || type === "API_KEY") {
+      if (typeof method?.headerName !== "string" || typeof method?.apiKey !== "string") {
+        badRequest(ctx, 'API-key authentication requires "headerName" and "apiKey".');
+      }
+      return {
+        type: "ApiKeyAuthenticationMethod",
+        headerName: method.headerName,
+        apiKey: this.maskSecret(method.apiKey),
+      };
+    }
+    if (type === "BasicAuthenticationMethod" || type === "BASIC_AUTHENTICATION") {
+      if (typeof method?.username !== "string" || typeof method?.password !== "string") {
+        badRequest(ctx, 'Basic authentication requires "username" and "password".');
+      }
+      return {
+        type: "BasicAuthenticationMethod",
+        username: method.username,
+        password: this.maskSecret(method.password),
+      };
+    }
+    badRequest(
+      ctx,
+      `Unknown authenticationMethod type "${String(type)}". ` +
+        "Use ApiKeyAuthenticationMethod or BasicAuthenticationMethod.",
+    );
+  }
+
+  private assertWebhookUrl(ctx: HandlerContext, url: unknown): asserts url is string {
+    if (typeof url !== "string" || !/^https:\/\/.+/.test(url)) {
+      badRequest(ctx, '"url" must be an https:// URL.');
+    }
+  }
+
+  listWebhooks(): Webhook[] {
+    return this.webhooks;
+  }
+
+  createWebhook(ctx: HandlerContext): Webhook {
+    const b = ctx.body as schemas["CreateWebhookRequest"];
+    this.assertWebhookUrl(ctx, b.url);
+    const webhook: Webhook = {
+      id: this.mintId(),
+      url: b.url,
+      name: b.name,
+      authenticationMethod: this.maskAuthenticationMethod(ctx, b.authenticationMethod),
+      // The contract's status enum has a single member.
+      status: "ACTIVE",
+    };
+    // Deliberately NO intent map here (compare transfers/payouts): the
+    // contract gives this create no idempotency semantics, so a replay is
+    // a second webhook. The webhook tests prove it.
+    this.webhooks.push(webhook);
+    return webhook;
+  }
+
+  getWebhook(ctx: HandlerContext): Webhook {
+    const webhook = this.webhooks.find((w) => w.id === ctx.params.webhookId);
+    if (!webhook) notFound(ctx, "webhook-not-found", `No webhook with id ${ctx.params.webhookId}.`);
+    return webhook;
+  }
+
+  updateWebhook(ctx: HandlerContext): Webhook {
+    const webhook = this.getWebhook(ctx);
+    const b = ctx.body as schemas["UpdateWebhookRequest"];
+    this.assertWebhookUrl(ctx, b.url);
+    webhook.url = b.url;
+    if (b.name !== undefined) webhook.name = b.name;
+    webhook.authenticationMethod = this.maskAuthenticationMethod(ctx, b.authenticationMethod);
+    return webhook;
+  }
+
+  deleteWebhook(ctx: HandlerContext): undefined {
+    const idx = this.webhooks.findIndex((w) => w.id === ctx.params.webhookId);
+    if (idx === -1) {
+      notFound(ctx, "webhook-not-found", `No webhook with id ${ctx.params.webhookId}.`);
+    }
+    this.webhooks.splice(idx, 1);
+    return undefined;
+  }
+
+  /** The contract's ping result is a void envelope; the mock's always lands. */
+  pingWebhook(ctx: HandlerContext): schemas["ResponseEnvelopeVoid"] {
+    this.getWebhook(ctx);
+    return { success: true };
+  }
+
+  /** Mock-only read behind the simulator's delivery log. Never API surface. */
+  listWebhookDeliveries(webhookId?: string): MockWebhookDelivery[] {
+    const rows = webhookId
+      ? this.webhookDeliveries.filter((d) => d.webhookId === webhookId)
+      : this.webhookDeliveries;
+    return [...rows].reverse();
   }
 
   listPartyRoles(ctx: HandlerContext): PartyRole[] {

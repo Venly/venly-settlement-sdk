@@ -149,6 +149,7 @@ export class VenlyFinanceClient {
   readonly payoutRoutes: PayoutRoutesResource;
   readonly payoutBankAccounts: PayoutBankAccountsResource;
   readonly supportedAssets: SupportedAssetsResource;
+  readonly webhooks: WebhooksResource;
 
   private readonly http: Transport;
 
@@ -193,6 +194,7 @@ export class VenlyFinanceClient {
     this.payoutRoutes = new PayoutRoutesResource(this.http);
     this.payoutBankAccounts = new PayoutBankAccountsResource(this.http);
     this.supportedAssets = new SupportedAssetsResource(this.http);
+    this.webhooks = new WebhooksResource(this.http);
   }
 
   /**
@@ -797,6 +799,76 @@ export class SupportedAssetsResource {
         opts,
       )
       .then(unwrapPage);
+  }
+}
+
+/**
+ * Webhook endpoints the tenant registers to receive platform events:
+ * `GET/POST /webhooks`, `GET/PUT/DELETE /webhooks/{webhookId}` and
+ * `POST /webhooks/{webhookId}/ping`.
+ *
+ * Two contract facts every consumer should know:
+ *  - `createWebhook` carries NO idempotency envelope - no body field and no
+ *    header parameter, unlike the money-moving endpoints. A replayed create
+ *    registers a second webhook. Any retry-safety a client layers on top is
+ *    a client-side convention and must be presented as one.
+ *  - `authenticationMethod` carries credentials for YOUR endpoint (an API
+ *    key or basic-auth pair). The secret fields are write-only on the
+ *    contract: the platform stores them server-side and never returns a
+ *    stored secret, so no read on this resource can display one.
+ */
+export class WebhooksResource {
+  constructor(private readonly http: Transport) {}
+
+  /** Bare array envelope on the wire (no pagination); `Page` carries `resultPresent`. */
+  list(opts?: CallOptions): Promise<Page<schemas["WebhookDto"]>> {
+    return this.http
+      .request<Envelope<schemas["WebhookDto"][]>>("GET", "/webhooks", opts)
+      .then(unwrapPage);
+  }
+
+  create(body: schemas["CreateWebhookRequest"], opts?: CallOptions): Promise<schemas["WebhookDto"]> {
+    return this.http
+      .request<Envelope<schemas["WebhookDto"]>>("POST", "/webhooks", { body, ...opts })
+      .then(unwrap);
+  }
+
+  get(webhookId: string, opts?: CallOptions): Promise<schemas["WebhookDto"]> {
+    return this.http
+      .request<Envelope<schemas["WebhookDto"]>>("GET", `/webhooks/${webhookId}`, opts)
+      .then(unwrap);
+  }
+
+  update(
+    webhookId: string,
+    body: schemas["UpdateWebhookRequest"],
+    opts?: CallOptions,
+  ): Promise<schemas["WebhookDto"]> {
+    return this.http
+      .request<Envelope<schemas["WebhookDto"]>>("PUT", `/webhooks/${webhookId}`, {
+        body,
+        ...opts,
+      })
+      .then(unwrap);
+  }
+
+  delete(webhookId: string, opts?: CallOptions): Promise<void> {
+    return this.http.request<void>("DELETE", `/webhooks/${webhookId}`, opts);
+  }
+
+  /**
+   * Fire a test delivery at the registered endpoint. The contract's result
+   * is a void envelope; resolve it as returned so a surface can render the
+   * outcome verbatim.
+   */
+  ping(webhookId: string, opts?: CallOptions): Promise<schemas["ResponseEnvelopeVoid"]> {
+    return this.http
+      .request<Envelope<schemas["ResponseEnvelopeVoid"]>>(
+        "POST",
+        `/webhooks/${webhookId}/ping`,
+        opts,
+      )
+      .then(unwrap);
   }
 }
 

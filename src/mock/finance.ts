@@ -15,6 +15,7 @@ import {
   type MockInboundCredit,
   type MockPayoutManagementTwin,
   type MockPayoutRow,
+  type MockWebhookDelivery,
 } from "./store.js";
 import {
   broadcastChannel,
@@ -874,6 +875,32 @@ export function createFinanceRoutes(store: FinanceMockStore): RouteTable {
       kind: "handler",
       handle: (ctx) => itemEnvelope(store.getTransfer(ctx)),
     },
+    // Webhooks (public plane, full lifecycle). List is a bare array envelope
+    // - no pagination on the wire - so it answers through itemEnvelope.
+    "GET /webhooks": {
+      kind: "handler",
+      handle: () => itemEnvelope(store.listWebhooks()),
+    },
+    "POST /webhooks": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.createWebhook(ctx)),
+    },
+    "GET /webhooks/{webhookId}": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.getWebhook(ctx)),
+    },
+    "PUT /webhooks/{webhookId}": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.updateWebhook(ctx)),
+    },
+    "DELETE /webhooks/{webhookId}": {
+      kind: "handler",
+      handle: (ctx) => store.deleteWebhook(ctx),
+    },
+    "POST /webhooks/{webhookId}/ping": {
+      kind: "handler",
+      handle: (ctx) => itemEnvelope(store.pingWebhook(ctx)),
+    },
     // Supported assets. The wire shape is a bare array envelope – no
     // pagination – so these answer through itemEnvelope, not listEnvelope.
     "GET /supported-assets": {
@@ -1097,6 +1124,18 @@ export interface VenlyFinanceSimulations {
       to?: NonNullable<schemas["PayoutBankAccountDto"]["status"]>,
     ): schemas["PayoutBankAccountDto"];
   };
+  /**
+   * Mock-only read: the simulated deliveries of mock events to registered
+   * webhooks, newest first. No delivery-log operation exists on any plane of
+   * the published contract - this is a SIMULATION surface (the event runtime
+   * noting what the platform would have delivered), rendered only inside
+   * simulator chrome and badged as simulation. Not a driver: recording
+   * happens as a side effect of every business event, so there is no
+   * control to expose for it.
+   */
+  webhookDeliveries: {
+    list(webhookId?: string): MockWebhookDelivery[];
+  };
 }
 
 function createSimulations(transport: FinanceMockTransport): VenlyFinanceSimulations {
@@ -1149,6 +1188,7 @@ function createSimulations(transport: FinanceMockTransport): VenlyFinanceSimulat
       list: (accountId) => store().listMockPayouts(accountId),
     },
     payoutRoute: { advance: (id, to) => driven(() => store().advancePayoutRoute(id, to)) },
+    webhookDeliveries: { list: (webhookId) => store().listWebhookDeliveries(webhookId) },
     payoutBankAccount: {
       advance: (id, to) => driven(() => store().advancePayoutBankAccount(id, to)),
     },

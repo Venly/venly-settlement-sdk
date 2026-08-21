@@ -26,7 +26,15 @@ export type {
   MockPayoutManagementTwin,
   MockPayoutRow,
   MockInboundCredit,
+  MockWebhookDelivery,
 } from "./store.js";
+export { mockTenantConfig } from "./tenant-config.js";
+export type {
+  MockTenantConfig,
+  MockTenantLanePreference,
+  MockTenantPayoutLanePreference,
+  MockTenantProviderEnablement,
+} from "./tenant-config.js";
 export { fundflowRoutes, createFundflowRoutes, fundflowSeeds, FundflowMockTransport } from "./fundflow.js";
 export type { VenlyFundflowMock } from "./fundflow.js";
 export { FundflowMockStore } from "./fundflow-store.js";

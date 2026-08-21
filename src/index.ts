@@ -41,6 +41,7 @@ export {
   configureFinanceMockDefaults,
   resetFinanceMockDefaults,
   MockLedgerError,
+  mockTenantConfig,
 } from "./mock/index.js";
 export type {
   SeedProfile,
@@ -52,6 +53,11 @@ export type {
   MockEventType,
   MockPayoutManagementTwin,
   MockPayoutRow,
+  MockWebhookDelivery,
+  MockTenantConfig,
+  MockTenantLanePreference,
+  MockTenantPayoutLanePreference,
+  MockTenantProviderEnablement,
 } from "./mock/index.js";
 export { iteratePages } from "./core/pagination.js";
 export type { Page, PagingInfo, PageParams } from "./core/pagination.js";
@@ -97,6 +103,9 @@ export type SupportedAsset = _fs["SupportedAssetView"];
 /** Account-scoped supported asset: the tenant row plus `permitStatus`. */
 export type AccountSupportedAsset = _fs["AccountSupportedAssetView"];
 export type Webhook = _fs["WebhookDto"];
+export type CreateWebhookRequest = _fs["CreateWebhookRequest"];
+export type UpdateWebhookRequest = _fs["UpdateWebhookRequest"];
+export type WebhookAuthenticationMethod = NonNullable<_fs["WebhookDto"]["authenticationMethod"]>;
 export type PartyIvVerification = _fs["PartyIvVerificationDto"];
 export type PartyVerificationLink = _fs["PartyVerificationLinkDto"];
 export type CreatePartyRequest = _fs["CreatePartyRequest"];
