@@ -21,6 +21,7 @@ import { FieldList } from "../components/field-list.js";
 import { ArithmeticLadder } from "../components/arithmetic-ladder.js";
 import { ListLoadError } from "../components/list-error.js";
 import { BANK_ACCOUNT_STATUS_PILL, type CompanyBankAccountListItem } from "./bank-accounts.js";
+import { StepUpConfirm, type StepUpVerifier } from "./send.js";
 
 /**
  * Withdraw block – fiat out to the company's own verified bank account.
@@ -694,6 +695,12 @@ export interface WithdrawFlowProps {
   accountId?: string;
   /** The signed-in operator, for four-eyes capability on the detail. */
   actorId?: string;
+  /**
+   * Your auth adapter's verifyTotp, for the step-up ceremony on the money
+   * confirm. When present, the commit fires only after the code verifies.
+   * This is app-side ceremony, not an API guarantee.
+   */
+  stepUpVerifier?: StepUpVerifier;
   onGoToBankAccounts?: () => void;
   /** Fires with the created request id (e.g. to route to a detail page). */
   onCreated?: (id: string) => void;
@@ -705,16 +712,57 @@ type FlowStep =
   | { step: "pick" }
   | { step: "amount"; destination: CompanyBankAccountListItem }
   | { step: "review"; staged: StagedWithdrawal }
+  | { step: "step-up"; staged: StagedWithdrawal }
   | { step: "detail"; id: string };
 
-export function WithdrawFlow({ accountId, actorId, onGoToBankAccounts, onCreated, style, className }: WithdrawFlowProps): ReactElement {
+export function WithdrawFlow({ accountId, actorId, stepUpVerifier, onGoToBankAccounts, onCreated, style, className }: WithdrawFlowProps): ReactElement {
   const accountsQuery = useCompanyBankAccounts();
   const { data: accounts } = accountsQuery;
   const create = useCreateRampRequest();
   const [flow, setFlow] = useState<FlowStep>({ step: "pick" });
 
+  const commit = (staged: StagedWithdrawal): void => {
+    create.mutate(
+      {
+        rampType: "OFF_RAMP",
+        amount: staged.amount,
+        fiatCurrencyId: staged.fiatCurrencyId,
+        cryptoCurrencyId: staged.cryptoCurrencyId,
+        companyBankAccountId: staged.destination.id,
+      },
+      {
+        onSuccess: (request) => {
+          if (request.id) {
+            onCreated?.(request.id);
+            setFlow({ step: "detail", id: request.id });
+          }
+        },
+      },
+    );
+  };
+
   if (flow.step === "detail") {
     return <ConnectedWithdrawDetail id={flow.id} actorId={actorId} style={style} className={className} />;
+  }
+
+  if (flow.step === "step-up") {
+    return (
+      <div className={className} style={{ display: "flex", flexDirection: "column", gap: "var(--space-lg)", ...style }}>
+        <StepUpConfirm
+          kind="transfer"
+          commitLabel={`Request withdrawal of ${formatAmount(flow.staged.amount)} ${flow.staged.cryptoCurrency}`}
+          verifier={stepUpVerifier as StepUpVerifier}
+          submitting={create.isPending}
+          onCancel={() => setFlow({ step: "review", staged: flow.staged })}
+          onConfirmed={() => commit(flow.staged)}
+        />
+        {create.isError ? (
+          <p role="alert" style={{ margin: 0, fontFamily: "var(--font-family)", fontSize: "var(--font-size-label)", color: "var(--state-danger-fg)" }}>
+            {create.error instanceof Error ? create.error.message : "The request was refused."}
+          </p>
+        ) : null}
+      </div>
+    );
   }
 
   // The destination picker's feed. A failed or malformed whitelist
@@ -740,25 +788,11 @@ export function WithdrawFlow({ accountId, actorId, onGoToBankAccounts, onCreated
         staged={flow.staged}
         submitting={create.isPending}
         onEdit={() => setFlow({ step: "amount", destination: flow.staged.destination })}
-        onConfirm={() => {
-          create.mutate(
-            {
-              rampType: "OFF_RAMP",
-              amount: flow.staged.amount,
-              fiatCurrencyId: flow.staged.fiatCurrencyId,
-              cryptoCurrencyId: flow.staged.cryptoCurrencyId,
-              companyBankAccountId: flow.staged.destination.id,
-            },
-            {
-              onSuccess: (request) => {
-                if (request.id) {
-                  onCreated?.(request.id);
-                  setFlow({ step: "detail", id: request.id });
-                }
-              },
-            },
-          );
-        }}
+        // Step-up on the money confirm when an auth adapter is wired; the
+        // commit then fires only after the code verifies.
+        onConfirm={() =>
+          stepUpVerifier ? setFlow({ step: "step-up", staged: flow.staged }) : commit(flow.staged)
+        }
       />
     );
   }
