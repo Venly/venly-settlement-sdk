@@ -1026,6 +1026,25 @@ export interface VenlyFinanceSimulations {
       status: NonNullable<schemas["PartyIvVerificationDto"]["status"]>,
     ): schemas["PartyIvVerificationDto"];
   };
+  /**
+   * Account-level drivers. `setStatus` writes a field NO contract operation
+   * writes on either plane - it exists so the frozen state is demonstrable
+   * while the real write op stays an open ask. A surface rendering it must
+   * badge it as a driver, never as a contract operation.
+   */
+  account: {
+    setStatus(
+      accountId: string,
+      status: NonNullable<schemas["AccountListItemDto"]["status"]>,
+    ): schemas["AccountListItemDto"];
+  };
+  /** Party-level drivers. Same driver-not-contract-op rule as accounts. */
+  party: {
+    setStatus(
+      partyId: string,
+      status: NonNullable<schemas["PartyDto"]["status"]>,
+    ): schemas["PartyDto"];
+  };
   transfer: { advance(id: string, status?: "COMPLETED" | "FAILED"): void };
   paymentSession: {
     advance(id: string, to: NonNullable<schemas["PayInSessionDto"]["status"]>): schemas["PayInSessionDto"];
@@ -1084,6 +1103,12 @@ function createSimulations(transport: FinanceMockTransport): VenlyFinanceSimulat
     verification: {
       advance: (id, status) => driven(() => store().advanceVerification(id, status)),
       advanceIv: (partyId, status) => driven(() => store().advanceIvVerification(partyId, status)),
+    },
+    account: {
+      setStatus: (accountId, status) => driven(() => store().setAccountStatus(accountId, status)),
+    },
+    party: {
+      setStatus: (partyId, status) => driven(() => store().setPartyStatus(partyId, status)),
     },
     transfer: { advance: (id, status) => driven(() => store().advanceTransfer(id, status)) },
     paymentSession: { advance: (id, to) => driven(() => store().advancePaymentSession(id, to)) },

@@ -1021,6 +1021,51 @@ export class FinanceMockStore {
     throw new Error(`advanceVerification: no party or account with id ${id} in the mock store.`);
   }
 
+  /**
+   * Mock-only driver: set an account's `status`. NO contract operation writes
+   * this field on either plane (the only status writes are the kyc patch, the
+   * wallet aml patch, and the tenant's own status), so this driver exists to
+   * make the frozen state demonstrable while the write op stays an open ask.
+   * A console rendering this control must badge it as a driver, never as a
+   * contract operation.
+   */
+  setAccountStatus(id: string, status: NonNullable<Account["status"]>): Account {
+    const account = this.accounts.find((a) => a.id === id);
+    if (!account) {
+      throw new Error(`setAccountStatus: no account with id ${id} in the mock store.`);
+    }
+    const previous = account.status;
+    account.status = status;
+    account.version = (account.version ?? 0) + 1;
+    this.emit({
+      type: "account.status_changed",
+      resource: { kind: "account", id },
+      accountId: id,
+      previous: { status: previous },
+      data: account,
+    });
+    return account;
+  }
+
+  /** Mock-only driver: set a party's `status`. Same rationale as accounts. */
+  setPartyStatus(id: string, status: NonNullable<Party["status"]>): Party {
+    const party = this.parties.find((p) => p.id === id);
+    if (!party) {
+      throw new Error(`setPartyStatus: no party with id ${id} in the mock store.`);
+    }
+    const previous = party.status;
+    party.status = status;
+    party.version = (party.version ?? 0) + 1;
+    party.updatedAt = this.now();
+    this.emit({
+      type: "party.status_changed",
+      resource: { kind: "party", id },
+      previous: { status: previous },
+      data: party,
+    });
+    return party;
+  }
+
   advanceTransfer(id: string, status: "COMPLETED" | "FAILED" = "COMPLETED"): void {
     const transfer = this.transfers.find((t) => t.id === id);
     if (!transfer) {
