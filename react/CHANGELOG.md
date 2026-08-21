@@ -38,6 +38,18 @@ Initial release.
   shipped by sdk 0.4.0.
 - Requires `@venlyfinance/sdk` ^0.4.0.
 
+## 0.5.0 – 2026-08-21
+
+*(Entry backfilled 2026-08-21 – this release shipped without a changelog note.)*
+
+- `useTransfersForPeriod(accountId, period)`: every transfer whose `createdAt`
+  falls in the period, plus the account's full ledger after paging to
+  completion (the list contract has no date filter), so opening/closing
+  balances can be walked from the current wallet total. Backed by the exported
+  `collectTransfersForPeriod` helper and the `venlyKeys.transfersForPeriod`
+  key.
+- New exported types: `TransferPeriod`, `TransfersForPeriodPage`.
+
 ## 0.4.0 – 2026-08-15
 
 - New read hooks: `useSupportedAssets()` (tenant-wide assets, each with its
