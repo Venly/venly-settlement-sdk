@@ -50,6 +50,8 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
+      # Check react against the sdk in this repo, not the last published one.
+      - run: bash ../scripts/use-workspace-sdk.sh react
       - run: npm run typecheck
       - run: npm run typecheck:test
       - run: npm test

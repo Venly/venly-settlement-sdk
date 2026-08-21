@@ -6,6 +6,9 @@ import {
   type AccountsQuery,
   type FeeQuoteInput,
   type PartiesQuery,
+  type PayoutBankAccountsQuery,
+  type PayoutRoutesQuery,
+  type PayoutsQuery,
   type RampRequestsQuery,
   type TransfersQuery,
   type VirtualBankAccountsQuery,
@@ -35,6 +38,26 @@ export function useParty(partyId: string | undefined, options?: Tune<Party>) {
   });
 }
 type Party = Awaited<ReturnType<ReturnType<typeof venlyQueries.party>["queryFn"]>>;
+
+/**
+ * The party's identity-verification state, from the contract operation
+ * (`getPartyIvVerification`). `NOT_LINKED` resolves like any other state -
+ * identity verification is a state every party has, not a resource some lack.
+ */
+export function usePartyIvVerification(
+  partyId: string | undefined,
+  options?: Tune<PartyIvVerification>,
+) {
+  const clients = useVenly();
+  return useQuery({
+    ...venlyQueries.partyIvVerification(clients, partyId ?? ""),
+    enabled: Boolean(partyId) && (options?.enabled ?? true),
+    ...options,
+  });
+}
+type PartyIvVerification = Awaited<
+  ReturnType<ReturnType<typeof venlyQueries.partyIvVerification>["queryFn"]>
+>;
 
 export function useAccounts(query?: AccountsQuery, options?: Tune<AccountsPage>) {
   const clients = useVenly();
@@ -200,6 +223,66 @@ export function useTransfer(
   });
 }
 type Transfer = Awaited<ReturnType<ReturnType<typeof venlyQueries.transfer>["queryFn"]>>;
+
+export function usePayouts(
+  accountId: string | undefined,
+  query?: PayoutsQuery,
+  options?: Tune<PayoutsPage>,
+) {
+  const clients = useVenly();
+  return useQuery({
+    ...venlyQueries.payouts(clients, accountId ?? "", query),
+    enabled: Boolean(accountId) && (options?.enabled ?? true),
+    ...options,
+  });
+}
+type PayoutsPage = Awaited<ReturnType<ReturnType<typeof venlyQueries.payouts>["queryFn"]>>;
+
+export function usePayout(
+  accountId: string | undefined,
+  payoutId: string | undefined,
+  options?: Tune<PayoutDetail>,
+) {
+  const clients = useVenly();
+  return useQuery({
+    ...venlyQueries.payout(clients, accountId ?? "", payoutId ?? ""),
+    enabled: Boolean(accountId && payoutId) && (options?.enabled ?? true),
+    ...options,
+  });
+}
+type PayoutDetail = Awaited<ReturnType<ReturnType<typeof venlyQueries.payout>["queryFn"]>>;
+
+export function usePayoutRoutes(
+  accountId: string | undefined,
+  query?: PayoutRoutesQuery,
+  options?: Tune<PayoutRoutesList>,
+) {
+  const clients = useVenly();
+  return useQuery({
+    ...venlyQueries.payoutRoutes(clients, accountId ?? "", query),
+    enabled: Boolean(accountId) && (options?.enabled ?? true),
+    ...options,
+  });
+}
+type PayoutRoutesList = Awaited<
+  ReturnType<ReturnType<typeof venlyQueries.payoutRoutes>["queryFn"]>
+>;
+
+export function usePayoutBankAccounts(
+  partyId: string | undefined,
+  query?: PayoutBankAccountsQuery,
+  options?: Tune<PayoutBankAccountsPage>,
+) {
+  const clients = useVenly();
+  return useQuery({
+    ...venlyQueries.payoutBankAccounts(clients, partyId ?? "", query),
+    enabled: Boolean(partyId) && (options?.enabled ?? true),
+    ...options,
+  });
+}
+type PayoutBankAccountsPage = Awaited<
+  ReturnType<ReturnType<typeof venlyQueries.payoutBankAccounts>["queryFn"]>
+>;
 
 export function useRampRequests(query?: RampRequestsQuery, options?: Tune<RampPage>) {
   const clients = useVenly();

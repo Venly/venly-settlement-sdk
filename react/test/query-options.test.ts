@@ -157,3 +157,41 @@ test("supported-assets: a malformed envelope reaches the hook as resultPresent f
   assert.equal(page.resultPresent, false);
   assert.deepEqual(page.items, []);
 });
+
+test("console reads: iv-verification and payout factories resolve against the mock store", async () => {
+  const clients = mockClients();
+
+  const parties = await venlyQueries.parties(clients).queryFn();
+  const partyId = parties.items[0]!.id!;
+  const iv = await venlyQueries.partyIvVerification(clients, partyId).queryFn();
+  // An unlinked party reads NOT_LINKED rather than 404 - a state, not an error.
+  assert.ok(iv.status, "iv verification resolves to a status");
+
+  const payoutsAccount = "a10c2d31-2222-4b20-8c63-000000000005";
+  const payouts = await venlyQueries.payouts(clients, payoutsAccount).queryFn();
+  assert.ok(payouts.items.length > 0, "seeded payouts resolve");
+  assert.equal(payouts.resultPresent, true);
+  const payoutId = payouts.items[0]!.id!;
+  const payout = await venlyQueries.payout(clients, payoutsAccount, payoutId).queryFn();
+  assert.equal(payout.id, payoutId);
+
+  const routes = await venlyQueries.payoutRoutes(clients, payoutsAccount).queryFn();
+  assert.ok(routes.length > 0, "seeded payout routes resolve");
+
+  const orgParty = "0b54e9f1-1111-4a10-9b52-000000000002";
+  const bankAccounts = await venlyQueries.payoutBankAccounts(clients, orgParty).queryFn();
+  assert.ok(bankAccounts.items.length > 0, "seeded payout bank accounts resolve");
+});
+
+test("console read keys are stable, distinct, and prefix-aligned for invalidation", () => {
+  assert.deepEqual(venlyKeys.partyIvVerification("p"), venlyKeys.partyIvVerification("p"));
+  // A party invalidation must reach its IV read: shared ["venly","party",id] prefix.
+  assert.deepEqual(venlyKeys.partyIvVerification("p").slice(0, 3), venlyKeys.party("p"));
+  assert.deepEqual(venlyKeys.payoutBankAccounts("p").slice(0, 3), venlyKeys.party("p"));
+  // An account invalidation must reach its payout reads.
+  assert.deepEqual(venlyKeys.payouts("a").slice(0, 3), venlyKeys.account("a"));
+  assert.deepEqual(venlyKeys.payout("a", "x").slice(0, 3), venlyKeys.account("a"));
+  assert.deepEqual(venlyKeys.payoutRoutes("a").slice(0, 3), venlyKeys.account("a"));
+  assert.notDeepEqual(venlyKeys.payouts("a"), venlyKeys.payoutRoutes("a"));
+  assert.notDeepEqual(venlyKeys.payout("a", "x"), venlyKeys.payout("a", "y"));
+});
