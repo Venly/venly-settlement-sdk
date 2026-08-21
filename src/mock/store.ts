@@ -1375,6 +1375,11 @@ export class FinanceMockStore {
       createdAt: this.now(),
     };
     this.payoutBankAccounts.push(bankAccount);
+    this.emit({
+      type: "payout_bank_account.created",
+      resource: { kind: "payoutBankAccount", id: bankAccount.id as string },
+      data: bankAccount,
+    });
     return toResponseShape(
       "POST /parties/{partyId}/payout-bank-accounts",
       bankAccount as Record<string, unknown>,
@@ -1416,6 +1421,12 @@ export class FinanceMockStore {
     const routes = this.payoutRoutes.get(account.id as string) ?? [];
     routes.push(route);
     this.payoutRoutes.set(account.id as string, routes);
+    this.emit({
+      type: "payout_route.created",
+      resource: { kind: "payoutRoute", id: route.id as string },
+      accountId: account.id as string,
+      data: route,
+    });
     return toResponseShape(
       "POST /accounts/{accountId}/payout-routes",
       route as Record<string, unknown>,
@@ -1444,13 +1455,21 @@ export class FinanceMockStore {
   }
 
   completePayoutOwnershipProof(ctx: HandlerContext): PayoutRoute {
-    this.getAccount(ctx);
+    const account = this.getAccount(ctx);
     const route = this.getPayoutRoute(ctx);
     if (route.status === "REJECTED") {
       badRequest(ctx, "A REJECTED route cannot be activated.");
     }
+    const previous = route.status;
     route.status = "ACTIVE";
     route.updatedAt = this.now();
+    this.emit({
+      type: "payout_route.status_changed",
+      resource: { kind: "payoutRoute", id: route.id as string },
+      accountId: account.id as string,
+      previous: { status: previous },
+      data: route,
+    });
     return route;
   }
 
@@ -1720,18 +1739,36 @@ export class FinanceMockStore {
     if (!bankAccount) {
       throw new Error(`advancePayoutBankAccount: no payout bank account with id ${id} in the mock store.`);
     }
+    const previous = bankAccount.status;
     bankAccount.status = to;
     bankAccount.updatedAt = this.now();
+    // Same emit path as every other status driver: a consumer watching the
+    // event stream (or bridging it into cache invalidation) must see this
+    // transition, or the surface it renders goes stale forever.
+    this.emit({
+      type: "payout_bank_account.status_changed",
+      resource: { kind: "payoutBankAccount", id },
+      previous: { status: previous },
+      data: bankAccount,
+    });
     return bankAccount;
   }
 
   /** Walk a payout route to any documented status (e.g. simulate REJECTED). */
   advancePayoutRoute(id: string, to: NonNullable<PayoutRoute["status"]>): PayoutRoute {
-    for (const routes of this.payoutRoutes.values()) {
+    for (const [accountId, routes] of this.payoutRoutes.entries()) {
       const route = routes.find((r) => r.id === id);
       if (route) {
+        const previous = route.status;
         route.status = to;
         route.updatedAt = this.now();
+        this.emit({
+          type: "payout_route.status_changed",
+          resource: { kind: "payoutRoute", id },
+          accountId,
+          previous: { status: previous },
+          data: route,
+        });
         return route;
       }
     }
