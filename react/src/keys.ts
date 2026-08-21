@@ -23,6 +23,8 @@ export const venlyKeys = {
 
   transfers: (accountId: string, query?: unknown) =>
     ["venly", "account", accountId, "transfers", query ?? null] as const,
+  transfersForPeriod: (accountId: string, period: { start: string; end: string }) =>
+    ["venly", "account", accountId, "transfers-for-period", period.start, period.end] as const,
   transfer: (accountId: string, transferId: string) =>
     ["venly", "account", accountId, "transfer", transferId] as const,
 

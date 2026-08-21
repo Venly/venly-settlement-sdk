@@ -1,4 +1,5 @@
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
+import { iteratePages, type Page, type Transfer as TransferRow } from "@venlyfinance/sdk";
 import { useVenly } from "./provider.js";
 import {
   venlyQueries,
@@ -13,6 +14,7 @@ import {
   type CompanyWalletsQuery,
   type DepositWalletsQuery,
 } from "./query-options.js";
+import { venlyKeys } from "./keys.js";
 
 // Consumers may tune any TanStack option except the key/fn pair, which this
 // package owns so cache identity stays consistent across an app.
@@ -128,6 +130,62 @@ export function useTransfers(
   });
 }
 type TransfersPage = Awaited<ReturnType<ReturnType<typeof venlyQueries.transfers>["queryFn"]>>;
+
+export type TransferPeriod = { start: string; end: string };
+
+export type TransfersForPeriodPage = {
+  /** Rows whose `createdAt` falls in `[start, end]`. */
+  items: TransferRow[];
+  /**
+   * Every transfer on the account after paging to completion. Opening and
+   * closing walk from the current wallet total through this full ledger;
+   * a window-only set would silently drop later movements.
+   */
+  ledger: TransferRow[];
+  resultPresent: boolean;
+};
+
+/**
+ * Page every transfer on the account (the list contract has no date filter),
+ * then keep the window. `iteratePages` walks `hasNextPage`.
+ */
+export async function collectTransfersForPeriod(
+  list: (query?: TransfersQuery) => Promise<Page<Transfer>>,
+  period: TransferPeriod,
+  pageSize = 20,
+): Promise<TransfersForPeriodPage> {
+  const ledger: TransferRow[] = [];
+  for await (const item of iteratePages((params) => list({ page: params.page, size: params.size }), {
+    size: pageSize,
+  })) {
+    ledger.push(item);
+  }
+  const items = ledger.filter((transfer) => {
+    const at = transfer.createdAt;
+    return Boolean(at && at >= period.start && at <= period.end);
+  });
+  return { items, ledger, resultPresent: true as const };
+}
+
+export function useTransfersForPeriod(
+  accountId: string | undefined,
+  period: TransferPeriod | undefined,
+  options?: Tune<TransfersForPeriodPage>,
+) {
+  const clients = useVenly();
+  const start = period?.start ?? "";
+  const end = period?.end ?? "";
+  return useQuery({
+    queryKey: venlyKeys.transfersForPeriod(accountId ?? "", { start, end }),
+    queryFn: () =>
+      collectTransfersForPeriod(
+        (query) => clients.finance.transfers.list(accountId ?? "", query),
+        { start, end },
+      ),
+    enabled: Boolean(accountId && start && end) && (options?.enabled ?? true),
+    ...options,
+  });
+}
 
 export function useTransfer(
   accountId: string | undefined,

@@ -66,6 +66,8 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
+      # Check ui against the react in this repo, not the last published one.
+      - run: bash ../scripts/use-workspace-react.sh
       - run: npm run typecheck
       - run: npm test
       # The committed registry JSON under ui/r/ is generated; fail on drift.
@@ -85,6 +87,10 @@ jobs:
       # and those files resolve react/@venlyfinance/* from ui/node_modules.
       - run: npm ci
         working-directory: ui
+      # Same reason as the ui job: these sources resolve react from
+      # ui/node_modules, so it must be the workspace build.
+      - run: bash scripts/use-workspace-react.sh
+        working-directory: .
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build

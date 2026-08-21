@@ -109,7 +109,15 @@ export function DataTable<Row>({
               padding: "var(--cell-pad-y) var(--cell-pad-x)",
               textAlign: col.money ? "right" : (col.align ?? "left"),
               fontVariantNumeric: col.money ? "tabular-nums" : undefined,
-              maxWidth: 0,
+              // `maxWidth: 0` is what makes ellipsis work in an auto-layout
+              // table: without it a cell grows to fit and never truncates. But
+              // it also overrides an explicit width, so a column that asks for
+              // one gets it here instead - otherwise the width lands on the
+              // header only and the body cell still collapses to whatever the
+              // layout algorithm allocates.
+              ...(col.width === undefined
+                ? { maxWidth: 0 }
+                : { width: col.width, minWidth: col.width }),
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
