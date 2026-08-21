@@ -278,7 +278,7 @@ test("payout vocabulary: all 7 statuses; RETURNED is neutral, never a plain fail
   assert.equal(PAYOUT_STATUS_PILL.REJECTED!.intent, "negative");
 });
 
-test("payout waiting copy names who acts next (P7)", () => {
+test("payout waiting copy names who acts next", () => {
   assert.match(payoutWaitingCopy("REQUESTED") ?? "", /no action needed from you/);
   assert.match(payoutWaitingCopy("SENDING") ?? "", /no action needed from you/);
   assert.equal(
@@ -307,7 +307,7 @@ const payoutBase = {
   },
 };
 
-test("payout detail, in flight: settled amount is an explicit null, never a guess (P8)", () => {
+test("payout detail, in flight: settled amount is an explicit null, never a guess", () => {
   const html = renderToStaticMarkup(
     <PayoutDetail payout={{ ...payoutBase, status: "PROVIDER_PROCESSING" }} />,
   );

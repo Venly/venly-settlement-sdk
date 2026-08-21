@@ -1373,7 +1373,7 @@ function middleEllipsis(value: string): string {
  * "What we've seen" - the app-side observation log. The transfer read
  * carries no stage list and no event log, so the UI states only what it
  * observed itself: when the record says it was created, when this surface
- * last checked, and the status it saw. Absolute timestamps (P10).
+ * last checked, and the status it saw. Timestamps are absolute, always.
  */
 function ObservationLog({
   createdAt,
