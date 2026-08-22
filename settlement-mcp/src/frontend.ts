@@ -50,12 +50,45 @@ Registry items: venly-tokens, field-list; block: receive.
 Hooks: useVirtualBankAccounts (first active EUR account).
 States that must exist: no virtual bank account yet (offer creation), details present, reference not yet assigned ("Not assigned yet" + Required pill - never "(not required)").
 Rules that must hold: the payment reference is enforced as mandatory (amber Required pill, warning above the fields); per-field copy names the field it copied and only confirms on a successful write; rows never vanish - render the "(not required)" variant.`,
-  send: `# Send
-Shell: full page; form clamped ~600px; review step replaces the form.
-Registry items: venly-tokens, arithmetic-ladder, timeline; block: send.
-Hooks: useStagedTransfer (the machine IS the flow), useFeeQuote when fees apply.
-States that must exist: draft (validation issues listed), staged review, submitting, pending (polling), completed, failed (reason shown, terminal).
-Rules that must hold: money movement is stage-then-confirm - the review renders the exact staged request as an arithmetic ladder (working before the answer, uncertainty attached to the number); the commit button restates the amount and never carries a countdown; values are never masked on review; execution is single-shot on an idempotency key pinned at staging.`,
+  send: `# Send (one door)
+Shell: full page; the door is the recipient picker; forms clamp ~600px; the
+review and the step-up ceremony replace the form in place.
+Registry items: venly-tokens, status-pill, field-list, data-table, list-error;
+blocks: send (SendDoor, RecipientPicker, DirectoryPick, PlatformTransferFlow,
+PayoutSendFlow, SendReview, StepUpConfirm, TransferDetail, PayoutDetail) and
+recipients (RecipientsView, AddRecipientForm, BeneficiaryAccountForm,
+RouteCeremony) - the prerequisite surface saved recipients are managed on.
+Hooks: useCreateFiatTransfer and useCreateCryptoTransfer (the staged-transfer
+machine typed per rail), useRequestPayout, usePartyRoles, useAddPartyRole,
+useCreateParty, useRegisterPayoutBankAccount, useCreatePayoutRoute,
+usePreparePayoutOwnershipProof, useCompletePayoutOwnershipProof, useParties,
+useAccounts, useWallets, useAccountSupportedAssets, useTransfers, useTransfer,
+usePayouts, usePayout, usePayoutRoutes.
+Binding: ONE door - the first screen is the recipient picker and the fork is
+the recipient's OBJECT TYPE, never a rail choice. A person or business on the
+platform (a directory YOUR user table serves; render name + handle, never a
+UUID - ids stay request-side) starts an on-platform transfer. A saved
+recipient - a party holding the payout-recipient role, owning reviewed bank
+accounts (details masked server-side) and an ACTIVE payout route - starts a
+third-party payout referencing the ROUTE, never raw bank details. Your own
+bank account is a link row into the withdraw flow. Send-to-external-wallet
+has NO surface: no teaser, no disabled row, no rendered trace.
+States that must exist: recipient picker (three classes, populated and empty), disabled with the reason (unverified directory rows, non-active routes and non-active accounts), over-balance, review (known figures only), step-up (wrong code blocks, the deterministic demo code proceeds), pending, completed, failed (the record's own error verbatim, terminal), requested, sending, provider processing, rejected, returned (money came back - a neutral terminal), no active route (blocked start with the unblocking CTA), load failure (explicit error plus retry - never an empty detail).
+Rules that must hold: every money confirm passes the step-up ceremony against
+YOUR auth adapter and the commit fires only after the code verifies - this is
+app-side ceremony and must never be presented as an API security guarantee;
+execution is single-shot on an idempotency key minted ONCE per staged draft,
+so a retry replays the same record instead of moving money twice; reviews
+render ONLY figures the API has produced, and the payout review states the
+absence in words beside the two-sided units sentence. Forbidden to invent
+(render the labelled omission or nothing at all): a fee row - and equally a
+"No fee" claim, since no source confirms zero; an ETA or delivery date - no
+timing field exists on transfers or payouts; a pre-create rate or
+recipient-gets figure - exchangeRate and settledFiatAmount exist on CREATED
+and COMPLETED records only; named in-flight stages beyond the status enums -
+render the app-side observation log instead. Beneficiary details come back
+masked: render the mask, never re-ask. Route states render verbatim and a
+REJECTED route is terminal-negative with a way forward, never a dead end.`,
   activity: `# Activity
 Shell: full-width table + side panel.
 Registry items: venly-tokens, data-table, status-pill, side-panel, timeline; block: activity.
@@ -239,10 +272,16 @@ const RUNTIME_PACKAGES_BY_BLOCK = {
     "@venlyfinance/sdk": "^0.7.0",
     "@tanstack/react-query": "^5.0.0",
   },
+  recipients: {
+    "@venlyfinance/react": "^0.6.0",
+    "@venlyfinance/sdk": "^0.7.0",
+    "@tanstack/react-query": "^5.0.0",
+  },
   send: {
     "@venlyfinance/react": "^0.6.0",
     "@venlyfinance/sdk": "^0.7.0",
     "@tanstack/react-query": "^5.0.0",
+    "@radix-ui/react-one-time-password-field": "^0.1.16",
   },
   team: { "@radix-ui/react-dialog": "^1.1.23" },
   withdraw: {
@@ -303,7 +342,37 @@ const JOURNEY_RUNTIME: Record<JourneyKey, {
   },
   "home-balances": { blocks: ["balances"], hooks: ["useAccounts", "useWallets"] },
   receive: { blocks: ["receive"], hooks: ["useVirtualBankAccounts"] },
-  send: { blocks: ["send"], hooks: ["useStagedTransfer", "useFeeQuote"] },
+  send: {
+    blocks: ["send", "recipients"],
+    hooks: [
+      "useCreateFiatTransfer",
+      "useCreateCryptoTransfer",
+      "useRequestPayout",
+      "usePartyRoles",
+      "useAddPartyRole",
+      "useCreateParty",
+      "useRegisterPayoutBankAccount",
+      "useCreatePayoutRoute",
+      "usePreparePayoutOwnershipProof",
+      "useCompletePayoutOwnershipProof",
+      "useParties",
+      "useAccounts",
+      "useWallets",
+      "useAccountSupportedAssets",
+      "useTransfers",
+      "useTransfer",
+      "usePayouts",
+      "usePayout",
+      "usePayoutRoutes",
+    ],
+    extraForbidden: [
+      "a fee row or a \"No fee\" claim (no source confirms zero)",
+      "an ETA or delivery-date row (no timing field exists on transfers or payouts)",
+      "a pre-create rate or recipient-gets figure (exchangeRate/settledFiatAmount are post-create fields)",
+      "named in-flight stages beyond the status enums (render the observation log instead)",
+      "a send-to-external-wallet surface (no teaser, no disabled row, no rendered trace)",
+    ],
+  },
   activity: { blocks: ["activity"], hooks: ["useTransfers", "useRampRequests"] },
   "onboarding-status": {
     blocks: ["onboarding"],

@@ -75,6 +75,15 @@ Initial release.
   reads.
 - New exported types: `PartyIvVerification`, `PayoutsQuery`,
   `PayoutRoutesQuery`, `PayoutBankAccountsQuery`.
+- Write hooks for the send surface: `useCreateFiatTransfer` and
+  `useCreateCryptoTransfer` (typed entries into the staged-transfer machine –
+  the idempotency key is minted once per staged draft, so a retry replays the
+  same record), `useRequestPayout`, `useRegisterPayoutBankAccount`,
+  `useCreatePayoutRoute`, `usePreparePayoutOwnershipProof`,
+  `useCompletePayoutOwnershipProof`, `useAddPartyRole`; plus the
+  `usePartyRoles(accountId, query?)` read with its `venlyKeys` /
+  `venlyQueries` factory. New exported types: `PartyRolesQuery`,
+  `FiatTransferDraft`, `CryptoTransferDraft`.
 - Requires `@venlyfinance/sdk` ^0.7.0 (the `parties.ivVerification` method).
   The manifest range moves with the publish, alongside the lockfile
   regeneration, per this repo's publish sequencing.

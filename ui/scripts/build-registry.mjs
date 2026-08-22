@@ -189,8 +189,8 @@ const BLOCKS = [
     name: "withdraw",
     title: "Withdraw block",
     description:
-      "Fiat out to your own verified bank account, rendered truthfully: destination picker that disables unverified accounts with the reason, a fee quote in the unit you typed, four-eyes approval that renders the rule instead of the error, deposit instructions with the mandatory reference, and an event timeline with actors and absolute timestamps.",
-    deps: ["data-table", "status-pill", "timeline", "field-list", "arithmetic-ladder", "bank-accounts", "list-error"],
+      "Fiat out to your own verified bank account, rendered truthfully: destination picker that disables unverified accounts with the reason, a fee quote in the unit you typed, a step-up code on the confirm, four-eyes approval that renders the rule instead of the error, deposit instructions with the mandatory reference, and an event timeline with actors and absolute timestamps.",
+    deps: ["data-table", "status-pill", "timeline", "field-list", "arithmetic-ladder", "bank-accounts", "list-error", "send"],
   },
   {
     name: "receive",
@@ -203,8 +203,18 @@ const BLOCKS = [
     name: "send",
     title: "Send block",
     description:
-      "Stage-then-confirm rendered: form, arithmetic-ladder review, a commit button that restates the amount, single execution on a pinned idempotency key, status timeline.",
-    deps: ["arithmetic-ladder", "timeline"],
+      "One door for money leaving the account, forked on what the recipient IS: a person on the platform (transfer), a saved verified recipient (payout), or your own bank account (the withdraw flow). Directory rows carry names and handles, never UUIDs; every money confirm passes a step-up code; reviews render only figures the API has produced; execution is single-shot on a key minted once per staged draft.",
+    deps: ["status-pill", "field-list", "data-table", "list-error"],
+    npm: [...RUNTIME_DEPENDENCIES, "@radix-ui/react-one-time-password-field@^0.1.16"],
+  },
+  {
+    name: "recipients",
+    title: "Recipients block",
+    description:
+      "The prerequisite surface for third-party payouts: recipients are parties with the payout-recipient role, each owning reviewed beneficiary bank accounts (details masked server-side), and payments reference a payout ROUTE that activates only after the funding wallet signs an ownership proof. Every route state renders; declined is terminal-negative with a way forward.",
+    deps: ["data-table", "status-pill", "field-list", "list-error"],
+    // No money figures render on this surface - identity and state only.
+    money: false,
   },
   {
     name: "activity",

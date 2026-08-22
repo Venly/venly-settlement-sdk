@@ -9,6 +9,9 @@ import { venlyKeys } from "./keys.js";
 export type PartiesQuery = NonNullable<Parameters<VenlyFinanceClient["parties"]["list"]>[0]>;
 export type AccountsQuery = NonNullable<Parameters<VenlyFinanceClient["accounts"]["list"]>[0]>;
 export type WalletsQuery = NonNullable<Parameters<VenlyFinanceClient["wallets"]["list"]>[1]>;
+export type PartyRolesQuery = NonNullable<
+  Parameters<VenlyFinanceClient["accounts"]["listPartyRoles"]>[1]
+>;
 export type VirtualBankAccountsQuery = NonNullable<
   Parameters<VenlyFinanceClient["virtualBankAccounts"]["list"]>[1]
 >;
@@ -69,6 +72,16 @@ export const venlyQueries = {
   account: (clients: VenlyClients, accountId: string) => ({
     queryKey: venlyKeys.account(accountId),
     queryFn: () => clients.finance.accounts.get(accountId),
+  }),
+
+  /**
+   * The parties attached to an account, each with a role type
+   * (ACCOUNT_HOLDER | PAYOUT_RECIPIENT) and a status. The payout-recipient
+   * rows are the account's saved third-party recipients.
+   */
+  partyRoles: (clients: VenlyClients, accountId: string, query?: PartyRolesQuery) => ({
+    queryKey: venlyKeys.partyRoles(accountId, query),
+    queryFn: () => clients.finance.accounts.listPartyRoles(accountId, query),
   }),
 
   wallets: (clients: VenlyClients, accountId: string, query?: WalletsQuery) => ({

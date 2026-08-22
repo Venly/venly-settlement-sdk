@@ -684,6 +684,14 @@ const payoutRouteSeeds: Record<string, schemas["PayoutRouteDto"][]> = {
   [accounts[4].id]: payoutRoutes,
 };
 
+// The wire carries no route -> bank-account key, so seeds declare which
+// beneficiary each seeded route was created against; both seeded routes pay
+// out to Acme's EUR account, exactly as the seeded payout history asserts.
+const routeBankAccountSeeds: Record<string, string> = {
+  [payoutRoutes[0].id]: payoutBankAccounts[0].id,
+  [payoutRoutes[1].id]: payoutBankAccounts[0].id,
+};
+
 const seededBeneficiary = {
   id: payoutBankAccounts[0].id,
   partyId: payoutBankAccounts[0].partyId,
@@ -764,6 +772,7 @@ export const financeSeeds: FinanceSeeds = {
   transfers,
   payoutBankAccounts,
   payoutRoutes: payoutRouteSeeds,
+  routeBankAccounts: routeBankAccountSeeds,
   payouts,
   supportedAssets,
   accountSupportedAssets,
@@ -1114,6 +1123,9 @@ function createSimulations(transport: FinanceMockTransport): VenlyFinanceSimulat
     seed: (profile) =>
       driven(() => {
         store().applyProfile(profile.seeds);
+        // Remembered only once the profile is accepted: a refused profile
+        // leaves the store - and therefore reset() - exactly as it was.
+        transport.$seedAfter = profile.after;
         // Transitions that must be driven rather than seeded, so states which
         // carry a decision also carry its event.
         profile.after?.(transport.simulations);
@@ -1340,8 +1352,17 @@ export class FinanceMockTransport extends MockTransport implements VenlyFinanceM
   reset(): void {
     this.store.reset();
     this.clear();
+    // Reset replays the world the last seed() BUILT, not just the fixtures it
+    // loaded: a profile's after() drives are part of that world (a refusal
+    // seeded as PENDING and DRIVEN to its decision, for example), so skipping
+    // them here would make two invocations that claim the same world produce
+    // different ones - and silently un-teach the cast's decided states.
+    this.$seedAfter?.(this.simulations);
     this.broadcast();
   }
+
+  /** Internal: the last accepted seed profile's after() drives, for reset(). */
+  $seedAfter: ((simulations: VenlyFinanceSimulations) => void) | undefined;
 }
 
 /** Module-level defaults for transports the caller cannot pass options to. */

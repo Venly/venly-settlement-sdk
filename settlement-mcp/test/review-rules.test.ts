@@ -368,11 +368,15 @@ test("round-number-coincidence: venly-allow on the line above the first counted 
 });
 
 test("blueprint-state-missing: parenthetical commas never become state keywords", () => {
-  // The send blueprint's last state is "failed (reason shown, terminal)" -
-  // a naive comma split yields the garbage keyword "terminal)" which no
-  // source can contain, making the journey structurally unable to pass.
+  // Several send states carry parentheticals with commas - e.g. "failed
+  // (the record's own error verbatim, terminal)" - and a naive comma split
+  // would yield garbage keywords like "terminal)" which no source can
+  // contain, making the journey structurally unable to pass.
   const complete = `
-    type Phase = "draft" | "staged review" | "submitting" | "pending" | "completed" | "failed";
+    // recipient picker; rows disabled with the reason; over-balance gate;
+    // review; step-up ceremony; no active route; load failure with retry.
+    type TransferPhase = "pending" | "completed" | "failed";
+    type PayoutPhase = "requested" | "sending" | "provider processing" | "rejected" | "returned";
   `;
   const findings = reviewScreenSource(complete, "send").filter(
     (f) => f.rule === "blueprint-state-missing",
@@ -381,11 +385,11 @@ test("blueprint-state-missing: parenthetical commas never become state keywords"
 });
 
 test("blueprint-state-missing: reports genuinely absent states with the journey's true count", () => {
-  const partial = `type Phase = "draft" | "submitting";`;
+  const partial = `type Phase = "pending" | "completed";`;
   const findings = reviewScreenSource(partial, "send").filter(
     (f) => f.rule === "blueprint-state-missing",
   );
   assert.equal(findings.length, 1);
-  assert.match(findings[0].fix, /The send blueprint names 6 states/);
+  assert.match(findings[0].fix, /The send blueprint names 15 states/);
   assert.ok(!findings[0].evidence.includes(")"), "no parser artifacts in the missing list");
 });

@@ -15,6 +15,8 @@ export const venlyKeys = {
 
   accounts: (query?: unknown) => ["venly", "accounts", query ?? null] as const,
   account: (accountId: string) => ["venly", "account", accountId] as const,
+  partyRoles: (accountId: string, query?: unknown) =>
+    ["venly", "account", accountId, "party-roles", query ?? null] as const,
 
   wallets: (accountId: string, query?: unknown) =>
     ["venly", "account", accountId, "wallets", query ?? null] as const,

@@ -323,3 +323,56 @@ test("payout settlement never defaults at par: the seeded rate converts, unknown
   });
   assert.equal(settled.settledFiatAmount, 731.9);
 });
+
+test("payouts: the embedded beneficiary is the route's OWN bank account, never a lookalike", async () => {
+  const f = mockFinance();
+
+  // Register a beneficiary that shares the seeded account's currency but
+  // nothing else - the exact conditions under which a currency-matched
+  // lookup serves the wrong party.
+  const registered = await f.payoutBankAccounts.register(ORG_PARTY, {
+    rail: "SEPA",
+    fiatCurrency: "EUR",
+    label: "Meridian settlement",
+    accountHolderName: "Meridian Suppliers GmbH",
+    railDetails: { iban: "DE02120300000000202051" },
+    bankName: "Deutsche Bank AG",
+  });
+  f.mock.advancePayoutBankAccount(registered.id);
+  const route = await f.payoutRoutes.create(PAYOUTS_ACCT, {
+    payoutBankAccountId: registered.id,
+    depositAsset: { chain: "BASE", name: "USDC" },
+  });
+  const proof = await f.payoutRoutes.prepareOwnershipProof(PAYOUTS_ACCT, route.id);
+  await f.payoutRoutes.completeOwnershipProof(PAYOUTS_ACCT, route.id, {
+    message: proof.message,
+    signature: "0xsigned",
+  });
+
+  const payout = await f.payouts.request(PAYOUTS_ACCT, {
+    payoutRouteId: route.id,
+    cryptoAmount: 120.25,
+    idempotencyKey: "9b2f4c6e-1d3a-4f5b-8c7d-0a1b2c3d4e5f",
+  });
+  assert.equal(payout.payoutRoute.id, route.id);
+  const beneficiary = payout.payoutRoute.beneficiary;
+  assert.equal(beneficiary?.accountHolderName, "Meridian Suppliers GmbH");
+  assert.equal(beneficiary?.bankName, "Deutsche Bank AG");
+  assert.equal(beneficiary?.details?.ibanLast4, "2051");
+  assert.equal(beneficiary?.id, registered.id);
+
+  // The read-back agrees with the create response - review and detail must
+  // never contradict each other about who gets paid.
+  const detail = await f.payouts.get(PAYOUTS_ACCT, payout.id);
+  assert.equal(detail.payoutRoute.beneficiary?.accountHolderName, "Meridian Suppliers GmbH");
+  assert.equal(detail.payoutRoute.beneficiary?.details?.ibanLast4, "2051");
+
+  // The SEEDED active route keeps its declared pairing (Acme's EUR account).
+  const seededPayout = await f.payouts.request(PAYOUTS_ACCT, {
+    payoutRouteId: ACTIVE_ROUTE,
+    cryptoAmount: 60.75,
+    idempotencyKey: "1e2d3c4b-5a69-4788-9796-a5b4c3d2e1f0",
+  });
+  assert.equal(seededPayout.payoutRoute.beneficiary?.accountHolderName, "Acme Corporation B.V.");
+  assert.equal(seededPayout.payoutRoute.beneficiary?.details?.ibanLast4, "3000");
+});
