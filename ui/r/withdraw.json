@@ -5,8 +5,8 @@
   "title": "Withdraw block",
   "description": "Fiat out to your own verified bank account, rendered truthfully: destination picker that disables unverified accounts with the reason, a fee quote in the unit you typed, four-eyes approval that renders the rule instead of the error, deposit instructions with the mandatory reference, and an event timeline with actors and absolute timestamps.",
   "dependencies": [
-    "@venlyfinance/react@^0.5.0",
-    "@venlyfinance/sdk@^0.6.0",
+    "@venlyfinance/react@^0.6.0",
+    "@venlyfinance/sdk@^0.7.0",
     "@tanstack/react-query@^5.0.0"
   ],
   "registryDependencies": [

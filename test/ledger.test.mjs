@@ -275,7 +275,7 @@ test("determinism: a scripted run replays deep-equal after reset", async () => {
 
 // ── Criterion 9: demoCast ──────────────────────────────────────────────
 
-test("demoCast: six personas, every state contract-real", async () => {
+test("demoCast: seven personas, every state contract-real", async () => {
   const t = new FinanceMockTransport();
   t.simulations.seed(seedProfiles.demoCast);
   const sim = t.simulations;
@@ -283,7 +283,7 @@ test("demoCast: six personas, every state contract-real", async () => {
 
   const parties = t.$store.parties;
   const accounts = t.$store.accounts;
-  assert.equal(accounts.length, 6, "six personas");
+  assert.equal(accounts.length, 7, "seven personas");
 
   // 1. approved and transacting
   const transacting = accounts.find((a) => a.externalId === "cast-transacting");
@@ -291,7 +291,7 @@ test("demoCast: six personas, every state contract-real", async () => {
   assert.ok(t.$store.transfers.some((x) => x.senderAccountId === transacting.id && x.status === "COMPLETED"));
 
   // 2. identity verification in flight, readable through the contract route
-  const atlas = parties.find((p) => p.companyName === "Atlas Imports");
+  const atlas = parties.find((p) => p.name === "Atlas Imports");
   const iv = await t.request("GET", `/parties/${atlas.id}/iv-verification`);
   assert.equal(iv.result.status, "SUBMITTED");
 
@@ -303,19 +303,38 @@ test("demoCast: six personas, every state contract-real", async () => {
   const returned = t.$store.payouts.find((p) => p.status === "RETURNED");
   assert.ok(returned && returned.failureReason, "a return always explains itself");
 
-  // 5. a DENIED organisation, and the decision that produced it
-  const delta = parties.find((p) => p.companyName === "Delta Holdings");
+  // 5. a DENIED organisation, and the decision that produced it - on BOTH
+  // planes: the driver acts on a party or an account, never both, so the
+  // profile drives each. An account left VERIFICATION_PENDING under a
+  // refused party would read as a decision still owed on a refused subject.
+  const delta = parties.find((p) => p.name === "Delta Holdings");
   assert.equal(delta.kybStatus, "DENIED", "DENIED lives on kybStatus; kycStatus uses REJECTED");
   assert.ok(
     sim.events.list().some((e) => e.type === "party.verification_changed" && e.resource.id === delta.id),
     "a refusal is a decision someone made, so it carries an event",
   );
+  const deniedAccount = accounts.find((a) => a.externalId === "cast-denied");
+  assert.equal(deniedAccount.kycStatus, "REJECTED", "the refused subject's account carries the refusal too");
+  assert.ok(
+    sim.events.list().some(
+      (e) => e.type === "account.verification_changed" && e.resource.id === deniedAccount.id,
+    ),
+    "the account decision carries its event too",
+  );
+
+  // 7. screening complete, account decision owed - the review-queue row.
+  const reviewable = accounts.find((a) => a.externalId === "cast-reviewable");
+  assert.equal(reviewable.kycStatus, "VERIFICATION_PENDING", "the account decision is still open");
+  const foxtrot = parties.find((p) => p.name === "Foxtrot Logistics");
+  assert.equal(foxtrot.kybStatus, "VERIFIED", "the party itself is fine - the ACCOUNT decision is the open one");
+  const foxtrotIv = await t.request("GET", `/parties/${foxtrot.id}/iv-verification`);
+  assert.equal(foxtrotIv.result.status, "COMPLETED", "evidence is in; the decision is owed");
 });
 
 test("demoCast: an unverified party's IV reads NOT_LINKED rather than 404", async () => {
   const t = new FinanceMockTransport();
   t.simulations.seed(seedProfiles.demoCast);
-  const nova = t.$store.parties.find((p) => p.companyName === "Nova Retail");
+  const nova = t.$store.parties.find((p) => p.name === "Nova Retail");
   const iv = await t.request("GET", `/parties/${nova.id}/iv-verification`);
   assert.equal(iv.result.status, "NOT_LINKED", "IV is a state every party has, not a resource some lack");
 });
@@ -548,7 +567,7 @@ test("demoCast: each persona's account is held by its OWN party", async () => {
     // applicant's account read as held by a verified organisation.
     if (account.externalId === "cast-denied") assert.equal(holder.kybStatus, "DENIED");
     if (account.externalId === "cast-iv-submitted") assert.equal(holder.kybStatus, "PENDING");
-    if (account.externalId === "cast-transacting") assert.equal(holder.companyName, "Nova Retail");
+    if (account.externalId === "cast-transacting") assert.equal(holder.name, "Nova Retail");
   }
   const denied = t.$store.accounts.find((a) => a.externalId === "cast-denied");
   const assets = await t.request("GET", `/accounts/${denied.id}/supported-assets`);

@@ -5,8 +5,8 @@
   "title": "Statements block",
   "description": "A fixed-period account statement: calendar-month or custom range, identity (party, account, vIBAN when present), opening and closing walked from the current wallet total through completed transfers, ordered rows, and a print-to-PDF download that reuses the receive pipeline. Coverage is labelled: pay-in sessions are not in this feed.",
   "dependencies": [
-    "@venlyfinance/react@^0.5.0",
-    "@venlyfinance/sdk@^0.6.0",
+    "@venlyfinance/react@^0.6.0",
+    "@venlyfinance/sdk@^0.7.0",
     "@tanstack/react-query@^5.0.0"
   ],
   "registryDependencies": [

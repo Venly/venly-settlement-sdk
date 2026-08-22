@@ -5,8 +5,8 @@
   "title": "Reconciliation block",
   "description": "Match inbound bank credits to expected payments without blurring the two feeds: the credit rows are the integrator's own bank/PSP feed (labelled so), the reference codes are Venly-issued. Sectioned exception queue with zero-counts always drawn, a judging workspace with the received evidence left of the candidates, per-signal match rationale instead of a score, a many-to-one builder with a live difference figure, four peer dispositions, and undo that reopens the expected payment.",
   "dependencies": [
-    "@venlyfinance/react@^0.5.0",
-    "@venlyfinance/sdk@^0.6.0",
+    "@venlyfinance/react@^0.6.0",
+    "@venlyfinance/sdk@^0.7.0",
     "@tanstack/react-query@^5.0.0"
   ],
   "registryDependencies": [

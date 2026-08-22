@@ -13,6 +13,13 @@ export type VirtualBankAccountsQuery = NonNullable<
   Parameters<VenlyFinanceClient["virtualBankAccounts"]["list"]>[1]
 >;
 export type TransfersQuery = NonNullable<Parameters<VenlyFinanceClient["transfers"]["list"]>[1]>;
+export type PayoutsQuery = NonNullable<Parameters<VenlyFinanceClient["payouts"]["list"]>[1]>;
+export type PayoutRoutesQuery = NonNullable<
+  Parameters<VenlyFinanceClient["payoutRoutes"]["list"]>[1]
+>;
+export type PayoutBankAccountsQuery = NonNullable<
+  Parameters<VenlyFinanceClient["payoutBankAccounts"]["list"]>[1]
+>;
 export type RampRequestsQuery = NonNullable<
   Parameters<FundflowClient["rampRequests"]["list"]>[0]
 >;
@@ -41,6 +48,17 @@ export const venlyQueries = {
   party: (clients: VenlyClients, partyId: string) => ({
     queryKey: venlyKeys.party(partyId),
     queryFn: () => clients.finance.parties.get(partyId),
+  }),
+
+  /**
+   * The party's identity-verification state, read off the contract operation
+   * (`getPartyIvVerification`) - never off the mock's internals, so the same
+   * read works against every environment. `NOT_LINKED` is a state, not an
+   * error: an unlinked party resolves rather than rejecting.
+   */
+  partyIvVerification: (clients: VenlyClients, partyId: string) => ({
+    queryKey: venlyKeys.partyIvVerification(partyId),
+    queryFn: () => clients.finance.parties.ivVerification(partyId),
   }),
 
   accounts: (clients: VenlyClients, query?: AccountsQuery) => ({
@@ -87,6 +105,30 @@ export const venlyQueries = {
   transfer: (clients: VenlyClients, accountId: string, transferId: string) => ({
     queryKey: venlyKeys.transfer(accountId, transferId),
     queryFn: () => clients.finance.transfers.get(accountId, transferId),
+  }),
+
+  payouts: (clients: VenlyClients, accountId: string, query?: PayoutsQuery) => ({
+    queryKey: venlyKeys.payouts(accountId, query),
+    queryFn: () => clients.finance.payouts.list(accountId, query),
+  }),
+
+  payout: (clients: VenlyClients, accountId: string, payoutId: string) => ({
+    queryKey: venlyKeys.payout(accountId, payoutId),
+    queryFn: () => clients.finance.payouts.get(accountId, payoutId),
+  }),
+
+  payoutRoutes: (clients: VenlyClients, accountId: string, query?: PayoutRoutesQuery) => ({
+    queryKey: venlyKeys.payoutRoutes(accountId, query),
+    queryFn: () => clients.finance.payoutRoutes.list(accountId, query),
+  }),
+
+  payoutBankAccounts: (
+    clients: VenlyClients,
+    partyId: string,
+    query?: PayoutBankAccountsQuery,
+  ) => ({
+    queryKey: venlyKeys.payoutBankAccounts(partyId, query),
+    queryFn: () => clients.finance.payoutBankAccounts.list(partyId, query),
   }),
 
   rampRequests: (clients: VenlyClients, query?: RampRequestsQuery) => ({

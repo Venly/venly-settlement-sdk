@@ -20,7 +20,13 @@ export type { MockEvent, MockEventType, MockClock, MockIdSource } from "./runtim
 export { memoryChannel, broadcastChannel } from "./channel.js";
 export type { MockStateChannel, MockChannelMessage } from "./channel.js";
 export { FinanceMockStore } from "./store.js";
-export type { FinanceSeeds, VerificationStatusInput } from "./store.js";
+export type {
+  FinanceSeeds,
+  VerificationStatusInput,
+  MockPayoutManagementTwin,
+  MockPayoutRow,
+  MockInboundCredit,
+} from "./store.js";
 export { fundflowRoutes, createFundflowRoutes, fundflowSeeds, FundflowMockTransport } from "./fundflow.js";
 export type { VenlyFundflowMock } from "./fundflow.js";
 export { FundflowMockStore } from "./fundflow-store.js";

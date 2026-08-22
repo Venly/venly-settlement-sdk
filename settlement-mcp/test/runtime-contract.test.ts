@@ -23,19 +23,19 @@ const JOURNEY_BLOCKS = {
   reconciliation: ["reconciliation"],
   "proof-of-segregation": ["balances"],
   approvals: ["withdraw"],
-  // The console screens have no composite block yet: they are built from
-  // primitives, which declare no npm dependencies, so their package contract
-  // comes from DATA_PLANE_PACKAGES rather than from a block.
-  "console-review-queue": [],
-  "console-decision-detail": [],
+  "console-review-queue": ["console-queue"],
+  "console-decision-detail": ["console-decision"],
+  // These two are built from primitives until their blocks ship: primitives
+  // declare no npm dependencies, so the package contract comes from
+  // DATA_PLANE_PACKAGES rather than from a block.
   "console-pricing-config": [],
   "console-simulator": [],
 } as const;
 
 /** Mirrors DATA_PLANE_PACKAGES in src/frontend.ts. */
 const DATA_PLANE_PACKAGES = {
-  "@venlyfinance/react": "^0.5.0",
-  "@venlyfinance/sdk": "^0.6.0",
+  "@venlyfinance/react": "^0.6.0",
+  "@venlyfinance/sdk": "^0.7.0",
   "@tanstack/react-query": "^5.0.0",
 } as const;
 

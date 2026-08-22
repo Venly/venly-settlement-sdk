@@ -245,6 +245,27 @@ export class PartiesResource {
   delete(partyId: string, opts?: CallOptions): Promise<void> {
     return this.http.request<void>("DELETE", `/parties/${partyId}`, opts);
   }
+
+  /**
+   * `GET /parties/{partyId}/iv-verification` (operation
+   * `getPartyIvVerification`): the party's identity-verification state -
+   * `NOT_LINKED · SUBMITTED · FORWARDED · ACCEPTED · COMPLETED · FAILED`,
+   * with the case reference and link time. A party with no linked case reads
+   * `NOT_LINKED` rather than 404: the contract models identity verification
+   * as a state every party has, not a resource some parties lack.
+   */
+  ivVerification(
+    partyId: string,
+    opts?: CallOptions,
+  ): Promise<schemas["PartyIvVerificationDto"]> {
+    return this.http
+      .request<Envelope<schemas["PartyIvVerificationDto"]>>(
+        "GET",
+        `/parties/${partyId}/iv-verification`,
+        opts,
+      )
+      .then(unwrap);
+  }
 }
 
 export class AccountsResource {

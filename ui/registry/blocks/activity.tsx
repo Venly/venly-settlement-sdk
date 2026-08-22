@@ -763,7 +763,7 @@ export function rampSigned(ramp: RampActivityItem): { amount: number; signed: bo
 }
 
 export function unifiedToCsv(rows: UnifiedActivityRow[], accountId?: string, accountName?: string): string {
-  const header = "source,id,reference,type,date,scope,amount,currency,Converted amount,convertedCurrency,status";
+  const header = "source,id,reference,type,date,scope,amount,currency,convertedAmount,convertedCurrency,status";
   const lines = rows.map((row) => {
     if (row.kind === "transfer") {
       const t = row.transfer;

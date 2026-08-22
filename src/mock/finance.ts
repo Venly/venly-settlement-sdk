@@ -8,7 +8,14 @@ import {
   type VenlyMock,
 } from "./transport.js";
 import { errorPresets } from "./errors.js";
-import { FinanceMockStore, type FinanceSeeds, type VerificationStatusInput, type MockInboundCredit } from "./store.js";
+import {
+  FinanceMockStore,
+  type FinanceSeeds,
+  type VerificationStatusInput,
+  type MockInboundCredit,
+  type MockPayoutManagementTwin,
+  type MockPayoutRow,
+} from "./store.js";
 import {
   broadcastChannel,
   memoryChannel,
@@ -702,7 +709,9 @@ export const payouts = [
     },
     rail: "SEPA",
     cryptoAmount: 1500,
-    settledFiatAmount: 1500,
+    // 1500 USDC × 0.92 EUR (the seeded rate): the settled fiat side must
+    // never coincide numerically with the crypto side.
+    settledFiatAmount: 1380,
     fundingMode: "PULL",
     status: "COMPLETED",
     sendTxHash: "0x7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2a1b2c3d4e5f6a",
@@ -1026,16 +1035,58 @@ export interface VenlyFinanceSimulations {
       status: NonNullable<schemas["PartyIvVerificationDto"]["status"]>,
     ): schemas["PartyIvVerificationDto"];
   };
+  /**
+   * Account-level drivers. `setStatus` writes a field NO contract operation
+   * writes on either plane - it exists so the frozen state is demonstrable
+   * while the real write op stays an open ask. A surface rendering it must
+   * badge it as a driver, never as a contract operation.
+   */
+  account: {
+    setStatus(
+      accountId: string,
+      status: NonNullable<schemas["AccountListItemDto"]["status"]>,
+    ): schemas["AccountListItemDto"];
+  };
+  /** Party-level drivers. Same driver-not-contract-op rule as accounts. */
+  party: {
+    setStatus(
+      partyId: string,
+      status: NonNullable<schemas["PartyDto"]["status"]>,
+    ): schemas["PartyDto"];
+  };
   transfer: { advance(id: string, status?: "COMPLETED" | "FAILED"): void };
   paymentSession: {
     advance(id: string, to: NonNullable<schemas["PayInSessionDto"]["status"]>): schemas["PayInSessionDto"];
   };
   payout: {
+    /**
+     * Walk a payout to any documented status. Beyond the lifecycle opts, the
+     * driver accepts the management-ceremony fields the finance plane cannot
+     * carry (`note`, `fiatReference`, `dakotaOfframpTxId` on confirm;
+     * `providerReference` on return) and `reconciliationState` - computed by
+     * the management plane in production, so the mock stores only what a
+     * driver asserts and never defaults it.
+     */
     advance(
       id: string,
       to: NonNullable<schemas["PayoutDto"]["status"]>,
-      opts?: { settledFiatAmount?: number; failureReason?: string; sendTxHash?: string },
-    ): schemas["PayoutDto"];
+      opts?: {
+        settledFiatAmount?: number;
+        failureReason?: string;
+        sendTxHash?: string;
+        note?: string;
+        fiatReference?: string;
+        dakotaOfframpTxId?: string;
+        providerReference?: string;
+        reconciliationState?: MockPayoutManagementTwin["reconciliationState"];
+      },
+    ): MockPayoutRow;
+    /**
+     * Mock-only read: payout rows WITH their management twin, for surfaces
+     * that render the reconciliation axis. The finance routes never serve
+     * these fields; this is the honest place to read them in a demo.
+     */
+    list(accountId?: string): MockPayoutRow[];
   };
   payoutRoute: {
     advance(id: string, to: NonNullable<schemas["PayoutRouteDto"]["status"]>): schemas["PayoutRouteDto"];
@@ -1085,9 +1136,18 @@ function createSimulations(transport: FinanceMockTransport): VenlyFinanceSimulat
       advance: (id, status) => driven(() => store().advanceVerification(id, status)),
       advanceIv: (partyId, status) => driven(() => store().advanceIvVerification(partyId, status)),
     },
+    account: {
+      setStatus: (accountId, status) => driven(() => store().setAccountStatus(accountId, status)),
+    },
+    party: {
+      setStatus: (partyId, status) => driven(() => store().setPartyStatus(partyId, status)),
+    },
     transfer: { advance: (id, status) => driven(() => store().advanceTransfer(id, status)) },
     paymentSession: { advance: (id, to) => driven(() => store().advancePaymentSession(id, to)) },
-    payout: { advance: (id, to, opts) => driven(() => store().advancePayout(id, to, opts)) },
+    payout: {
+      advance: (id, to, opts) => driven(() => store().advancePayout(id, to, opts)),
+      list: (accountId) => store().listMockPayouts(accountId),
+    },
     payoutRoute: { advance: (id, to) => driven(() => store().advancePayoutRoute(id, to)) },
     payoutBankAccount: {
       advance: (id, to) => driven(() => store().advancePayoutBankAccount(id, to)),

@@ -81,6 +81,8 @@ export type MockEventType =
   | "party.verification_changed"
   | "party.iv_status_changed"
   | "account.verification_changed"
+  | "account.status_changed"
+  | "party.status_changed"
   | "payment_session.status_changed"
   | "inbound_credit.received"
   | "wallet.balance_changed"

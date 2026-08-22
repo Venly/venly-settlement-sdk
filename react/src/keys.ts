@@ -7,6 +7,11 @@ export const venlyKeys = {
 
   parties: (query?: unknown) => ["venly", "parties", query ?? null] as const,
   party: (partyId: string) => ["venly", "party", partyId] as const,
+  // Shares the ["venly","party",id] prefix so a party invalidation reaches it.
+  partyIvVerification: (partyId: string) =>
+    ["venly", "party", partyId, "iv-verification"] as const,
+  payoutBankAccounts: (partyId: string, query?: unknown) =>
+    ["venly", "party", partyId, "payout-bank-accounts", query ?? null] as const,
 
   accounts: (query?: unknown) => ["venly", "accounts", query ?? null] as const,
   account: (accountId: string) => ["venly", "account", accountId] as const,
@@ -23,6 +28,12 @@ export const venlyKeys = {
 
   transfers: (accountId: string, query?: unknown) =>
     ["venly", "account", accountId, "transfers", query ?? null] as const,
+  payouts: (accountId: string, query?: unknown) =>
+    ["venly", "account", accountId, "payouts", query ?? null] as const,
+  payout: (accountId: string, payoutId: string) =>
+    ["venly", "account", accountId, "payout", payoutId] as const,
+  payoutRoutes: (accountId: string, query?: unknown) =>
+    ["venly", "account", accountId, "payout-routes", query ?? null] as const,
   transfersForPeriod: (accountId: string, period: { start: string; end: string }) =>
     ["venly", "account", accountId, "transfers-for-period", period.start, period.end] as const,
   transfer: (accountId: string, transferId: string) =>

@@ -24,6 +24,14 @@ export interface FieldRow {
   copyable?: boolean;
   /** Render alphanumeric tokens (IBANs, references) in tabular figures. */
   mono?: boolean;
+  /**
+   * A labelled omission: the field exists but this surface cannot serve it.
+   * The copy states only what is verified – it must never imply a result, a
+   * pending state, or a clean one. Renders instead of a value, with no copy
+   * control and no Required pill; it is a statement about the surface, not
+   * about the record.
+   */
+  omissionCopy?: string;
 }
 
 export interface FieldListProps {
@@ -73,7 +81,7 @@ export function FieldList({ fields, onCopy, style, className }: FieldListProps):
     >
       {fields.map((field) => {
         const hasValue = field.value !== undefined && field.value !== null && field.value !== "";
-        const copyable = hasValue && (field.copyable ?? true);
+        const copyable = hasValue && field.omissionCopy === undefined && (field.copyable ?? true);
         return (
           <div
             key={field.label}
@@ -109,10 +117,19 @@ export function FieldList({ fields, onCopy, style, className }: FieldListProps):
             >
               {/* A required field can never read "(not required)": a missing
                   mandatory value is a state ("not assigned yet"), not an
-                  exemption. */}
-              {hasValue ? field.value : field.required ? "Not assigned yet" : "(not required)"}
+                  exemption. An omission renders its own copy - a statement
+                  about the surface, never a claim about the record. */}
+              {field.omissionCopy !== undefined ? (
+                <span style={{ color: "var(--text-tertiary)" }}>{field.omissionCopy}</span>
+              ) : hasValue ? (
+                field.value
+              ) : field.required ? (
+                "Not assigned yet"
+              ) : (
+                "(not required)"
+              )}
             </dd>
-            {field.required ? <RequiredPill /> : null}
+            {field.required && field.omissionCopy === undefined ? <RequiredPill /> : null}
             {copyable ? (
               <button
                 type="button"

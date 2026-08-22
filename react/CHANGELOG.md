@@ -48,3 +48,33 @@ Initial release.
   matching `venlyQueries` factories; the account-scoped key shares the
   `["venly", "account", id]` prefix so account invalidations reach it.
 - Requires `@venlyfinance/sdk` ^0.5.0 (the `supportedAssets` resource).
+
+## 0.5.0 – 2026-08-21
+
+*(Entry backfilled 2026-08-21 – this release shipped without a changelog note.)*
+
+- `useTransfersForPeriod(accountId, period)`: every transfer whose `createdAt`
+  falls in the period, plus the account's full ledger after paging to
+  completion (the list contract has no date filter), so opening/closing
+  balances can be walked from the current wallet total. Backed by the exported
+  `collectTransfersForPeriod` helper and the `venlyKeys.transfersForPeriod`
+  key.
+- New exported types: `TransferPeriod`, `TransfersForPeriodPage`.
+
+## 0.6.0 – 2026-08-21
+
+- `usePartyIvVerification(partyId)`: the party's identity-verification state,
+  read off the contract operation (`getPartyIvVerification`, sdk 0.7.0).
+  `NOT_LINKED` resolves like any other state.
+- Payout read hooks over client methods that already existed but had no hook:
+  `usePayouts(accountId, query?)`, `usePayout(accountId, payoutId)`,
+  `usePayoutRoutes(accountId, query?)`, `usePayoutBankAccounts(partyId, query?)`.
+- Matching `venlyKeys` / `venlyQueries` factories; the party-scoped keys share
+  the `["venly", "party", id]` prefix and the account-scoped keys the
+  `["venly", "account", id]` prefix, so existing invalidations reach the new
+  reads.
+- New exported types: `PartyIvVerification`, `PayoutsQuery`,
+  `PayoutRoutesQuery`, `PayoutBankAccountsQuery`.
+- Requires `@venlyfinance/sdk` ^0.7.0 (the `parties.ivVerification` method).
+  The manifest range moves with the publish, alongside the lockfile
+  regeneration, per this repo's publish sequencing.

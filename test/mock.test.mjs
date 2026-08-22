@@ -574,3 +574,44 @@ test("inbound-credit: simulating for an unknown VBA throws", () => {
     /no virtual bank account with id/,
   );
 });
+
+// ── Status drivers (account/party `status` has no write op on any plane) ─
+
+test("status drivers: setStatus flips the field, bumps the lock, and emits its event", async () => {
+  const f = mockFinance();
+  const sim = f.mock.simulations;
+  const acct = "a10c2d31-2222-4b20-8c63-000000000001";
+
+  const before = await f.accounts.get(acct);
+  const frozen = sim.account.setStatus(acct, "SUSPENDED");
+  assert.equal(frozen.status, "SUSPENDED");
+  assert.equal(frozen.version, (before.version ?? 0) + 1, "a status write moves the optimistic lock");
+  const read = await f.accounts.get(acct);
+  assert.equal(read.status, "SUSPENDED", "the frozen state is readable through the contract route");
+
+  const event = sim.events
+    .list()
+    .find((e) => e.type === "account.status_changed" && e.resource.id === acct);
+  assert.ok(event, "the freeze leaves an event, like every other transition");
+  assert.equal(event.previous.status, before.status ?? "ACTIVE");
+
+  const parties = await f.parties.list();
+  const party = parties.items[0];
+  const blocked = sim.party.setStatus(party.id, "BLOCKED");
+  assert.equal(blocked.status, "BLOCKED");
+  assert.ok(
+    sim.events.list().some((e) => e.type === "party.status_changed" && e.resource.id === party.id),
+    "party freezes carry their event too",
+  );
+
+  // Reactivation walks the same path, so the trail shows both directions.
+  sim.account.setStatus(acct, "ACTIVE");
+  const events = sim.events.list().filter((e) => e.type === "account.status_changed");
+  assert.equal(events.length, 2, "one event per transition, no coalescing");
+});
+
+test("status drivers: an unknown id throws instead of minting a row", () => {
+  const f = mockFinance();
+  assert.throws(() => f.mock.simulations.account.setStatus("no-such-account", "SUSPENDED"), /no account with id/);
+  assert.throws(() => f.mock.simulations.party.setStatus("no-such-party", "SUSPENDED"), /no party with id/);
+});

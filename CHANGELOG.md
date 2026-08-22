@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.7.0 – 2026-08-21
+
+- **Party identity-verification read.** `parties.ivVerification(partyId)` wraps
+  `GET /parties/{partyId}/iv-verification` (`getPartyIvVerification`). A party
+  with no linked case resolves `NOT_LINKED` rather than 404.
+- **Demo cast grows the review-queue persona.** `demoCast` is now seven
+  personas: the new one carries a completed screening with the account
+  decision still open, so an operator worklist over these seeds is never
+  empty. The refused organisation's account now carries the refusal too
+  (the verification driver acts on a party or an account, never both), and
+  seeded organisations carry their name on the contract field.
+- **Status drivers.** `simulations.account.setStatus` and
+  `simulations.party.setStatus` make the frozen state demonstrable, emitting
+  the new `account.status_changed` / `party.status_changed` event types
+  through the same path every other transition uses. No contract operation
+  writes these fields on either plane, so a surface rendering the controls
+  must badge them as drivers.
+- **Payout management twin.** The mock payout row carries the
+  management-plane reconciliation fields (`reconciliationState`,
+  `providerType`, `providerPayoutId`, `providerReference`,
+  `sourceWalletAddress`, `minutesInProviderProcessing`) and the decision-note
+  fields (`note`, `fiatReference`, `dakotaOfframpTxId`), shaped verbatim
+  against the management schema. `simulations.payout.advance` accepts and
+  persists them - `reconciliationState` is never defaulted - and
+  `simulations.payout.list()` is the mock-only read. The finance routes
+  project every payout response down to `PayoutDto`, so the public plane
+  never serves a field its schema does not declare.
+- New exported types: `MockPayoutManagementTwin`, `MockPayoutRow`,
+  `MockEventType`.
+
 ## 0.6.0 – 2026-08-19
 
 - **BREAKING (mock mode): mock transfers and PULL payouts now debit real balances.**

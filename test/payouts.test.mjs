@@ -21,7 +21,7 @@ test("payouts: seeds cover the happy end, in-flight, and money that came back", 
 
   const done = page.items.find((p) => p.status === "COMPLETED");
   assert.ok(done.completedAt, "COMPLETED carries completedAt");
-  assert.equal(done.settledFiatAmount, 1500, "COMPLETED carries the settled fiat amount");
+  assert.equal(done.settledFiatAmount, 1380, "COMPLETED carries the settled fiat amount - never numerically equal to the crypto side");
   // List rows carry the route SUMMARY only; beneficiary lives on the detail.
   assert.equal(done.payoutRoute?.beneficiary, undefined, "no beneficiary on list rows");
   assert.equal(done.payoutRoute?.depositAddress, undefined, "no deposit address on list rows");
@@ -113,7 +113,10 @@ test("payouts: the full ceremony from bank account to COMPLETED", async () => {
   f.mock.advancePayout(payout.id, "PROVIDER_PROCESSING");
   const completed = f.mock.advancePayout(payout.id, "COMPLETED");
   assert.ok(completed.completedAt);
-  assert.equal(completed.settledFiatAmount, 250.5, "stablecoin par unless overridden");
+  // 250.5 USDC × 0.92 EUR (the seeded rate) - a par default would make the
+  // crypto and fiat sides numerically identical, the exact falsehood the
+  // rate table exists to prevent.
+  assert.equal(completed.settledFiatAmount, 230.46, "settles at the seeded rate, never at par");
   assert.ok(completed.sendTxHash);
 });
 
@@ -190,4 +193,133 @@ test("payout routes: list is scoped to the account", async () => {
 
   const other = await f.payoutRoutes.list("a10c2d31-2222-4b20-8c63-000000000001");
   assert.deepEqual(other, [], "accounts without routes answer empty, not error");
+});
+
+// ── Management twin (mock-only reconciliation + ceremony fields) ────────
+
+test("payout twin: the ceremony fields persist on the mock row and replicate through advance", async () => {
+  const f = mockFinance();
+  const sim = f.mock.simulations;
+  const page = await f.payouts.list(PAYOUTS_ACCT);
+  const inFlight = page.items.find((p) => p.status === "PROVIDER_PROCESSING");
+
+  // Confirm-completion ceremony: the management op's fields, stored as asserted.
+  const completed = sim.payout.advance(inFlight.id, "COMPLETED", {
+    settledFiatAmount: 2643.18,
+    note: "Settled against Iron statement line 4471",
+    fiatReference: "FR-2026-0815-2650",
+    dakotaOfframpTxId: "dk-off-77disc",
+    reconciliationState: "MATCHED",
+  });
+  assert.equal(completed.note, "Settled against Iron statement line 4471");
+  assert.equal(completed.fiatReference, "FR-2026-0815-2650");
+  assert.equal(completed.dakotaOfframpTxId, "dk-off-77disc");
+  assert.equal(completed.reconciliationState, "MATCHED");
+
+  // The mock-only read serves the twin; rows without asserted values stay bare.
+  const rows = sim.payout.list(PAYOUTS_ACCT);
+  const twinRow = rows.find((p) => p.id === inFlight.id);
+  assert.equal(twinRow.reconciliationState, "MATCHED");
+  const requested = rows.find((p) => p.status === "REQUESTED");
+  assert.equal(requested?.reconciliationState, undefined, "never defaulted, never guessed");
+
+  // Return ceremony on a fresh transport: reason -> failureReason, plus the
+  // provider's reference.
+  const g = mockFinance();
+  const gInFlight = (await g.payouts.list(PAYOUTS_ACCT)).items.find(
+    (p) => p.status === "PROVIDER_PROCESSING",
+  );
+  const returned = g.mock.simulations.payout.advance(gInFlight.id, "RETURNED", {
+    failureReason: "Beneficiary account closed",
+    providerReference: "RTN-100233",
+  });
+  assert.equal(returned.failureReason, "Beneficiary account closed");
+  assert.equal(returned.providerReference, "RTN-100233");
+});
+
+test("payout twin: the finance routes never serve a management-plane field", async () => {
+  const f = mockFinance();
+  const sim = f.mock.simulations;
+  const inFlight = (await f.payouts.list(PAYOUTS_ACCT)).items.find(
+    (p) => p.status === "PROVIDER_PROCESSING",
+  );
+  sim.payout.advance(inFlight.id, "COMPLETED", {
+    note: "must never reach the finance plane",
+    fiatReference: "FR-LEAK-CHECK",
+    dakotaOfframpTxId: "dk-leak-check",
+    providerReference: "PR-LEAK-CHECK",
+    reconciliationState: "MATCHED",
+  });
+
+  const TWIN_KEYS = [
+    "reconciliationState",
+    "providerType",
+    "providerPayoutId",
+    "providerReference",
+    "sourceWalletAddress",
+    "minutesInProviderProcessing",
+    "note",
+    "fiatReference",
+    "dakotaOfframpTxId",
+  ];
+  const listed = (await f.payouts.list(PAYOUTS_ACCT)).items.find((p) => p.id === inFlight.id);
+  const detail = await f.payouts.get(PAYOUTS_ACCT, inFlight.id);
+  for (const key of TWIN_KEYS) {
+    assert.equal(key in listed, false, `list must not serve ${key}`);
+    assert.equal(key in detail, false, `detail must not serve ${key}`);
+  }
+  // And the wire projection still serves every PayoutDto field it has.
+  assert.equal(detail.status, "COMPLETED");
+  assert.ok(detail.completedAt);
+  assert.ok(detail.settledFiatAmount);
+});
+
+test("payout twin: demoCast seeds the reconciliation axis on the in-flight payout", async () => {
+  const f = mockFinance();
+  const sim = f.mock.simulations;
+  const { demoCast } = await import("../dist/esm/index.js").then((m) => ({ demoCast: m.demoCast }));
+  sim.seed(demoCast);
+  const rows = sim.payout.list();
+  const atProvider = rows.find((p) => p.status === "PROVIDER_PROCESSING");
+  assert.equal(atProvider.reconciliationState, "IN_PROGRESS");
+  assert.equal(atProvider.providerType, "IRON");
+  assert.equal(typeof atProvider.minutesInProviderProcessing, "number");
+  const returned = rows.find((p) => p.status === "RETURNED");
+  assert.equal(returned.providerType, "DAKOTA");
+  assert.equal(returned.reconciliationState, undefined, "the mock never guesses a computed value");
+});
+
+test("payout settlement never defaults at par: the seeded rate converts, unknown pairs refuse", async () => {
+  const f = mockFinance();
+  const sim = f.mock.simulations;
+  const inFlight = (await f.payouts.list(PAYOUTS_ACCT)).items.find(
+    (p) => p.status === "PROVIDER_PROCESSING",
+  );
+  // The seeded in-flight payout is USDC -> EUR. Completing it without an
+  // explicit settled amount must convert at the seeded USDC/EUR rate - a
+  // 1:1 default would render "Settled 820.50 EUR / Difference 0.00" and
+  // teach that a crypto unit IS a euro.
+  const completed = sim.payout.advance(inFlight.id, "COMPLETED");
+  assert.notEqual(
+    completed.settledFiatAmount,
+    completed.cryptoAmount,
+    "the fiat side must not coincide with the crypto side",
+  );
+  assert.equal(completed.settledFiatAmount, Math.round(completed.cryptoAmount * 0.92 * 100) / 100);
+
+  // A pair the rate table does not carry is refused, not guessed.
+  const g = mockFinance();
+  const gInFlight = (await g.payouts.list(PAYOUTS_ACCT)).items.find(
+    (p) => p.status === "PROVIDER_PROCESSING",
+  );
+  g.mock.$store.payouts.find((p) => p.id === gInFlight.id).payoutRoute.fiatCurrency = "CHF";
+  assert.throws(
+    () => g.mock.simulations.payout.advance(gInFlight.id, "COMPLETED"),
+    /no exchange rate is configured for USDC\/CHF/,
+  );
+  // The explicit override still works for exactly that case.
+  const settled = g.mock.simulations.payout.advance(gInFlight.id, "COMPLETED", {
+    settledFiatAmount: 731.9,
+  });
+  assert.equal(settled.settledFiatAmount, 731.9);
 });

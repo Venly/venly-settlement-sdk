@@ -49,6 +49,9 @@ export type {
   LedgerRow,
   ChannelInfo,
   MockEvent,
+  MockEventType,
+  MockPayoutManagementTwin,
+  MockPayoutRow,
 } from "./mock/index.js";
 export { iteratePages } from "./core/pagination.js";
 export type { Page, PagingInfo, PageParams } from "./core/pagination.js";
