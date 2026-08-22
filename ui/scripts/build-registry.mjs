@@ -246,6 +246,39 @@ const BLOCKS = [
     deps: ["side-panel", "timeline", "field-list", "status-pill", "data-table", "console-queue"],
   },
   {
+    name: "console-pricing",
+    title: "Console pricing block",
+    description:
+      "Read-only fee pricing screen: the volume-tier table with a worked example computed against the tier a sample amount lands in.",
+    deps: ["data-table", "arithmetic-ladder", "field-list", "list-error"],
+    // Amount rendering arrives transitively via arithmetic-ladder, and the
+    // 4A contract's registry table for this item names no money entry.
+    money: false,
+  },
+  {
+    name: "console-simulator",
+    title: "Console simulator block",
+    description:
+      "Sandbox simulator drawer: one control per mock simulation call, a ledger consistency check, and a channel status footer.",
+    deps: ["field-list", "status-pill"],
+  },
+  {
+    name: "console-webhooks",
+    title: "Console webhooks block",
+    description:
+      "Webhook management: list, register, edit, delete and ping endpoints, with credentials masked and never redisplayed.",
+    deps: ["data-table", "status-pill", "list-error"],
+    money: false,
+  },
+  {
+    name: "console-tenant",
+    title: "Console tenant block",
+    description:
+      "Tenant overview: company identity, accounts, and the sandbox tenant configuration, all read-only.",
+    deps: ["data-table", "field-list", "status-pill", "list-error"],
+    money: false,
+  },
+  {
     name: "balances",
     title: "Balances block",
     description:

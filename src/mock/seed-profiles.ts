@@ -295,6 +295,23 @@ export const demoCast: SeedProfile = {
         linkedAt: "2026-08-17T14:05:00Z",
       },
     ],
+    webhooks: [
+      {
+        id: "c0a1e008-0000-4a00-9000-000000000001",
+        // A deliberately fake, reserved-domain URL: nothing in the cast may
+        // look like a real integrator endpoint.
+        url: "https://example.com/venly/events",
+        name: "Primary events endpoint",
+        // Seeds carry the MASKED value only - the platform never returns a
+        // stored secret, so a plausible plaintext here would teach a lie.
+        authenticationMethod: {
+          type: "ApiKeyAuthenticationMethod",
+          headerName: "X-Api-Key",
+          apiKey: "••••7f3a",
+        },
+        status: "ACTIVE",
+      },
+    ],
   },
   after(simulations) {
     // A refusal is a decision someone made. Driving it produces the

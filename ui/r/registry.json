@@ -500,6 +500,108 @@
     },
     {
       "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "console-pricing",
+      "type": "registry:block",
+      "title": "Console pricing block",
+      "description": "Read-only fee pricing screen: the volume-tier table with a worked example computed against the tier a sample amount lands in.",
+      "dependencies": [
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
+        "@tanstack/react-query@^5.0.0"
+      ],
+      "registryDependencies": [
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/data-table",
+        "@venlyfinance/arithmetic-ladder",
+        "@venlyfinance/field-list",
+        "@venlyfinance/list-error"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/console-pricing.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/console-pricing.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "console-simulator",
+      "type": "registry:block",
+      "title": "Console simulator block",
+      "description": "Sandbox simulator drawer: one control per mock simulation call, a ledger consistency check, and a channel status footer.",
+      "dependencies": [
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
+        "@tanstack/react-query@^5.0.0"
+      ],
+      "registryDependencies": [
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/money",
+        "@venlyfinance/field-list",
+        "@venlyfinance/status-pill"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/console-simulator.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/console-simulator.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "console-webhooks",
+      "type": "registry:block",
+      "title": "Console webhooks block",
+      "description": "Webhook management: list, register, edit, delete and ping endpoints, with credentials masked and never redisplayed.",
+      "dependencies": [
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
+        "@tanstack/react-query@^5.0.0"
+      ],
+      "registryDependencies": [
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/data-table",
+        "@venlyfinance/status-pill",
+        "@venlyfinance/list-error"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/console-webhooks.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/console-webhooks.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "console-tenant",
+      "type": "registry:block",
+      "title": "Console tenant block",
+      "description": "Tenant overview: company identity, accounts, and the sandbox tenant configuration, all read-only.",
+      "dependencies": [
+        "@venlyfinance/react@^0.6.0",
+        "@venlyfinance/sdk@^0.7.0",
+        "@tanstack/react-query@^5.0.0"
+      ],
+      "registryDependencies": [
+        "@venlyfinance/venly-tokens",
+        "@venlyfinance/data-table",
+        "@venlyfinance/field-list",
+        "@venlyfinance/status-pill",
+        "@venlyfinance/list-error"
+      ],
+      "files": [
+        {
+          "path": "registry/blocks/console-tenant.tsx",
+          "type": "registry:component",
+          "target": "~/components/venly/blocks/console-tenant.tsx"
+        }
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
       "name": "balances",
       "type": "registry:block",
       "title": "Balances block",

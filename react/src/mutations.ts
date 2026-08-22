@@ -127,3 +127,66 @@ export function useInitiateRamp() {
     },
   });
 }
+
+// ── Webhooks ─────────────────────────────────────────────────────────────
+// Registration for platform-event delivery. Contract facts the hooks keep
+// visible: createWebhook has NO idempotency envelope (a replayed create
+// registers a second webhook - any retry-safety a surface adds is a
+// client-side convention, badged as such, never presented as contract
+// behaviour), and the authenticationMethod secret fields are write-only -
+// no read ever returns a stored secret, so no cache here can hold one.
+
+type CreateWebhookBody = Parameters<VenlyFinanceClient["webhooks"]["create"]>[0];
+type UpdateWebhookBody = Parameters<VenlyFinanceClient["webhooks"]["update"]>[1];
+
+/** Register a webhook endpoint, then refresh the webhook list. */
+export function useCreateWebhook() {
+  const { finance } = useVenly();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateWebhookBody) => finance.webhooks.create(body),
+    onSuccess: (webhook) => {
+      if (webhook.id) queryClient.setQueryData(venlyKeys.webhook(webhook.id), webhook);
+      void queryClient.invalidateQueries({ queryKey: venlyKeys.webhooks() });
+    },
+  });
+}
+
+/** Replace a webhook's url/name/authentication (PUT semantics). */
+export function useUpdateWebhook() {
+  const { finance } = useVenly();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { webhookId: string; body: UpdateWebhookBody }) =>
+      finance.webhooks.update(input.webhookId, input.body),
+    onSuccess: (webhook, input) => {
+      queryClient.setQueryData(venlyKeys.webhook(input.webhookId), webhook);
+      void queryClient.invalidateQueries({ queryKey: venlyKeys.webhooks() });
+    },
+  });
+}
+
+/** Delete a webhook registration; deliveries to it stop. */
+export function useDeleteWebhook() {
+  const { finance } = useVenly();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (webhookId: string) => finance.webhooks.delete(webhookId),
+    onSuccess: (_void, webhookId) => {
+      queryClient.removeQueries({ queryKey: venlyKeys.webhook(webhookId) });
+      void queryClient.invalidateQueries({ queryKey: venlyKeys.webhooks() });
+    },
+  });
+}
+
+/**
+ * Fire a test delivery at the endpoint. Resolves the contract's void
+ * envelope so a surface can render the outcome verbatim; invalidates
+ * nothing - a ping changes no resource.
+ */
+export function usePingWebhook() {
+  const { finance } = useVenly();
+  return useMutation({
+    mutationFn: (webhookId: string) => finance.webhooks.ping(webhookId),
+  });
+}

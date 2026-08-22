@@ -56,6 +56,8 @@ export {
   useRampPairs,
   useSupportedAssets,
   useAccountSupportedAssets,
+  useWebhooks,
+  useWebhook,
 } from "./queries.js";
 
 // Write hooks
@@ -69,6 +71,10 @@ export {
   useCreateCompanyWallet,
   useSetRampAmount,
   useInitiateRamp,
+  useCreateWebhook,
+  useUpdateWebhook,
+  useDeleteWebhook,
+  usePingWebhook,
 } from "./mutations.js";
 
 // Flow machines: the regulated-money lifecycles
@@ -125,4 +131,10 @@ export type {
   Payout,
   PayoutRoute,
   PayoutBankAccount,
+  Webhook,
+  CreateWebhookRequest,
+  UpdateWebhookRequest,
+  WebhookAuthenticationMethod,
+  MockWebhookDelivery,
+  MockTenantConfig,
 } from "@venlyfinance/sdk";

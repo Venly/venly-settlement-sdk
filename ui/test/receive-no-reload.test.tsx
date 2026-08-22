@@ -72,7 +72,9 @@ function detailPageOpeningTags(source: string): string[] {
 
 test("receive: every path that renders bank details also offers a way to refresh them", () => {
   const tags = detailPageOpeningTags(SOURCE);
-  assert.equal(tags.length, 3, "expected exactly the three known DetailPage render sites");
+  // Three in ReceiveBlock's router + two in ReceiveDetailsReadOnly (the
+  // support view: single-active and closed-only branches).
+  assert.equal(tags.length, 5, "expected exactly the five known DetailPage render sites");
   for (const tag of tags) {
     assert.match(
        tag,

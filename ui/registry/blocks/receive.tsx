@@ -323,6 +323,86 @@ export function ReceiveBlock({
    );
 }
 
+/**
+ * Read-only composition of the receive surface: the detail/picker/closed
+ * states only, with the provisioning branch deliberately skipped. This is
+ * the support view - an operator (or any read-only seat) looking at the
+ * details a customer already holds. When no details exist it states that
+ * as a labelled line rather than offering the create form: creating
+ * account details is the customer's own action, never the viewer's.
+ */
+export const RECEIVE_READ_ONLY_COPY = {
+  noDetails:
+    "No account details to view: this customer hasn't created any yet. Creating them is the customer's own action in their app.",
+} as const;
+
+export function ReceiveDetailsReadOnly({
+  accountId,
+}: {
+  accountId: string;
+}): ReactElement | null {
+  const { data: accountData, isLoading: accountLoading } = useAccount(accountId);
+  const account = useMemo(() => {
+    if (!accountData || typeof accountData !== "object") return null;
+    return "result" in accountData
+      ? (accountData.result as Account | undefined)
+      : (accountData as unknown as Account);
+  }, [accountData]);
+
+  const vbaQuery = useVirtualBankAccounts(accountId);
+  const items = useMemo(
+    () =>
+      ((vbaQuery.data as VbaListResponse | undefined)?.items ?? []).filter(
+        (i): i is VirtualBankAccount => i != null,
+      ),
+    [vbaQuery.data],
+  );
+  const validItems = useMemo(() => items.filter((v) => v.id && v.status === "ACTIVE"), [items]);
+  const closedItems = useMemo(() => items.filter((v) => v.id && v.status === "CLOSED"), [items]);
+
+  if (accountLoading || vbaQuery.isLoading) {
+    return (
+      <section style={{ fontFamily: "var(--font-family)" }}>
+        <p style={{ color: "var(--text-tertiary)" }}>Loading bank details...</p>
+      </section>
+    );
+  }
+  if (
+    vbaQuery.isError ||
+    !vbaQuery.data ||
+    (vbaQuery.data as VbaListResponse & { resultPresent?: boolean }).resultPresent === false
+  ) {
+    return <ListLoadError what="this customer's bank details" onRetry={() => void vbaQuery.refetch()} />;
+  }
+  if (account && validItems.length > 1) {
+    return <PickerPage account={account} vbaList={items} onRefresh={() => void vbaQuery.refetch()} />;
+  }
+  if (account && validItems.length === 1) {
+    return <DetailPage vba={validItems[0]} account={account} onRefresh={() => void vbaQuery.refetch()} />;
+  }
+  if (account && closedItems.length > 0) {
+    // CLOSED details still exist and must show as closed, never hidden.
+    return <DetailPage vba={closedItems[0]} account={account} onRefresh={() => void vbaQuery.refetch()} />;
+  }
+  return (
+    <p
+      role="note"
+      style={{
+        margin: 0,
+        fontFamily: "var(--font-family)",
+        fontSize: "var(--font-size-label)",
+        color: "var(--text-secondary)",
+        background: "var(--surface-sunken)",
+        border: "var(--border-w-hairline) solid var(--border-hairline)",
+        borderRadius: "var(--radius-control)",
+        padding: "var(--space-sm) var(--space-md)",
+      }}
+    >
+      {RECEIVE_READ_ONLY_COPY.noDetails}
+    </p>
+  );
+}
+
 // ─── Single-detail page (VERIFIED + active VBA) ─────────────────────────────
 
 interface DetailPageProps {
