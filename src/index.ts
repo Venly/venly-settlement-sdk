@@ -34,6 +34,7 @@ export type {
   ErrorPresetName,
   ErrorSpec,
   VerificationStatusInput,
+  FundflowMockActor,
 } from "./mock/index.js";
 export {
   seedProfiles,

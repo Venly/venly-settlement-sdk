@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type ReactElement } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactElement } from "react";
 import * as OneTimePasswordField from "@radix-ui/react-one-time-password-field";
 import { useQueries } from "@tanstack/react-query";
 import type { Party, Payout, Transfer } from "@venlyfinance/sdk";
@@ -1193,10 +1193,16 @@ export function PlatformTransferFlow({
     active.state.phase === "pending" || active.state.phase === "completed" || active.state.phase === "failed"
       ? active.state.transfer
       : undefined;
-  if (transfer?.id && onCreated && reportedId !== transfer.id) {
-    setReportedId(transfer.id);
-    onCreated(transfer.id);
-  }
+  // Notify AFTER commit: `onCreated` belongs to the parent (typically a
+  // router navigation), and calling it during render updates another
+  // component mid-render.
+  const transferId = transfer?.id;
+  useEffect(() => {
+    if (transferId && onCreated && reportedId !== transferId) {
+      setReportedId(transferId);
+      onCreated(transferId);
+    }
+  }, [transferId, onCreated, reportedId]);
 
   if (transfer && !onCreated) {
     return (
@@ -1715,10 +1721,16 @@ export function PayoutSendFlow({
   }
 
   const created = request.data;
-  if (created?.id && onCreated && reportedId !== created.id) {
-    setReportedId(created.id);
-    onCreated(created.id);
-  }
+  // Notify AFTER commit, same rule as PlatformTransferFlow: the parent's
+  // callback navigates, and navigating during render updates the router
+  // while this component renders.
+  const createdId = created?.id;
+  useEffect(() => {
+    if (createdId && onCreated && reportedId !== createdId) {
+      setReportedId(createdId);
+      onCreated(createdId);
+    }
+  }, [createdId, onCreated, reportedId]);
   if (created?.id && !onCreated) {
     return (
       <ConnectedPayoutDetail accountId={accountId} payoutId={created.id} style={style} className={className} />

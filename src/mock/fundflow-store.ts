@@ -19,6 +19,24 @@ type DepositWallet = schemas["DepositWalletDto"];
 type FiatCurrency = schemas["FiatCurrencyDto"];
 type CryptoCurrency = schemas["CryptoCurrencyDto"];
 
+/**
+ * The identity the mock stamps on ramp events and list-item `createdBy`.
+ * Host apps set it from their own session (`client.mock.setActor(...)`) so
+ * capability reads that join on the creator - the four-eyes own-request
+ * rule - see the signed-in user rather than an anonymous placeholder.
+ */
+export interface FundflowMockActor {
+  username?: string;
+  email?: string;
+  role?: RampEvent["role"];
+}
+
+export const DEFAULT_FUNDFLOW_ACTOR: Required<FundflowMockActor> = {
+  username: "mock-user",
+  email: "mock-user@example.com",
+  role: "COMPANY_ADMIN",
+};
+
 export interface FundflowSeeds {
   rampRequests: RampRequest[];
   /** `createdBy` lives on LIST items only (contract fact); keyed by ramp id. */
@@ -77,14 +95,26 @@ function now(): string {
  * - Every mutating call carries `{version}`; a stale version is a 409
  *   OPTIMISTIC_LOCK_EXCEPTION, exactly like the live API's locking.
  * - Events accrete on the request, so timelines render real history.
- * - What the mock deliberately does NOT model: user identity (creator ≠
- *   approver is enforced server-side against the authenticated principal,
- *   which client-credential mocks don't have) and Venly-admin channels
- *   (BLOCKED/DENIED are reachable via `advanceRamp` only).
+ * - What the mock deliberately does NOT model: identity ENFORCEMENT
+ *   (creator ≠ approver is enforced server-side against the authenticated
+ *   principal, which client-credential mocks don't have) and Venly-admin
+ *   channels (BLOCKED/DENIED are reachable via `advanceRamp` only). The
+ *   stamped identity, however, IS settable: `setActor()` lets a host app
+ *   stamp its own signed-in user on events and `createdBy`, so an
+ *   own-request read (the four-eyes creator rule) can join records to the
+ *   session. Without it, every live-created request carried the same
+ *   anonymous actor and a creator could approve their own request one
+ *   click later while the surface copy said that was impossible.
  */
 export class FundflowMockStore {
   rampRequests: RampRequest[] = [];
   createdBy = new Map<string, string>();
+  /**
+   * The acting identity stamped on new events and `createdBy`. Session
+   * identity, not world state: `reset()` restores the seeds but leaves the
+   * actor alone - reseeding the world does not sign anyone out.
+   */
+  private actor: Required<FundflowMockActor> = { ...DEFAULT_FUNDFLOW_ACTOR };
   bankAccounts: BankAccount[] = [];
   companyWallets: CompanyWallet[] = [];
   depositWallets: DepositWallet[] = [];
@@ -112,6 +142,11 @@ export class FundflowMockStore {
     this.bankAccountConfig = s.bankAccountConfig;
     this.feePercentage = s.feePercentage;
     this.exchangeRates = s.exchangeRates;
+  }
+
+  /** Set the acting identity; omitted fields keep their defaults. */
+  setActor(actor: FundflowMockActor): void {
+    this.actor = { ...DEFAULT_FUNDFLOW_ACTOR, ...actor };
   }
 
   /** Fiat per 1 crypto unit for the pair; unknown pairs are a 400, not 1.0. */
@@ -144,9 +179,9 @@ export class FundflowMockStore {
       {
         id: crypto.randomUUID(),
         eventType,
-        username: "mock-user",
-        email: "mock-user@example.com",
-        role: "COMPANY_ADMIN",
+        username: this.actor.username,
+        email: this.actor.email,
+        role: this.actor.role,
         createdAt: now(),
         version: ramp.version,
         ...(metadata ? { metadata } : {}),
@@ -258,7 +293,7 @@ export class FundflowMockStore {
       amountReceived: 0,
     };
     this.rampRequests.push(ramp);
-    this.createdBy.set(ramp.id as string, "mock-user@example.com");
+    this.createdBy.set(ramp.id as string, this.actor.email);
     this.pushEvent(ramp, "CREATED");
     return ramp;
   }

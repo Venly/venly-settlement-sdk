@@ -114,3 +114,29 @@ test("reset() replays the seeded world's after() drives, not just its fixtures",
     assert.ok(refusalEvents.length >= 1, "the refusal is driven again, with its event");
   })();
 });
+
+test("event history is immutable: a later transition must not rewrite a past event's payload", async () => {
+  const f = mockFinance();
+  const sim = f.mock.simulations;
+  const MAIN_ACCT = "a10c2d31-2222-4b20-8c63-000000000001"; // Acme – Main EUR
+
+  sim.account.setStatus(MAIN_ACCT, "SUSPENDED");
+  const [suspended] = eventsOf(f, "account.status_changed").filter(
+    (e) => e.resource.id === MAIN_ACCT,
+  );
+  assert.equal(suspended.previous?.status, "ACTIVE");
+  assert.equal(suspended.data?.status, "SUSPENDED");
+
+  sim.account.setStatus(MAIN_ACCT, "ACTIVE");
+  const events = eventsOf(f, "account.status_changed").filter(
+    (e) => e.resource.id === MAIN_ACCT,
+  );
+  assert.equal(events.length, 2);
+  // The FIRST event still narrates ACTIVE -> SUSPENDED. Before the emit
+  // snapshot, `data` was a live reference to the account row, so this
+  // read reported "ACTIVE -> ACTIVE" after the reactivation.
+  assert.equal(events[0].previous?.status, "ACTIVE");
+  assert.equal(events[0].data?.status, "SUSPENDED");
+  assert.equal(events[1].previous?.status, "SUSPENDED");
+  assert.equal(events[1].data?.status, "ACTIVE");
+});
