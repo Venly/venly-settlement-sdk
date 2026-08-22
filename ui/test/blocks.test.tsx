@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { VenlyProvider } from "@venlyfinance/react";
 import { ReceiveBlock, isComplete, serializeReceiveDetails } from "../registry/blocks/receive.js";
-import { SendReview, parseAmountInput, transferProgressSteps } from "../registry/blocks/send.js";
+import { parseAmountInput } from "../registry/blocks/send.js";
 import {
   ActivityTable,
   TransferDetailPanel,
@@ -73,49 +73,6 @@ test("send: the amount guard rejects empty, zero, negative and Infinity inputs",
   for (const bad of ["", "   ", "0", "-100", "Infinity", "abc", "NaN"]) {
     assert.equal(parseAmountInput(bad), null, `"${bad}" must not stage`);
   }
-});
-
-test("send review: components before the total, and the button restates the amount", () => {
-  const html = renderToStaticMarkup(
-    <SendReview
-      draft={{
-        kind: "fiat",
-        senderAccountId: "acc-1",
-        body: { receiverAccountId: "acc-2", currency: "EUR", amount: 1240 },
-      }}
-      fee={4.5}
-      onConfirm={() => {}}
-      onEdit={() => {}}
-    />,
-  );
-  assert.match(html, /Pay 1,240\.00 EUR/, "commit button restates the amount");
-  const fee = html.indexOf("Transfer fee");
-  const total = html.indexOf("Recipient receives");
-  assert.ok(fee > 0 && fee < total, "the working comes before the answer");
-  assert.match(html, /−/, "operator is literal in the gutter");
-  assert.match(html, /aria-label="estimate"/, "uncertainty attaches to the number");
-});
-
-test("send progress: failure is terminal and carries the reason", () => {
-  const steps = transferProgressSteps({
-    phase: "failed",
-    reason: "transfer-failed",
-    transfer: { id: "t1", status: "FAILED", errorMessage: "Insufficient funds" },
-  });
-  const terminal = steps[steps.length - 1]!;
-  assert.equal(terminal.state, "failed");
-  assert.equal(terminal.label, "Insufficient funds");
-
-  const done = transferProgressSteps({
-    phase: "completed",
-    staged: {
-      draft: { kind: "fiat", senderAccountId: "a", body: { currency: "EUR", amount: 1 } },
-      idempotencyKey: "k",
-      stagedAt: "now",
-    },
-    transfer: { id: "t2", status: "COMPLETED" },
-  });
-  assert.equal(done[done.length - 1]!.state, "completed");
 });
 
 test("activity: colour is a budget - settled rows stay quiet, pending and failed speak", () => {

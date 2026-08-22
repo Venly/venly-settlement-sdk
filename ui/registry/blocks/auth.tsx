@@ -113,9 +113,14 @@ export function createMockAuthAdapter(options?: {
       return { status: "ok" };
     },
     async verifyTotp(code) {
-      if (code === "000000" && pending) {
-        session = pending;
-        pending = null;
+      // Two ceremonies share this check: finishing a 2FA sign-in (a pending
+      // session exists) and step-up re-auth on a money confirm (the session
+      // is already live). The deterministic demo code verifies both.
+      if (code === "000000" && (pending || session)) {
+        if (pending) {
+          session = pending;
+          pending = null;
+        }
         return { status: "ok" };
       }
       return {
