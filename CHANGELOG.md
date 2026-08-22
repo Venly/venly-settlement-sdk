@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.1 – 2026-08-22
+
+- **Settable mock actor (fundflow).** `client.mock.setActor({username, email,
+  role})` stamps the host app's signed-in user on ramp events and list-item
+  `createdBy`, so an own-request read (the four-eyes creator rule) can join
+  live-created requests to the session. Identity enforcement stays
+  server-side and unmodeled; `reset()` leaves the actor alone.
+- **Immutable event log.** `EventLog.emit()` snapshots its payload, so a past
+  event's `data`/`previous` no longer re-read with current values after later
+  transitions.
+- **Send block: post-commit `onCreated`.** `PlatformTransferFlow` and
+  `PayoutSendFlow` notify from an effect instead of during render (the
+  reference parent navigates on it). Registry rebuilt.
+
 ## 0.7.0 – 2026-08-21
 
 - **Party identity-verification read.** `parties.ivVerification(partyId)` wraps
