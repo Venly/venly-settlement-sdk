@@ -229,6 +229,14 @@ export const demoCast: SeedProfile = {
       [A.inFlight]: [route(ROUTE_IN_FLIGHT, "ACTIVE", "0xc0a1e004000000000000000000000000000000a2")],
       [A.returned]: [route(ROUTE_RETURNED, "ACTIVE", "0xc0a1e004000000000000000000000000000000a3")],
     },
+    // The pairing each ACTIVE route was created against - the same account
+    // the cast's seeded payout history embeds. Borea's awaiting-proof route
+    // stays unmapped: no payout exists over it, and an unmapped route embeds
+    // no beneficiary rather than a guess.
+    routeBankAccounts: {
+      [ROUTE_IN_FLIGHT]: beneficiary.id,
+      [ROUTE_RETURNED]: beneficiary.id,
+    },
     payouts: [
       {
         id: "c0a1e007-0000-4a00-9000-000000000001",

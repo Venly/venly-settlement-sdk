@@ -257,3 +257,30 @@ export function useStagedTransfer(options?: StagedTransferOptions) {
     reset: () => controller.reset(),
   };
 }
+
+export type FiatTransferDraft = Omit<Extract<TransferDraft, { kind: "fiat" }>, "kind">;
+export type CryptoTransferDraft = Omit<Extract<TransferDraft, { kind: "crypto" }>, "kind">;
+
+/**
+ * Create a fiat transfer, wired through the staged-transfer flow: stage()
+ * freezes the exact request and pins ONE idempotency key per staged draft;
+ * confirm() executes once and polls to a terminal status. However often
+ * confirm() is retried on the same staged draft, the API replays the same
+ * record instead of moving money twice.
+ */
+export function useCreateFiatTransfer(options?: StagedTransferOptions) {
+  const flow = useStagedTransfer(options);
+  return {
+    ...flow,
+    stage: (draft: FiatTransferDraft) => flow.stage({ kind: "fiat", ...draft }),
+  };
+}
+
+/** The crypto twin of {@link useCreateFiatTransfer}: same machine, same key rule. */
+export function useCreateCryptoTransfer(options?: StagedTransferOptions) {
+  const flow = useStagedTransfer(options);
+  return {
+    ...flow,
+    stage: (draft: CryptoTransferDraft) => flow.stage({ kind: "crypto", ...draft }),
+  };
+}

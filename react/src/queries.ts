@@ -6,6 +6,7 @@ import {
   type AccountsQuery,
   type FeeQuoteInput,
   type PartiesQuery,
+  type PartyRolesQuery,
   type PayoutBankAccountsQuery,
   type PayoutRoutesQuery,
   type PayoutsQuery,
@@ -74,6 +75,24 @@ export function useAccount(accountId: string | undefined, options?: Tune<Account
   });
 }
 type Account = Awaited<ReturnType<ReturnType<typeof venlyQueries.account>["queryFn"]>>;
+
+/**
+ * The parties attached to an account with their role type and status.
+ * Saved payout recipients are the PAYOUT_RECIPIENT rows of this read.
+ */
+export function usePartyRoles(
+  accountId: string | undefined,
+  query?: PartyRolesQuery,
+  options?: Tune<PartyRolesPage>,
+) {
+  const clients = useVenly();
+  return useQuery({
+    ...venlyQueries.partyRoles(clients, accountId ?? "", query),
+    enabled: Boolean(accountId) && (options?.enabled ?? true),
+    ...options,
+  });
+}
+type PartyRolesPage = Awaited<ReturnType<ReturnType<typeof venlyQueries.partyRoles>["queryFn"]>>;
 
 export function useWallets(
   accountId: string | undefined,

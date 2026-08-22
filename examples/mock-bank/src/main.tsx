@@ -4,14 +4,29 @@ import { VenlyProvider, useAccounts } from "@venlyfinance/react";
 import "../../../ui/registry/styles/tokens.css";
 import { BalancesBlock, BalanceMiniature } from "../../../ui/registry/blocks/balances.js";
 import { ReceiveBlock } from "../../../ui/registry/blocks/receive.js";
-import { SendBlock } from "../../../ui/registry/blocks/send.js";
+import {
+  ConnectedPayoutDetail,
+  ConnectedTransferDetail,
+  PayoutSendFlow,
+  PlatformTransferFlow,
+  RecipientPicker,
+  useDirectoryEntries,
+} from "../../../ui/registry/blocks/send.js";
+import { RecipientsView, useSavedRecipients } from "../../../ui/registry/blocks/recipients.js";
+import { createMockAuthAdapter } from "../../../ui/registry/blocks/auth.js";
 import { UnifiedActivityBlock, type ActivityScope } from "../../../ui/registry/blocks/activity.js";
 import { TeamTable, createMockTeamAdapter } from "../../../ui/registry/blocks/team.js";
 import { BankAccountsBlock } from "../../../ui/registry/blocks/bank-accounts.js";
 import { WithdrawFlow, WithdrawalsTable } from "../../../ui/registry/blocks/withdraw.js";
 import { useRampRequests } from "@venlyfinance/react";
 
-type Tab = "home" | "activity" | "send" | "withdraw" | "receive" | "team" | "bank accounts";
+type Tab = "home" | "activity" | "send" | "recipients" | "withdraw" | "receive" | "team" | "bank accounts";
+
+// Money confirms pass the step-up ceremony against the auth adapter. The
+// example has no sign-in screen, so it establishes the demo session the
+// ceremony re-authenticates (deterministic code 000000).
+const stepUpAuth = createMockAuthAdapter();
+void stepUpAuth.signIn("demo@mock.bank", "demo");
 
 function Shell() {
   const { data } = useAccounts();
@@ -60,7 +75,7 @@ function Shell() {
         >
           Mock Bank
         </div>
-        {(["home", "activity", "send", "withdraw", "receive", "team", "bank accounts"] as const).map((t) => (
+        {(["home", "activity", "send", "recipients", "withdraw", "receive", "team", "bank accounts"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -124,7 +139,14 @@ function Shell() {
             initialScope={activityScope}
           />
         ) : null}
-        {tab === "send" ? <SendBlock senderAccountId={account.id} /> : null}
+        {tab === "send" ? (
+          <SendTab
+            accountId={account.id}
+            onGoToWithdraw={() => setTab("withdraw")}
+            onGoToRecipients={() => setTab("recipients")}
+          />
+        ) : null}
+        {tab === "recipients" ? <RecipientsView accountId={account.id} /> : null}
         {tab === "team" ? (
           <TeamTable adapter={teamAdapter} currentUserEmail="ada@acme.example" />
         ) : null}
@@ -162,9 +184,110 @@ function WithdrawTab({ accountId }: { accountId: string }) {
   const { data } = useRampRequests({ rampType: "OFF_RAMP" });
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2xl)" }}>
-      <WithdrawFlow accountId={accountId} actorId="demo@acme.example" />
+      <WithdrawFlow accountId={accountId} actorId="demo@acme.example" stepUpVerifier={stepUpAuth} />
       <WithdrawalsTable items={data?.items ?? []} />
     </div>
+  );
+}
+
+type SendView =
+  | { kind: "door" }
+  | { kind: "person"; receiverAccountId?: string }
+  | { kind: "recipient"; recipientKey?: string }
+  | { kind: "transfer"; id: string }
+  | { kind: "payout"; id: string };
+
+/** The one send door: person / saved recipient / your own bank account. */
+function SendTab({
+  accountId,
+  onGoToWithdraw,
+  onGoToRecipients,
+}: {
+  accountId: string;
+  onGoToWithdraw: () => void;
+  onGoToRecipients: () => void;
+}) {
+  const saved = useSavedRecipients(accountId);
+  const directory = useDirectoryEntries(accountId);
+  const [view, setView] = useState<SendView>({ kind: "door" });
+
+  if (view.kind === "transfer") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-xl)" }}>
+        <ConnectedTransferDetail accountId={accountId} transferId={view.id} />
+        <BackToDoor onBack={() => setView({ kind: "door" })} />
+      </div>
+    );
+  }
+  if (view.kind === "payout") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-xl)" }}>
+        <ConnectedPayoutDetail accountId={accountId} payoutId={view.id} />
+        <BackToDoor onBack={() => setView({ kind: "door" })} />
+      </div>
+    );
+  }
+  if (view.kind === "person") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-xl)" }}>
+        <PlatformTransferFlow
+          senderAccountId={accountId}
+          platformName="Mock Bank"
+          verifier={stepUpAuth}
+          initialReceiverAccountId={view.receiverAccountId}
+          onCreated={(id) => setView({ kind: "transfer", id })}
+        />
+        <BackToDoor onBack={() => setView({ kind: "door" })} />
+      </div>
+    );
+  }
+  if (view.kind === "recipient") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-xl)" }}>
+        <PayoutSendFlow
+          accountId={accountId}
+          recipients={{ rows: saved.sendRows, isPending: saved.isPending, isError: saved.isError, refetch: saved.refetch }}
+          verifier={stepUpAuth}
+          initialRecipientKey={view.recipientKey}
+          onCreated={(id) => setView({ kind: "payout", id })}
+          onGoToRecipients={onGoToRecipients}
+        />
+        <BackToDoor onBack={() => setView({ kind: "door" })} />
+      </div>
+    );
+  }
+  return (
+    <RecipientPicker
+      platformName="Mock Bank"
+      directory={directory}
+      savedRecipients={{ rows: saved.sendRows, isPending: saved.isPending, isError: saved.isError, refetch: saved.refetch }}
+      onPickPerson={(entry) => setView({ kind: "person", receiverAccountId: entry.receiverAccountId })}
+      onPickRecipient={(row) => setView({ kind: "recipient", recipientKey: row.key })}
+      onAddRecipient={onGoToRecipients}
+      onGoToWithdraw={onGoToWithdraw}
+    />
+  );
+}
+
+function BackToDoor({ onBack }: { onBack: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onBack}
+      style={{
+        alignSelf: "start",
+        border: "var(--border-w-hairline) solid var(--border-strong)",
+        background: "var(--surface-raised)",
+        color: "var(--text-primary)",
+        borderRadius: "var(--radius-control)",
+        padding: "var(--space-sm) var(--space-lg)",
+        fontSize: "var(--font-size-body)",
+        fontFamily: "var(--font-family)",
+        cursor: "pointer",
+      }}
+    >
+      Back to Send
+    </button>
   );
 }
 

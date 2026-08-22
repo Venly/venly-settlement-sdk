@@ -70,6 +70,125 @@ export function useCreateRampRequest() {
   });
 }
 
+type AddPartyRoleBody = Parameters<VenlyFinanceClient["accounts"]["addPartyRole"]>[1];
+type RegisterPayoutBankAccountBody = Parameters<
+  VenlyFinanceClient["payoutBankAccounts"]["register"]
+>[1];
+type CreatePayoutRouteBody = Parameters<VenlyFinanceClient["payoutRoutes"]["create"]>[1];
+type CompleteOwnershipProofBody = Parameters<
+  VenlyFinanceClient["payoutRoutes"]["completeOwnershipProof"]
+>[2];
+type RequestPayoutBody = Parameters<VenlyFinanceClient["payouts"]["request"]>[1];
+
+/**
+ * Attach a party to an account with a role (PAYOUT_RECIPIENT for saved
+ * third-party recipients), then refresh the account's role list.
+ */
+export function useAddPartyRole() {
+  const { finance } = useVenly();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { accountId: string; body: AddPartyRoleBody }) =>
+      finance.accounts.addPartyRole(input.accountId, input.body),
+    onSuccess: (_role, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["venly", "account", input.accountId, "party-roles"],
+      });
+    },
+  });
+}
+
+/**
+ * Register a beneficiary bank account on a party. The response's details
+ * come back masked server-side (last4, BIC) - render those, never re-ask.
+ * A new account starts PENDING until reviewed.
+ */
+export function useRegisterPayoutBankAccount() {
+  const { finance } = useVenly();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { partyId: string; body: RegisterPayoutBankAccountBody }) =>
+      finance.payoutBankAccounts.register(input.partyId, input.body),
+    onSuccess: (_account, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["venly", "party", input.partyId, "payout-bank-accounts"],
+      });
+    },
+  });
+}
+
+/**
+ * Bind a beneficiary bank account to an account and a deposit asset. The
+ * route activates only after wallet-ownership proof completes.
+ */
+export function useCreatePayoutRoute() {
+  const { finance } = useVenly();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { accountId: string; body: CreatePayoutRouteBody }) =>
+      finance.payoutRoutes.create(input.accountId, input.body),
+    onSuccess: (_route, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["venly", "account", input.accountId, "payout-routes"],
+      });
+    },
+  });
+}
+
+/**
+ * Fetch the message the route's funding wallet must sign. The server derives
+ * wallet and chain from the route; there is no request body.
+ */
+export function usePreparePayoutOwnershipProof() {
+  const { finance } = useVenly();
+  return useMutation({
+    mutationFn: (input: { accountId: string; routeId: string }) =>
+      finance.payoutRoutes.prepareOwnershipProof(input.accountId, input.routeId),
+  });
+}
+
+/** Submit the signed message; on success the route becomes ACTIVE. */
+export function useCompletePayoutOwnershipProof() {
+  const { finance } = useVenly();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { accountId: string; routeId: string; body: CompleteOwnershipProofBody }) =>
+      finance.payoutRoutes.completeOwnershipProof(input.accountId, input.routeId, input.body),
+    onSuccess: (_route, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["venly", "account", input.accountId, "payout-routes"],
+      });
+    },
+  });
+}
+
+/**
+ * Request a third-party payout over an ACTIVE route. The body's
+ * idempotencyKey is the replay guard: mint it ONCE per staged draft and
+ * reuse it on every retry of the same draft - the API then executes the
+ * movement at most once and a replay returns the original record.
+ */
+export function useRequestPayout() {
+  const { finance } = useVenly();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { accountId: string; body: RequestPayoutBody }) =>
+      finance.payouts.request(input.accountId, input.body),
+    onSuccess: (payout, input) => {
+      if (payout.id) {
+        queryClient.setQueryData(venlyKeys.payout(input.accountId, payout.id), payout);
+      }
+      void queryClient.invalidateQueries({
+        queryKey: ["venly", "account", input.accountId, "payouts"],
+      });
+      // The request reserves funds, so the wallet rows moved too.
+      void queryClient.invalidateQueries({
+        queryKey: ["venly", "account", input.accountId, "wallets"],
+      });
+    },
+  });
+}
+
 type CreateBankAccountBody = Parameters<FundflowClient["bankAccounts"]["create"]>[0];
 type CreateCompanyWalletBody = Parameters<FundflowClient["companyWallets"]["create"]>[0];
 type SetRampAmountBody = Parameters<FundflowClient["rampRequests"]["setAmount"]>[1];
