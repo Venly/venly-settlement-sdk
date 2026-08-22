@@ -37,5 +37,7 @@ export type {
 } from "./tenant-config.js";
 export { fundflowRoutes, createFundflowRoutes, fundflowSeeds, FundflowMockTransport } from "./fundflow.js";
 export type { VenlyFundflowMock } from "./fundflow.js";
+export { DEFAULT_FUNDFLOW_ACTOR } from "./fundflow-store.js";
+export type { FundflowMockActor } from "./fundflow-store.js";
 export { FundflowMockStore } from "./fundflow-store.js";
 export type { FundflowSeeds } from "./fundflow-store.js";

@@ -8,7 +8,7 @@ import {
   type VenlyMock,
 } from "./transport.js";
 import { fundflowErrorPresets } from "./errors.js";
-import { FundflowMockStore, type FundflowSeeds } from "./fundflow-store.js";
+import { FundflowMockStore, type FundflowMockActor, type FundflowSeeds } from "./fundflow-store.js";
 
 type schemas = components["schemas"];
 
@@ -529,6 +529,13 @@ export interface VenlyFundflowMock extends VenlyMock {
   advanceBankAccountVerification(id: string, status?: "VERIFIED" | "DENIED"): void;
   /** Complete (or deny) the ownership proof a wallet create started. */
   advanceCompanyWalletVerification(id: string, status?: "VERIFIED" | "DENIED"): void;
+  /**
+   * Set the acting identity stamped on new events and `createdBy` - a host
+   * app calls this with its signed-in user so own-request reads (the
+   * four-eyes creator rule) can join records to the session. Session
+   * identity, not world state: `reset()` leaves it alone.
+   */
+  setActor(actor: FundflowMockActor): void;
   /** Restore the seed fixtures and clear the call log. */
   reset(): void;
 }
@@ -553,6 +560,10 @@ export class FundflowMockTransport extends MockTransport implements VenlyFundflo
 
   advanceCompanyWalletVerification(id: string, status?: "VERIFIED" | "DENIED"): void {
     this.store.advanceCompanyWalletVerification(id, status);
+  }
+
+  setActor(actor: FundflowMockActor): void {
+    this.store.setActor(actor);
   }
 
   reset(): void {

@@ -283,3 +283,51 @@ test("reset restores the seeds after mutations", async () => {
   assert.equal(back.version, 0);
   assert.equal(ff.mock.calls.length, 1, "call log cleared too");
 });
+
+test("setActor: events and createdBy stamp the session identity; reset keeps the actor", async () => {
+  const ff = mockFundflow();
+  ff.mock.setActor({ username: "treasury", email: "treasury@acme.eu", role: "COMPANY_MANAGER" });
+
+  const created = await ff.rampRequests.create({
+    rampType: "OFF_RAMP",
+    amount: 120,
+    fiatCurrencyId: EUR,
+    cryptoCurrencyId: USDC,
+    companyBankAccountId: VERIFIED_BANK,
+  });
+  const createdEvent = created.events.find((e) => e.eventType === "CREATED");
+  assert.equal(createdEvent?.username, "treasury");
+  assert.equal(createdEvent?.email, "treasury@acme.eu");
+  assert.equal(createdEvent?.role, "COMPANY_MANAGER");
+
+  const rows = await ff.rampRequests.list();
+  const row = rows.items.find((r) => r.id === created.id);
+  assert.equal(row?.createdBy, "treasury@acme.eu", "the own-request join sees the session user");
+
+  // Session identity, not world state: reseeding does not sign anyone out.
+  ff.mock.reset();
+  const afterReset = await ff.rampRequests.create({
+    rampType: "OFF_RAMP",
+    amount: 55,
+    fiatCurrencyId: EUR,
+    cryptoCurrencyId: USDC,
+    companyBankAccountId: VERIFIED_BANK,
+  });
+  assert.equal(
+    afterReset.events.find((e) => e.eventType === "CREATED")?.email,
+    "treasury@acme.eu",
+  );
+
+  // Omitted fields fall back to the defaults; seeds keep their own stamps.
+  ff.mock.setActor({ email: "ops@acme.eu" });
+  const partial = await ff.rampRequests.create({
+    rampType: "OFF_RAMP",
+    amount: 10,
+    fiatCurrencyId: EUR,
+    cryptoCurrencyId: USDC,
+    companyBankAccountId: VERIFIED_BANK,
+  });
+  const partialEvent = partial.events.find((e) => e.eventType === "CREATED");
+  assert.equal(partialEvent?.email, "ops@acme.eu");
+  assert.equal(partialEvent?.username, "mock-user");
+});

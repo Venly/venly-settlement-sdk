@@ -142,13 +142,18 @@ export class EventLog {
 
   emit(input: EmitInput): MockEvent {
     this.sequence += 1;
+    // Snapshot the payload: emitters pass live store objects, and a past
+    // event whose `data`/`previous` keep mutating narrates false history
+    // ("ACTIVE → SUSPENDED" re-reading as "ACTIVE → ACTIVE" after a later
+    // transition). Remote peers already receive serialized copies over the
+    // channel; this makes the same-tab log tell the same truth.
     const event: MockEvent = {
       id: `${this.originId}:${this.epoch}:${this.sequence}`,
       originId: this.originId,
       epoch: this.epoch,
       sequence: this.sequence,
       occurredAt: this.clock().now(),
-      ...input,
+      ...structuredClone(input),
     };
     this.record(event);
     this.deliver(event);
