@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0 – 2026-08-22
+
+- The runtime `@venlyfinance/sdk` dependency moves to `^0.7.0`, so the server's own
+  data plane matches the world its blueprints describe (0.7.1 and earlier installed a
+  0.5.x sdk at runtime).
+- The `send` journey blueprint is rewritten for the one-door send surface: recipient-object
+  fork (platform directory · saved payout recipients · own bank account), step-up
+  confirmation on every money confirm, and the forbidden-to-invent list (fee row, "No fee"
+  claim, ETA, pre-create rate, named stages beyond the status enum, any external-wallet
+  surface).
+- New `console-webhooks` journey blueprint; the operator-console blueprints
+  (`console-review-queue`, `console-decision-detail`, `console-pricing-config`,
+  `console-simulator`) now name their shipped registry blocks instead of empty arrays.
+
 ## 0.7.1 – 2026-08-21
 
 - Republish so the packaged blueprints carry the corrected npm ranges for
