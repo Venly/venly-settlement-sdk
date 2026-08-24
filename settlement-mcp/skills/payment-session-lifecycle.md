@@ -13,7 +13,7 @@ collections, top-ups.
 
 - `get_account` (read)
 - `list_virtual_bank_accounts` (read)
-- `create_payment_session` (write, disarmed by default)
+- `create_payment_session` (write, mock sandbox only)
 - `get_transfer` (read)
 
 ## Steps
@@ -26,10 +26,9 @@ collections, top-ups.
 3. `create_payment_session` with the `accountId`, a `callbackUrl` your system
    will receive the completion webhook on, and an `externalRef` you can
    reconcile on later. An `idempotencyKey` is generated when you don't pass one.
-   - By default the tool returns a dry-run object with the exact POST it would
-     send. Review it.
-   - Live execution needs all three: `confirm: true`, `VENLY_MCP_LIVE=1`, and
-     credentials present.
+   - The tool executes against the mock fixtures only and refuses any
+     non-sandbox base URL in code. Live sessions belong to your own reviewed
+     integration over `@venlyfinance/sdk`.
 4. Share the returned `paymentUrl` with the payer. Status starts at `CREATED` /
    `PENDING_PAYMENT`.
 5. After payment, the received fiat converts and lands on-chain. Track the
@@ -42,4 +41,5 @@ collections, top-ups.
 - Statuses walk `CREATED → PENDING_PAYMENT → PAYMENT_RECEIVED → CONVERTING →
   MINTING → COMPLETED`, with `FAILED`, `CANCELLED`, `REFUNDING`, `REFUNDED` as
   exits. Only treat `COMPLETED` as settled.
-- The dry-run is the safe default. Read the request body before arming.
+- Sandbox-only is enforced in code, not a convention: a session against a
+  non-mock base URL is refused before any request is built.

@@ -38,6 +38,7 @@ export const EXPECTED_TOOLS = [
   "prepare_payout_ownership_proof",
   "complete_payout_ownership_proof",
   "request_payout",
+  "prepare_decision",
   "quote_x402_payment",
   "get_journey_blueprint",
   "verify_runtime_contract",
@@ -88,16 +89,27 @@ function asRecord(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-export function assertDryRunResult(result: unknown): void {
+/**
+ * The write-boundary check: a confirmed write against staging must be REFUSED
+ * with the sandbox-boundary message, and must not mutate anything. This is
+ * the §0 guarantee observed from the outside.
+ */
+export function assertSandboxRefusal(result: unknown): void {
   const record = asRecord(result, "write result");
-  const gate = asRecord(record.gate, "write gate");
-  if (
-    record.mode !== "dry-run" ||
-    record.environment !== "staging" ||
-    gate.armed !== false ||
-    gate.liveFlagArmed !== false
-  ) {
-    throw new Error("expected a staging dry-run with both write gates disarmed");
+  if (record.isError !== true) {
+    throw new Error("expected the staging write to be refused (isError: true)");
+  }
+  const text = Array.isArray(record.content)
+    ? record.content
+        .map((item) =>
+          item && typeof item === "object" && "text" in item
+            ? String((item as { text: unknown }).text)
+            : "",
+        )
+        .join(" ")
+    : "";
+  if (!/mock sandbox/i.test(text) || !/No request was sent/i.test(text)) {
+    throw new Error("expected the refusal message to state the sandbox boundary");
   }
 }
 
@@ -246,16 +258,16 @@ export async function runStagingSmoke(options: StagingSmokeOptions = {}): Promis
       }
     }
 
-    const dryRun = await client.callTool({
+    const refused = await client.callTool({
       name: "create_party",
       arguments: {
         partyType: "ORGANISATION",
-        name: "Venly staging smoke dry-run",
+        name: "Venly staging smoke write-boundary check",
         confirm: true,
       },
     });
-    assertDryRunResult(structuredContent(dryRun, "create_party"));
-    log("OK   create_party - confirmed request remained dry-run; zero mutation");
+    assertSandboxRefusal(refused);
+    log("OK   create_party - confirmed staging write was refused at the sandbox boundary; zero mutation");
   } finally {
     await client.close();
   }

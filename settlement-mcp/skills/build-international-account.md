@@ -16,8 +16,10 @@ stablecoin account or neobank-like customer experience with Venly Finance.
 6. Venly provides infrastructure through regulated partners. Do not imply a bank
    charter, deposit insurance or unsupported geographic/currency coverage.
 7. Card issuing is not exposed by the current Finance OpenAPI contract.
-8. Ask for an explicit decision before moving to staging or arming a write. Dry-run
-   live-environment mutations before confirmation.
+8. Ask for an explicit decision before moving to staging. This MCP's write/prepare
+   tools stay sandbox-only in every environment (refused in code against a
+   non-mock base URL); live mutations belong to the app's own reviewed
+   integration over `@venlyfinance/sdk`.
 
 ## Outcome
 

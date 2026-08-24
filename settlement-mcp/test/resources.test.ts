@@ -53,7 +53,8 @@ test("safety and workflow resources preserve compliance and environment gates", 
   const transitionText = firstText(mockToStaging);
 
   assert.match(safetyText, /KYC.*VERIFIED/i);
-  assert.match(safetyText, /VENLY_MCP_PRODUCTION=1/);
+  assert.match(safetyText, /refuses any non-sandbox base URL and any credential-shaped parameter/);
+  assert.match(safetyText, /READS only/);
   assert.match(workflowText, /create_party[\s\S]*create_account[\s\S]*list_wallets/);
   assert.match(workflowText, /create_virtual_bank_account/);
   assert.match(transitionText, /no implicit fallback/i);

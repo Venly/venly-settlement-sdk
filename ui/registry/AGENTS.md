@@ -33,3 +33,12 @@ The UI kit's auth and team blocks therefore render against two adapter interface
 
 `useVenlyMock()` exposes the store controls. A credible end-to-end demo:
 create party → `advanceVerification(id)` → create account → virtual bank account (note its `referenceCode`) → **fund it: `simulations.inbound.credit(vbaId, 500)`** (a new account holds nothing, as in production; an unfunded transfer is refused with `402 insufficient-funds`) → stage + confirm a transfer → `advanceTransfer(id)` → show the ledger, and `simulations.ledger.verify()` to prove it balances. Inject failures with `failNext("CONFLICT")` to show the stale-version approval path – error states are part of the product.
+
+## Agent-operable choreography (mock mode)
+
+Two authority models, never blurred:
+
+- **Business-judgment decisions are maker/checker.** An agent (any MCP client on `@venlyfinance/settlement-mcp`) prepares a decision draft with `prepare_decision` – or the simulator plays that seat with `simulations.decision.prepare({ recordType, recordId, proposal, reason, evidenceRefs })`. The draft renders in the console decision panel badged as a sandbox agent draft; nothing changes until the human decides through the existing ceremony, which marks the draft superseded. Drafts never auto-apply.
+- **The x402 agent payment is delegated payment authority** – the payer's own pre-authorized spend, runnable end to end in a mock MCP session: `quote_x402_payment` → the `payment_required` envelope → `create_fiat_transfer` (or `create_crypto_transfer`) carrying the quoted reference in `merchantReference` → the transfer renders in activity like ANY transfer (no agent badge by design: the ledger contract has no initiator field, so none is invented – the event trail attributes the session) → `simulations.ledger.verify()` still passes.
+
+A Node MCP session and a browser tab do NOT share a mock world (state channels are in-memory or same-origin BroadcastChannel). In a browser demo, the simulator plays the agent seat through `simulations.decision.prepare` the same way it plays the bank through `simulations.inbound.credit`.

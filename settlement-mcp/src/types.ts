@@ -73,6 +73,31 @@ export interface ObservedBankTransaction {
   bankTransactionId?: string;
 }
 
+/**
+ * An agent-prepared decision draft (the sdk mock's decisionDrafts concept).
+ * MOCK-ONLY: no operation on either public plane stores or serves one, which
+ * is why these shapes are declared here as MCP-owned compatibility types
+ * rather than generated aliases. The draft never auto-applies anything - the
+ * human decides through the existing ceremony, and a later decision marks the
+ * draft SUPERSEDED.
+ */
+export interface PrepareDecisionInput {
+  recordType: "verification" | "reconciliation" | "payout_exception";
+  /** verification: a party or account id · reconciliation: an inbound credit id · payout_exception: a payout id. */
+  recordId: string;
+  proposal: string;
+  reason: string;
+  evidenceRefs?: string[];
+}
+
+export interface DecisionDraft extends PrepareDecisionInput {
+  id: string;
+  evidenceRefs: string[];
+  preparedAt: string;
+  status: "PREPARED" | "SUPERSEDED";
+  supersededAt?: string;
+}
+
 /** Query params for listing ramp requests (fundflow getAll). */
 export interface ListRampRequestsParams {
   rampType?: RampType;
@@ -158,6 +183,13 @@ export interface VenlyClient {
     accountId: string,
     body: CreatePayInSessionRequest,
   ): Promise<PaymentSession>;
+  /**
+   * Store an agent-prepared decision draft on the MOCK world (the sdk mock's
+   * simulations.decision.prepare driver). Only reachable in mock mode - the
+   * sandbox gate refuses the tool before this is called anywhere else - and
+   * it mutates nothing but the local fixture store.
+   */
+  prepareDecision(input: PrepareDecisionInput): Promise<DecisionDraft>;
 
   // ----- Payout surface (contract 1.3.0) -----
   listPayouts(accountId: string, params?: { page?: number; size?: number; status?: string }): Promise<Payout[]>;

@@ -171,3 +171,90 @@ test("platform section is a boundary with a hairline, not a colour fill", () => 
   assert.ok(!markup.includes("--state-"), "no colour fill: a coloured badge reads as a status pill");
   assert.equal(CONSOLE_DECISION_COPY.platformBadgeLabel, "Platform view (Venly)");
 });
+
+// ─── Agent draft: its own register, exact badge, explicit use ─────────────────
+
+import { AgentDraftSection, agentApprovalMeta, type AgentDraft } from "../registry/blocks/console-decision.js";
+import { formatStamp } from "../registry/lib/money.js";
+
+const DRAFT: AgentDraft = {
+  proposal: "Approve verification",
+  reason: "Screening completed and the register entry matches the applicant.",
+  evidenceRefs: ["account.kycStatus", "party.iv.status"],
+  preparedAt: "2026-08-24T09:15:00Z",
+};
+
+test("agent draft: renders proposal, reason, evidence refs and the EXACT contract badge", () => {
+  const markup = renderToStaticMarkup(<AgentDraftSection draft={DRAFT} onUseDraft={() => {}} />);
+  assert.match(markup, /Prepared by agent/);
+  assert.match(markup, /Approve verification/);
+  assert.match(markup, /register entry matches the applicant/);
+  assert.match(markup, /account\.kycStatus/);
+  assert.equal(
+    CONSOLE_DECISION_COPY.agentDraftBadge,
+    "Sandbox agent draft – no system state changed until you approve.",
+    "the badge copy is contract-pinned verbatim",
+  );
+  assert.ok(
+    markup.includes("Sandbox agent draft – no system state changed until you approve."),
+    "the badge renders verbatim",
+  );
+  assert.match(markup, /data-register="agent"/);
+});
+
+test("agent draft: the Use draft affordance is explicit and present only while the draft stands", () => {
+  const standing = renderToStaticMarkup(<AgentDraftSection draft={DRAFT} onUseDraft={() => {}} />);
+  assert.match(standing, /Use draft/);
+  const superseded = renderToStaticMarkup(
+    <AgentDraftSection draft={{ ...DRAFT, superseded: true }} onUseDraft={() => {}} />,
+  );
+  assert.ok(!superseded.includes("Use draft"), "a superseded draft loses the affordance");
+  assert.match(superseded, /Superseded/);
+  assert.match(superseded, /decision was made on this record after the draft/);
+});
+
+test("agent draft: read-only without onUseDraft; the section never renders a decision control", () => {
+  const markup = renderToStaticMarkup(<AgentDraftSection draft={DRAFT} />);
+  assert.ok(!markup.includes("Use draft"));
+  assert.ok(!markup.includes(">Approve<"), "no approve button lives in the agent register");
+});
+
+test("decision form: initialReason pre-fills only through the explicit prop (the Use draft wiring)", () => {
+  const blank = renderToStaticMarkup(<DecisionForm version={1} onDecide={() => {}} />);
+  assert.ok(!blank.includes("Approve verification"));
+  const prefilled = renderToStaticMarkup(
+    <DecisionForm version={1} onDecide={() => {}} initialReason="Approve verification" />,
+  );
+  assert.match(prefilled, /Approve verification/);
+});
+
+test("approve-after-draft attribution carries both actors and both REAL stamps; never the protocol seat name", () => {
+  const meta = agentApprovalMeta(
+    {
+      preparedAt: "2026-08-24T09:15:00Z",
+      approvedBy: "dana@acme.eu",
+      approvedAt: "2026-08-24T09:42:00Z",
+    },
+    "en-GB",
+  );
+  const prepStamp = formatStamp("2026-08-24T09:15:00Z", "en-GB");
+  const approvalStamp = formatStamp("2026-08-24T09:42:00Z", "en-GB");
+  assert.equal(
+    meta,
+    `Prepared by AI agent (via MCP) · ${prepStamp} · Approved by dana@acme.eu · console seat · ${approvalStamp}`,
+  );
+  assert.ok(!meta.includes("MCP seat"), "internal protocol vocabulary stays out of the primary string");
+  assert.notEqual(prepStamp, approvalStamp, "both stamps are real, distinct timestamps");
+});
+
+test("no draft prop: the decision surface renders exactly as before (prop-optional)", () => {
+  const markup = renderToStaticMarkup(
+    <ConsoleDecisionPanel
+      context="Customer"
+      subject="Foxtrot Logistics"
+      derivation={{ kind: "actor", actor: "OPERATOR", state: "Review – decision owed" }}
+    />,
+  );
+  assert.ok(!markup.includes("Prepared by agent"));
+  assert.ok(!markup.includes("Sandbox agent draft"));
+});

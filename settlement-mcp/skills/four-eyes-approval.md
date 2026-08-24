@@ -12,8 +12,8 @@ must review and approve or reject it.
 
 - `list_ramp_requests` (read)
 - `get_ramp_request` (read)
-- `approve_ramp_request` (write, disarmed by default)
-- `reject_ramp_request` (write, disarmed by default)
+- `approve_ramp_request` (write, mock sandbox only)
+- `reject_ramp_request` (write, mock sandbox only)
 
 ## Steps
 
@@ -25,15 +25,15 @@ must review and approve or reject it.
    Fundflow API enforces this; the tool surfaces the state, it does not bypass it.
 4. Call `approve_ramp_request` (or `reject_ramp_request`) with `id` and the
    `version` from step 2.
-   - By default the tool returns a dry-run object showing the exact POST it would
-     send. Review it.
-   - To execute live, all three must hold: `confirm: true`, `VENLY_MCP_LIVE=1`,
-     and credentials present. Arming is a deliberate human decision.
-5. On a version conflict (HTTP 409) in live mode, re-fetch with `get_ramp_request`
-   to get the new `version` and retry.
+   - The tool executes only against the mock sandbox and refuses any non-sandbox
+     base URL, in code. Live approvals belong to your own reviewed integration
+     over `@venlyfinance/sdk`, behind your own ceremony.
+5. On a version conflict (HTTP 409), re-fetch with `get_ramp_request` to get the
+   new `version` and re-decide against fresh state.
 
 ## Notes
 
 - Approve transitions `AWAITING_APPROVAL` to `AWAITING_FUNDS`. Reject transitions
   to `REJECTED`.
-- The dry-run is the safe default. Read the request body before arming.
+- Approving and rejecting are business-judgment decisions: the checker's click is
+  the mutation. An agent may prepare the decision; it never applies one.

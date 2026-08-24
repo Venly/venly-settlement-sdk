@@ -64,6 +64,40 @@ export interface MockWebhookDelivery {
 /** Retained per store, oldest dropped first - mirrors the event buffer. */
 const WEBHOOK_DELIVERY_BUFFER = 500;
 
+/** The record classes an agent-prepared decision draft can attach to. */
+export type MockDecisionRecordType = "verification" | "reconciliation" | "payout_exception";
+
+/** What a caller supplies to prepare a decision draft. */
+export interface MockDecisionDraftInput {
+  recordType: MockDecisionRecordType;
+  /** verification: a party or account id · reconciliation: an inbound credit id · payout_exception: a payout id. */
+  recordId: string;
+  /** The decision the agent proposes, in operator language. */
+  proposal: string;
+  /** Why - citing the evidence the agent read. */
+  reason: string;
+  /** References into that evidence (field paths, event ids, record ids). */
+  evidenceRefs?: string[];
+}
+
+/**
+ * An agent-prepared decision draft attached to a record. MOCK-ONLY concept:
+ * no operation on either public plane stores or serves a decision draft -
+ * this exists so the maker/checker split is demonstrable (an agent PREPARES,
+ * a human decides through the existing ceremony). A draft never auto-applies
+ * anything; the only transitions are PREPARED at creation and SUPERSEDED when
+ * a human decision lands on the record (or a driver marks it directly). Any
+ * surface rendering one must badge it as a sandbox agent draft, never as API
+ * state.
+ */
+export interface MockDecisionDraft extends Required<Omit<MockDecisionDraftInput, "evidenceRefs">> {
+  id: string;
+  evidenceRefs: string[];
+  preparedAt: string;
+  status: "PREPARED" | "SUPERSEDED";
+  supersededAt?: string;
+}
+
 /**
  * Management-plane twin fields on the mock's payout row.
  *
@@ -374,6 +408,8 @@ export class FinanceMockStore {
   webhooks: Webhook[] = [];
   /** Simulated deliveries, oldest first. See MockWebhookDelivery. */
   webhookDeliveries: MockWebhookDelivery[] = [];
+  /** Agent-prepared decision drafts (mock-only; see MockDecisionDraft). */
+  decisionDrafts: MockDecisionDraft[] = [];
 
   private counter = 0;
   private initialised = false;
@@ -423,6 +459,10 @@ export class FinanceMockStore {
    */
   private recordWebhookDeliveries(eventType: string, at: string): void {
     if (eventType.startsWith("store.")) return;
+    // decision.* events are a mock-only vocabulary (no contract op models a
+    // decision draft), so recording a delivery would teach that the real
+    // platform webhooks them. It does not; they stay out of the simulated log.
+    if (eventType.startsWith("decision.")) return;
     for (const webhook of this.webhooks) {
       if (webhook.status !== "ACTIVE" || !webhook.id) continue;
       this.webhookDeliveries.push({ webhookId: webhook.id, eventType, at, status: "DELIVERED" });
@@ -475,6 +515,9 @@ export class FinanceMockStore {
     );
     this.webhooks = s.webhooks ?? [];
     this.webhookDeliveries = [];
+    // The seeds carry no drafts: reset() returns to a world where no agent
+    // has prepared anything yet.
+    this.decisionDrafts = [];
     this.ledger.reset();
     this.hydrateLedger();
     this.initialised = true;
@@ -549,6 +592,7 @@ export class FinanceMockStore {
       ivVerifications: [...this.ivVerifications.values()],
       webhooks: this.webhooks,
       webhookDeliveries: this.webhookDeliveries,
+      decisionDrafts: this.decisionDrafts,
       // The rendered wallet rows above cannot carry an 18-decimal balance, so
       // the authoritative minor-unit amounts travel alongside them. Without
       // this a peer rebuilds its ledger from the lossy view and the two
@@ -580,6 +624,7 @@ export class FinanceMockStore {
     );
     this.webhooks = (s.webhooks ?? []) as Webhook[];
     this.webhookDeliveries = (s.webhookDeliveries ?? []) as MockWebhookDelivery[];
+    this.decisionDrafts = (s.decisionDrafts ?? []) as MockDecisionDraft[];
     // Adopted state is a post-state, exactly like seeds, so holds are
     // re-derived at their implied phase and post no delta.
     this.ledger.reset();
@@ -1265,6 +1310,9 @@ export class FinanceMockStore {
         previous: { status: previousStatus },
         data: party,
       });
+      // A human decision landed on this record: any agent draft attached to
+      // it is now superseded (contract state - the trail shows the operator).
+      this.supersedeDecisionDrafts("verification", id);
       return;
     }
     const account = this.accounts.find((a) => a.id === id);
@@ -1281,9 +1329,103 @@ export class FinanceMockStore {
         previous: { status: previousAccountStatus },
         data: account,
       });
+      this.supersedeDecisionDrafts("verification", id);
       return;
     }
     throw new Error(`advanceVerification: no party or account with id ${id} in the mock store.`);
+  }
+
+  // ── Decision drafts (mock-only; see MockDecisionDraft) ────────────────
+
+  /**
+   * Store an agent-prepared decision draft against a record and emit
+   * `decision.prepared` through the standard path. Validates that the record
+   * exists for the given type - a draft on nothing would be a taught
+   * falsehood. Drafts never auto-apply anything: the ONLY mutations remain
+   * the existing decision ceremonies, and a later human decision on the
+   * record marks the draft superseded.
+   */
+  prepareDecision(input: MockDecisionDraftInput): MockDecisionDraft {
+    const { recordType, recordId } = input;
+    let accountId: string | undefined;
+    if (recordType === "verification") {
+      const party = this.parties.find((p) => p.id === recordId);
+      const account = this.accounts.find((a) => a.id === recordId);
+      if (!party && !account) {
+        throw new Error(
+          `prepareDecision: no party or account with id ${recordId} in the mock store.`,
+        );
+      }
+      accountId = account ? recordId : undefined;
+    } else if (recordType === "reconciliation") {
+      const credit = this.inboundCredits.find((c) => c.id === recordId);
+      if (!credit) {
+        throw new Error(`prepareDecision: no inbound credit with id ${recordId} in the mock store.`);
+      }
+      accountId = this.virtualBankAccounts.find(
+        (vba) => vba.id === credit.virtualBankAccountId,
+      )?.accountId;
+    } else if (recordType === "payout_exception") {
+      const payout = this.payouts.find((p) => p.id === recordId);
+      if (!payout) {
+        throw new Error(`prepareDecision: no payout with id ${recordId} in the mock store.`);
+      }
+      accountId = payout.accountId;
+    } else {
+      throw new Error(
+        `prepareDecision: unknown recordType ${JSON.stringify(recordType)} - expected verification, reconciliation or payout_exception.`,
+      );
+    }
+    if (!input.proposal?.trim()) throw new Error("prepareDecision: proposal is required.");
+    if (!input.reason?.trim()) throw new Error("prepareDecision: reason is required.");
+    const draft: MockDecisionDraft = {
+      id: this.mintId(),
+      recordType,
+      recordId,
+      proposal: input.proposal,
+      reason: input.reason,
+      evidenceRefs: [...(input.evidenceRefs ?? [])],
+      preparedAt: this.now(),
+      status: "PREPARED",
+    };
+    this.decisionDrafts.push(draft);
+    this.emit({
+      type: "decision.prepared",
+      resource: { kind: "decisionDraft", id: draft.id },
+      accountId,
+      data: draft,
+    });
+    return draft;
+  }
+
+  /** Drafts, optionally filtered to one record, newest first. */
+  listDecisionDrafts(recordId?: string): MockDecisionDraft[] {
+    const drafts =
+      recordId === undefined
+        ? this.decisionDrafts
+        : this.decisionDrafts.filter((d) => d.recordId === recordId);
+    return [...drafts].reverse();
+  }
+
+  /**
+   * Mark every PREPARED draft on a record superseded - called by the decision
+   * ceremonies themselves (advanceVerification, advancePayout's decided
+   * states) and exposed as a driver for decisions that live app-side (the
+   * reconciliation workspace resolves locally; no store mutation observes
+   * it). Returns how many drafts were superseded. Emits no event of its own:
+   * the decision that caused it already emitted through the standard path,
+   * and `decision.superseded` is not part of the contract's vocabulary.
+   */
+  supersedeDecisionDrafts(recordType: MockDecisionRecordType, recordId: string): number {
+    let superseded = 0;
+    for (const draft of this.decisionDrafts) {
+      if (draft.recordType !== recordType || draft.recordId !== recordId) continue;
+      if (draft.status !== "PREPARED") continue;
+      draft.status = "SUPERSEDED";
+      draft.supersededAt = this.now();
+      superseded += 1;
+    }
+    return superseded;
   }
 
   /**
@@ -1932,6 +2074,14 @@ export class FinanceMockStore {
     });
     if (payout.fundingMode === "PULL" && asset) {
       this.emitBalance(payout.accountId as string, asset);
+    }
+    // The payout desk's exception ceremony lands here: confirm-completion
+    // (COMPLETED) and return (RETURNED) are the human decisions, REJECTED is
+    // the refused case. Any agent draft on the exception is now superseded.
+    // Provider-side lifecycle steps (SENDING, PROVIDER_PROCESSING, FAILED)
+    // are not decisions and leave drafts standing.
+    if (to === "COMPLETED" || to === "RETURNED" || to === "REJECTED") {
+      this.supersedeDecisionDrafts("payout_exception", id);
     }
     return payout;
   }

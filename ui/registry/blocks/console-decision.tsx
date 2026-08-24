@@ -31,6 +31,11 @@ import {
  * - Management-plane controls sit inside a badged platform-seat section –
  *   an action the integrator cannot perform in production is never
  *   rendered as theirs.
+ * - An agent-prepared draft renders in its OWN register (AgentDraftSection),
+ *   visually distinct from the operator's controls, badged as a sandbox
+ *   draft that changed nothing. It pre-fills the decision form only through
+ *   the explicit "Use draft" affordance – never silently. The human ceremony
+ *   is unchanged; a decision made without the draft marks it superseded.
  */
 
 // ─── User-facing copy ────────────────────────────────────────────────────────
@@ -50,7 +55,161 @@ export const CONSOLE_DECISION_COPY = {
   decisionColumn: "Decision",
   moneyColumn: "Money movement",
   emptyTrail: "No events yet for this record.",
+  agentSectionLabel: "Prepared by agent",
+  /** The badge copy is contract-pinned verbatim; do not reword it. */
+  agentDraftBadge: "Sandbox agent draft – no system state changed until you approve.",
+  agentUseDraft: "Use draft",
+  agentSuperseded: "Superseded",
+  agentSupersededBody: "A decision was made on this record after the draft was prepared.",
+  agentProposalLabel: "Proposal",
+  agentReasonLabel: "Reason",
+  agentEvidenceLabel: "Evidence",
+  agentPreparedAtLabel: "Prepared",
 } as const;
+
+// ─── Agent draft – a separate register, prop-optional ────────────────────────
+
+/**
+ * An agent-prepared decision draft, as the surface renders it. Prop-shaped
+ * (not an SDK import) so consumers without the mock draft store render
+ * unchanged and consumers with one map their draft onto it.
+ */
+export interface AgentDraft {
+  proposal: string;
+  reason: string;
+  evidenceRefs: string[];
+  /** ISO stamp – the REAL preparation time the trail attribution reuses. */
+  preparedAt: string;
+  /** True once a human decision landed on the record after this draft. */
+  superseded?: boolean;
+}
+
+/**
+ * The approve-after-draft trail attribution: both actors, both REAL stamps.
+ * "MCP seat" is internal protocol vocabulary and never appears in this
+ * primary string (a tooltip may carry it).
+ */
+export function agentApprovalMeta(
+  input: { preparedAt: string; approvedBy: string; approvedAt: string },
+  locale?: string,
+): string {
+  return (
+    `Prepared by AI agent (via MCP) · ${formatStamp(input.preparedAt, locale)} · ` +
+    `Approved by ${input.approvedBy} · console seat · ${formatStamp(input.approvedAt, locale)}`
+  );
+}
+
+/**
+ * The agent register: visually distinct from the operator's controls (its own
+ * bordered surface, its own section label) so the reader never mistakes an
+ * agent proposal for operator state. It changes nothing and pre-fills nothing
+ * silently – the ONLY way its text reaches the decision form is the explicit
+ * "Use draft" affordance. A superseded draft keeps rendering (the audit
+ * record of what the agent proposed) but loses the affordance.
+ */
+export function AgentDraftSection({
+  draft,
+  onUseDraft,
+  locale,
+  style,
+}: {
+  draft: AgentDraft;
+  /** Wire this to the decision form's prefill; absent = read-only draft. */
+  onUseDraft?: (draft: AgentDraft) => void;
+  locale?: string;
+  style?: CSSProperties;
+}): ReactElement {
+  return (
+    <section
+      data-register="agent"
+      style={{
+        border: "var(--border-w-hairline) dashed var(--border-strong)",
+        borderRadius: "var(--radius-control)",
+        padding: "var(--space-sm) var(--space-md)",
+        marginTop: "var(--space-md)",
+        fontFamily: "var(--font-family)",
+        ...style,
+      }}
+    >
+      <p
+        style={{
+          margin: 0,
+          fontSize: "var(--font-size-micro)",
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "var(--text-secondary)",
+          fontWeight: 600,
+          display: "flex",
+          alignItems: "center",
+          gap: "var(--space-sm)",
+        }}
+      >
+        {CONSOLE_DECISION_COPY.agentSectionLabel}
+        {draft.superseded ? (
+          <StatusPill label={CONSOLE_DECISION_COPY.agentSuperseded} intent="neutral" />
+        ) : null}
+      </p>
+      <p
+        data-badge="agent-draft"
+        style={{
+          margin: "var(--space-3xs) 0 var(--space-sm)",
+          fontSize: "var(--font-size-micro)",
+          color: "var(--text-tertiary)",
+        }}
+      >
+        {CONSOLE_DECISION_COPY.agentDraftBadge}
+      </p>
+      <FieldList
+        fields={[
+          { label: CONSOLE_DECISION_COPY.agentProposalLabel, value: draft.proposal },
+          { label: CONSOLE_DECISION_COPY.agentReasonLabel, value: draft.reason },
+          ...(draft.evidenceRefs.length > 0
+            ? [
+                {
+                  label: CONSOLE_DECISION_COPY.agentEvidenceLabel,
+                  value: draft.evidenceRefs.join(" · "),
+                  mono: true,
+                },
+              ]
+            : []),
+          {
+            label: CONSOLE_DECISION_COPY.agentPreparedAtLabel,
+            value: formatStamp(draft.preparedAt, locale),
+          },
+        ]}
+      />
+      {draft.superseded ? (
+        <p
+          style={{
+            margin: "var(--space-sm) 0 0",
+            fontSize: "var(--font-size-micro)",
+            color: "var(--text-tertiary)",
+          }}
+        >
+          {CONSOLE_DECISION_COPY.agentSupersededBody}
+        </p>
+      ) : onUseDraft ? (
+        <button
+          type="button"
+          onClick={() => onUseDraft(draft)}
+          style={{
+            marginTop: "var(--space-sm)",
+            border: "var(--border-w-hairline) solid var(--border-strong)",
+            background: "var(--surface-raised)",
+            color: "var(--text-primary)",
+            borderRadius: "var(--radius-control)",
+            padding: "var(--space-2xs) var(--space-sm)",
+            fontSize: "var(--font-size-label)",
+            fontFamily: "var(--font-family)",
+            cursor: "pointer",
+          }}
+        >
+          {CONSOLE_DECISION_COPY.agentUseDraft}
+        </button>
+      ) : null}
+    </section>
+  );
+}
 
 // ─── Seat badge (a section boundary, not a per-button label) ─────────────────
 
@@ -178,6 +337,13 @@ export interface DecisionFormProps {
    */
   driver?: boolean;
   requireReasonOnReject?: boolean;
+  /**
+   * Pre-fill for the reason field – the "Use draft" wiring. Read once, at
+   * mount: pass a changing `key` (e.g. the draft id) to re-mount the form
+   * when the operator picks the draft, so the pre-fill is always the
+   * operator's explicit act and never a silent overwrite of typed text.
+   */
+  initialReason?: string;
   onDecide: (decision: { action: "approve" | "reject"; reason: string; version?: number }) => void;
   style?: CSSProperties;
 }
@@ -203,10 +369,11 @@ export function DecisionForm({
   seat = "platform",
   driver = false,
   requireReasonOnReject = true,
+  initialReason,
   onDecide,
   style,
 }: DecisionFormProps): ReactElement {
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(initialReason ?? "");
   const [reasonError, setReasonError] = useState<string | null>(null);
 
   if (conflict) {

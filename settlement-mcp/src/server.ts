@@ -54,7 +54,7 @@ export function createServer(options: CreateServerOptions): McpServer {
 
   registerReadTools(server, options.client);
   registerWriteTools(server, options.client, env);
-  registerX402Tools(server);
+  registerX402Tools(server, env);
   registerFrontendTools(server);
   registerBuilderResources(server);
   registerBuilderPrompts(server);

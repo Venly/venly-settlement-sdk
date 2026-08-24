@@ -260,6 +260,38 @@ never presented as contract behaviour; delete is confirm-and-explain: the
 confirmation names the consequence before anything is removed; the
 simulated delivery log is a sandbox surface phrased in the third person
 and badged as simulation, rendered only inside the simulator's own chrome.`,
+  "agent-payment": `# Agent payment (the x402 flow, runnable in an MCP session)
+Shell: NO new UI page - the flow runs in an MCP session and is observed on the
+EXISTING activity surface and the console/simulator event trail. A showcase
+page of invented agent chrome would be fabrication; the existing surfaces
+rendering the real records is the demo.
+Registry items: the existing activity block for observation; nothing new.
+Authority model - delegated payment authority, NOT maker/checker: this is the
+payer's own pre-authorized quote-and-pay call, scoped like an API key, on the
+payer's own account. Maker/checker governs business-judgment decisions about
+OTHER parties' state (KYC, reconciliation matches, payout exceptions - see
+prepare_decision), where the agent only prepares and the human's click is the
+mutation. Delegated authority governs the principal's own spend; state the
+distinction wherever both appear.
+The runnable sequence (mock sandbox, zero credentials):
+1. quote_x402_payment - returns the payment_required envelope (HTTP-402-shaped
+   PaymentRequirements: scheme, network, asset, payTo, maxAmountRequired).
+2. create_fiat_transfer or create_crypto_transfer, carrying the quote's
+   resource/action reference in merchantReference - the join that lets every
+   later surface tie the payment to the quote.
+3. Observe: the transfer renders in activity/statements EXACTLY like any
+   transfer; the event trail (simulations.events / the console register)
+   carries transfer.created for it; simulations.ledger.verify() passes and
+   the debit is visible on the payer's balance.
+No agent badge on the activity row BY DESIGN: the ledger contract has no
+initiator field, so we didn't invent one - the agent is attributed in the
+event trail, and the row stays contract-honest. (An initiator/channel field
+on transfers is an open ask, not a rendered pretense.)
+States that must exist: quote returned, transfer created carrying the quoted reference, activity row visible with no agent chrome, event trail attributing the session, ledger verified.
+Rules that must hold: the merchantReference carries the quoted reference
+verbatim; the activity row must NOT gain invented agent chrome; the event
+trail is where attribution lives; the ledger check runs after payment - same
+invariant gate as every money test.`,
 } as const;
 
 type JourneyKey = keyof typeof JOURNEYS;
@@ -524,6 +556,17 @@ const JOURNEY_RUNTIME: Record<JourneyKey, {
       "a stored secret displayed anywhere (the authentication secret fields are write-only)",
       "retry-safety presented as contract behaviour (a replayed create registers a second webhook)",
       "the single-member status enum rendered as a select",
+    ],
+  },
+  "agent-payment": {
+    // No new UI: the flow is an MCP session observed on the existing
+    // activity surface and the mock event trail.
+    blocks: ["activity"],
+    dataPlane: true,
+    hooks: ["useTransfers", "useVenlyMock"],
+    extraForbidden: [
+      "an agent badge or initiator chrome on the activity/statement row (the ledger contract has no initiator field; attribution lives in the event trail)",
+      "a dedicated agent-payment showcase page of invented chrome (the existing surfaces rendering the real records are the demo)",
     ],
   },
 };
