@@ -36,7 +36,7 @@ test("server enumerates all read + write + x402 tools over the harness", async (
   // x402 tier
   assert.ok(names.includes("quote_x402_payment"), "missing x402 tool");
 
-  assert.equal(tools.length, 34, "expected 34 tools total");
+  assert.equal(tools.length, 35, "expected 35 tools total");
   await h.close();
 });
 

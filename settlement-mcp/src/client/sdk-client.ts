@@ -10,6 +10,8 @@ import {
 import type {
   Account,
   CryptoCurrency,
+  DecisionDraft,
+  PrepareDecisionInput,
   CreateAccountInput,
   CreateCryptoTransferInput,
   CreateFiatTransferInput,
@@ -294,6 +296,26 @@ export class SdkVenlyClient implements VenlyClient {
   ): Promise<PaymentSession> {
     this.assertReady();
     return this.finance.paymentSessions.create(accountId, body);
+  }
+
+  async prepareDecision(input: PrepareDecisionInput): Promise<DecisionDraft> {
+    // Reached only in mock mode (the sandbox gate refuses first elsewhere).
+    // The decision namespace ships with the sdk that introduces decision
+    // drafts; access is duck-typed so this package still compiles against
+    // older sdk typings, and an older mock fails loudly rather than
+    // pretending a draft was stored.
+    const mock = (this.finance as unknown as {
+      mock?: { simulations?: { decision?: { prepare(i: PrepareDecisionInput): DecisionDraft } } };
+    }).mock;
+    const decision = mock?.simulations?.decision;
+    if (!decision) {
+      throw new Error(
+        "prepare_decision needs the mock sandbox's decision-draft surface, which this " +
+          "@venlyfinance/sdk build does not expose. Run in mock mode with an sdk version " +
+          "that ships mock decision drafts.",
+      );
+    }
+    return decision.prepare(input);
   }
 
   // ----- Payout surface (contract 1.3.0) -----

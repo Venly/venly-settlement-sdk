@@ -15,7 +15,7 @@ test("builder write tools enumerate on the existing MCP server", async () => {
   ]) {
     assert.ok(names.includes(name), `missing builder write tool ${name}`);
   }
-  assert.equal(tools.length, 34);
+  assert.equal(tools.length, 35);
   await h.close();
 });
 
@@ -191,6 +191,26 @@ test("register_payout_bank_account nests rail details into the wire body", async
   };
   assert.equal(body.rail, "SEPA");
   assert.equal(body.railDetails.iban, "DE89370400440532013999");
+  await h.close();
+});
+
+test("prepare_decision writes the draft via the client's mock surface and returns it", async () => {
+  const h = await makeHarness({ VENLY_ENV: "mock" });
+  const { data } = await callToolJson(h.client, "prepare_decision", {
+    recordType: "payout_exception",
+    recordId: "payout-9",
+    proposal: "Confirm completion",
+    reason: "Provider statement shows the fiat leg settled.",
+    evidenceRefs: ["payout.status", "payout.sendTxHash"],
+  });
+  assert.equal(data.mode, "mock");
+  assert.equal(data.dryRun, false);
+  assert.equal(data.result.status, "PREPARED");
+  assert.deepEqual(data.result.evidenceRefs, ["payout.status", "payout.sendTxHash"]);
+  assert.equal(h.mock.called("prepareDecision"), true);
+  const input = h.mock.lastBody.prepareDecision as { recordType: string; recordId: string };
+  assert.equal(input.recordType, "payout_exception");
+  assert.equal(input.recordId, "payout-9");
   await h.close();
 });
 

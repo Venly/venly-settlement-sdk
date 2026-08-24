@@ -11,6 +11,8 @@ import type { EnvLike } from "../src/safety.js";
 import type {
   Account,
   CryptoCurrency,
+  DecisionDraft,
+  PrepareDecisionInput,
   CreateAccountInput,
   CreateCryptoTransferInput,
   CreateFiatTransferInput,
@@ -378,6 +380,18 @@ export class MockVenlyClient implements VenlyClient {
   async listPayoutBankAccounts(partyId: string): Promise<PayoutBankAccount[]> {
     this.track("listPayoutBankAccounts");
     return [{ id: "pba-1", partyId, rail: "SEPA", status: "ACTIVE" }];
+  }
+
+  async prepareDecision(input: PrepareDecisionInput): Promise<DecisionDraft> {
+    this.track("prepareDecision");
+    this.lastBody.prepareDecision = input;
+    return {
+      ...input,
+      id: "draft-1",
+      evidenceRefs: input.evidenceRefs ?? [],
+      preparedAt: "2026-08-24T10:00:00.000Z",
+      status: "PREPARED",
+    };
   }
 
   async registerPayoutBankAccount(

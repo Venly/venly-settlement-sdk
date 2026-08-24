@@ -68,6 +68,12 @@ const WRITE_PREPARE_CALLS: Record<string, Record<string, unknown>> = {
     signature: "0xsigned",
   },
   request_payout: { accountId: "acct-1", payoutRouteId: "route-1", cryptoAmount: 10 },
+  prepare_decision: {
+    recordType: "verification",
+    recordId: "acct-1",
+    proposal: "Approve verification",
+    reason: "Evidence complete.",
+  },
   quote_x402_payment: { action: "stage_transfer", amount: "1.50", payTo: "0xabc" },
 };
 
@@ -238,6 +244,27 @@ test("integration: a mock-mode session runs the journey end to end on the real s
     });
     assert.equal(quote.isError, false);
     assert.equal(quote.data.httpStatus, 402);
+
+    // Prepare a decision draft on the account whose verification is pending
+    // in the seeds - the maker half of maker/checker, applied to nothing.
+    const draft = await callToolJson(mcp, "prepare_decision", {
+      recordType: "verification",
+      recordId: "a10c2d31-2222-4b20-8c63-000000000004",
+      proposal: "Approve verification",
+      reason: "Screening completed; register entry matches the applicant.",
+      evidenceRefs: ["account.kycStatus"],
+    });
+    assert.equal(draft.isError, false);
+    assert.equal(draft.data.result.status, "PREPARED");
+    assert.ok(draft.data.result.preparedAt);
+    const pending = await callToolJson(mcp, "get_account", {
+      accountId: "a10c2d31-2222-4b20-8c63-000000000004",
+    });
+    assert.equal(
+      pending.data.kycStatus ?? pending.data.result?.kycStatus,
+      "VERIFICATION_PENDING",
+      "the draft applied nothing - the record is untouched",
+    );
   } finally {
     await mcp.close();
     await server.close();

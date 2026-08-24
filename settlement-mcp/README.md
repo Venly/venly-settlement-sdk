@@ -112,13 +112,52 @@ Writes (mock sandbox only, fail-closed like every write):
 `prepare_payout_ownership_proof`, `complete_payout_ownership_proof`,
 `request_payout`.
 
-### 3. x402 tool (position + stub)
+### `prepare_decision` (agent as maker, human as checker)
+
+`prepare_decision` attaches an agent-prepared decision draft to a record in
+the mock sandbox: `recordType` (`verification` · `reconciliation` ·
+`payout_exception`), `recordId`, a `proposal`, the `reason`, and
+`evidenceRefs` into the evidence the agent read. The draft **never applies
+anything** – it is stored on the mock world, emits `decision.prepared`, and
+renders in the console decision panel visually distinct from the operator's
+own register, badged as a sandbox agent draft. The human decides through the
+existing ceremony (approve/reject, confirm/return); that decision marks the
+draft superseded, and the trail then carries both actors with both real
+timestamps.
+
+Two authority models, deliberately distinct:
+
+- **Maker/checker** governs business-judgment decisions about other parties'
+  state – KYC verifications, reconciliation matches, payout exceptions. The
+  agent may only PREPARE; the checker's click in the console is the only
+  mutation.
+- **Delegated payment authority** governs the x402 flow below – the payer's
+  own pre-authorized quote-and-pay call, scoped like an API key, on the
+  payer's own account. The agent executes its principal's own spend; it never
+  judges anyone else's state.
+
+### 3. x402 tools (the agent-payment rail)
 
 `quote_x402_payment` returns an HTTP-402-shaped quote (price, asset, payTo,
-chain) for a settlement action, following the x402 `PaymentRequirements` model.
-It documents the machine-to-machine rail. It never executes a payment, never
-calls a facilitator, and never moves funds. Production x402 settlement needs a
-facilitator decision and live rails.
+chain) for a settlement action, following the x402 `PaymentRequirements`
+model. The quote itself moves nothing and calls no facilitator; in the mock
+sandbox the full agent-payment flow then RUNS end to end:
+
+```text
+1. quote_x402_payment            -> the payment_required envelope
+2. create_fiat_transfer          -> carry the quote's reference in
+   (or create_crypto_transfer)      merchantReference
+3. list_transfers / activity UI  -> the transfer renders like ANY transfer
+4. simulations.events / console  -> the event trail attributes the session
+5. simulations.ledger.verify()   -> the books still balance; the debit is
+                                    visible on the payer's balance
+```
+
+No agent badge on the activity row **by design** – the ledger contract has no
+initiator field, so we didn't invent one; the agent is attributed in the
+event trail. (An initiator/channel field on transfers is an open ask.)
+Production x402 settlement needs a facilitator decision and live rails; per
+the sandbox boundary above, this server never executes it.
 
 ## Frontend toolset (interface assembly)
 
@@ -127,8 +166,9 @@ Delivery of UI source rides the shadcn registry standard – add
 to `components.json`, then `npx shadcn@latest add @venlyfinance/receive`. The MCP carries
 what a registry cannot:
 
-- `get_journey_blueprint` – screen inventory and required states for eleven
-  money-product journeys, plus a machine-readable `runtime_contract` containing
+- `get_journey_blueprint` – screen inventory and required states for seventeen
+  money-product journeys (including `agent-payment`, the runnable x402
+  sequence above), plus a machine-readable `runtime_contract` containing
   exact package versions, qualified hooks, provider setup, forbidden patterns,
   install commands and completion checks.
 - `verify_runtime_contract` – deterministic runtime-contract checks over supplied
@@ -307,11 +347,15 @@ over [`@venlyfinance/sdk`](../), behind your own review-and-confirm ceremony.
 ## x402 position
 
 The machine-to-machine agent-payments rail is consolidating on x402 (Cloudflare
-plus the Coinbase x402 Foundation; MCP tools return HTTP 402). Venly's stance:
-the MCP is the human-gated operator surface; x402 is the machine-to-machine rail.
-This ship states the position and ships a well-formed 402 quote stub. It does not
-ship a production x402 settlement engine, that needs a facilitator decision and
-live rails.
+plus the Coinbase x402 Foundation; MCP tools return HTTP 402). Venly's stance,
+in the two authority models above: business-judgment decisions stay
+maker/checker (the agent prepares, the human's click is the mutation), while
+x402 is delegated payment authority – the payer's own pre-authorized spend.
+This ship makes the quote-and-pay sequence runnable in the mock sandbox and
+documents it as the `agent-payment` journey blueprint. It does not ship a
+production x402 settlement engine; that needs a facilitator decision and live
+rails, and per the sandbox boundary it would live in your own integration,
+not this server.
 
 ## Skills pack
 

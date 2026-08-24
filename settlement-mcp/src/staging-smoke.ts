@@ -38,6 +38,7 @@ export const EXPECTED_TOOLS = [
   "prepare_payout_ownership_proof",
   "complete_payout_ownership_proof",
   "request_payout",
+  "prepare_decision",
   "quote_x402_payment",
   "get_journey_blueprint",
   "verify_runtime_contract",

@@ -566,4 +566,49 @@ export function registerWriteTools(
       }
     },
   );
+
+  server.registerTool(
+    "prepare_decision",
+    {
+      title: "Prepare a decision draft for a human to review",
+      description:
+        "Attach an agent-prepared decision draft to a record in the mock sandbox: a proposal, " +
+        "the reason, and references to the evidence read. The draft NEVER applies anything - " +
+        "business-judgment decisions (KYC, reconciliation matches, payout exceptions) are " +
+        "maker/checker, and the checker's click in the console is the only mutation. The draft " +
+        "renders in the console decision panel, badged as a sandbox agent draft, and a later " +
+        "human decision marks it superseded. Mock sandbox only; refuses any non-sandbox base URL.",
+      inputSchema: {
+        recordType: z
+          .enum(["verification", "reconciliation", "payout_exception"])
+          .describe("Which decision queue the record belongs to"),
+        recordId: z
+          .string()
+          .min(1)
+          .describe(
+            "verification: a party or account id · reconciliation: an inbound credit id · payout_exception: a payout id",
+          ),
+        proposal: z
+          .string()
+          .min(1)
+          .describe("The decision you propose, in operator language (e.g. \"Approve verification\")"),
+        reason: z.string().min(1).describe("Why - cite the evidence you read"),
+        evidenceRefs: z
+          .array(z.string())
+          .default([])
+          .describe("References into the evidence: field paths, event ids, record ids"),
+        confirm: confirmField,
+      },
+      annotations: WRITE_ANNOTATIONS,
+    },
+    async ({ confirm, ...input }) => {
+      const refusal = refuseNonSandbox("prepare_decision", { ...input, confirm }, env);
+      if (refusal) return refusal;
+      try {
+        return executionResult(await client.prepareDecision(input));
+      } catch (e) {
+        return errorResult((e as Error).message);
+      }
+    },
+  );
 }

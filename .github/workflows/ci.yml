@@ -123,6 +123,10 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
+      # The MCP's prepare_decision rides the workspace sdk's mock decision
+      # drafts; until that sdk publishes, CI must check against the sdk this
+      # branch actually ships with (same overlay the react and ui jobs use).
+      - run: bash ../scripts/use-workspace-sdk.sh settlement-mcp
       - run: npm run typecheck
       - run: npm run typecheck:test
       - run: npm test   # node:test suite, mocked client, zero network
