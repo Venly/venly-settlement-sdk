@@ -418,3 +418,80 @@ test("section membership mirrors queueSectionOf", () => {
   assert.equal(ACTOR_SECTION_LABELS.OPERATOR.integrator, "Your move");
   assert.equal(CONSOLE_QUEUE_COPY.unrecognised, "State not recognised – see detail");
 });
+
+// ─── Prepare with agent: the affordance, the panel, the snippet ───────────────
+
+import {
+  PrepareWithAgentPanel,
+  buildPrepareDecisionSnippet,
+} from "../registry/blocks/console-queue.js";
+
+const OPEN_ROW = {
+  key: "row-open",
+  subject: "Foxtrot Logistics",
+  state: { label: "Verification pending", intent: "pending" as const },
+  derivation: { kind: "actor" as const, actor: "OPERATOR" as const, state: "Review – decision owed" },
+  ageIso: "2026-08-20T10:00:00Z",
+};
+
+const CLOSED_ROW = {
+  key: "row-closed",
+  subject: "Cygnus Retail",
+  state: { label: "Verified", intent: "positive" as const },
+  derivation: { kind: "terminal" as const, state: "Verified" },
+  ageIso: "2026-08-01T10:00:00Z",
+};
+
+const QUEUE_EMPTY = { headline: "No customers yet", body: "Rows appear when a customer applies." };
+const NOW_ISO = "2026-08-24T12:00:00Z";
+
+test("queue: onPrepareWithAgent renders the action on open rows only", () => {
+  const markup = renderToStaticMarkup(
+    <ConsoleQueue
+      rows={[OPEN_ROW, CLOSED_ROW]}
+      empty={QUEUE_EMPTY}
+      nowIso={NOW_ISO}
+      onPrepareWithAgent={() => {}}
+    />,
+  );
+  const occurrences = markup.split(CONSOLE_QUEUE_COPY.prepareWithAgent).length - 1;
+  assert.equal(occurrences, 1, "the open row gets the action; the terminal row does not");
+});
+
+test("queue: without onPrepareWithAgent the queue renders unchanged (prop-optional)", () => {
+  const markup = renderToStaticMarkup(
+    <ConsoleQueue rows={[OPEN_ROW, CLOSED_ROW]} empty={QUEUE_EMPTY} nowIso={NOW_ISO} />,
+  );
+  assert.ok(!markup.includes(CONSOLE_QUEUE_COPY.prepareWithAgent));
+});
+
+test("snippet: the exact prepare_decision call for the record, judgment left to the agent", () => {
+  const snippet = buildPrepareDecisionSnippet({
+    recordType: "payout_exception",
+    recordId: "payout-123",
+  });
+  assert.match(snippet, /^prepare_decision\(\{/);
+  assert.match(snippet, /"recordType": "payout_exception"/);
+  assert.match(snippet, /"recordId": "payout-123"/);
+  assert.match(snippet, /"proposal": "<the decision you propose>"/);
+  assert.match(snippet, /"reason": "<why - cite the evidence you read>"/);
+  assert.match(snippet, /"evidenceRefs": \[\]/);
+});
+
+test("panel: carries the record reference, the copyable snippet, and the maker/checker line", () => {
+  const markup = renderToStaticMarkup(
+    <PrepareWithAgentPanel
+      recordType="verification"
+      recordId="acct-0004"
+      subject="Foxtrot Logistics"
+    />,
+  );
+  assert.match(markup, /Prepare with agent/);
+  assert.match(markup, /acct-0004/);
+  assert.match(markup, /Foxtrot Logistics/);
+  assert.match(markup, /prepare_decision/);
+  assert.match(markup, /&quot;recordType&quot;: &quot;verification&quot;/);
+  assert.match(markup, /Copy tool call/);
+  assert.match(markup, /Nothing changes until you approve in this console/);
+  assert.ok(!markup.includes("MCP seat"), "protocol vocabulary stays out of operator copy");
+});

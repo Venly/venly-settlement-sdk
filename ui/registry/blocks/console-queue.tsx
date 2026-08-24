@@ -44,6 +44,13 @@ export const CONSOLE_QUEUE_COPY = {
   exportFiltered: "Export filtered",
   searchPlaceholder: "Search name or reference",
   frozen: "Frozen",
+  prepareWithAgent: "Prepare with agent",
+  prepareWithAgentBody:
+    "The agent prepares; you decide. Hand this call to your own agent session – any MCP client on @venlyfinance/settlement-mcp, in mock mode – and it will attach a decision draft to this record. Nothing changes until you approve in this console.",
+  prepareWithAgentRecordLabel: "Record",
+  prepareWithAgentSnippetLabel: "Tool call for your agent",
+  copySnippet: "Copy tool call",
+  copiedSnippet: "Copied",
 } as const;
 
 /** Section labels, in render order. The seat name resolves "OPERATOR". */
@@ -336,6 +343,139 @@ export function AgeCell({
   );
 }
 
+// ─── Prepare with agent – the human hands the record to their own agent ─────
+
+export type DecisionRecordType = "verification" | "reconciliation" | "payout_exception";
+
+/**
+ * The exact `prepare_decision` call for one record, ready to paste into the
+ * operator's own agent session. The proposal and reason stay placeholders on
+ * purpose: they are the agent's judgment, and a panel that pre-wrote them
+ * would be the console deciding, not the agent preparing.
+ */
+export function buildPrepareDecisionSnippet(input: {
+  recordType: DecisionRecordType;
+  recordId: string;
+}): string {
+  return [
+    "prepare_decision({",
+    `  "recordType": ${JSON.stringify(input.recordType)},`,
+    `  "recordId": ${JSON.stringify(input.recordId)},`,
+    '  "proposal": "<the decision you propose>",',
+    '  "reason": "<why - cite the evidence you read>",',
+    '  "evidenceRefs": []',
+    "})",
+  ].join("\n");
+}
+
+/**
+ * The panel the "Prepare with agent" click opens: it carries the record
+ * reference and a copyable, ready-to-run MCP tool-call snippet. It does NOT
+ * run an agent in-app – the agent is any MCP client the operator already
+ * has, and the maker/checker line stays where it belongs: the agent
+ * prepares, this console decides.
+ */
+export function PrepareWithAgentPanel({
+  recordType,
+  recordId,
+  subject,
+  onCopy,
+  style,
+}: {
+  recordType: DecisionRecordType;
+  recordId: string;
+  /** Human name for the record, shown beside the machine reference. */
+  subject?: string;
+  /** Called with the snippet after a successful copy. */
+  onCopy?: (snippet: string) => void;
+  style?: CSSProperties;
+}): ReactElement {
+  const [copied, setCopied] = useState(false);
+  const snippet = buildPrepareDecisionSnippet({ recordType, recordId });
+  return (
+    <section data-panel="prepare-with-agent" style={{ fontFamily: "var(--font-family)", ...style }}>
+      <h3
+        style={{
+          margin: 0,
+          fontSize: "var(--font-size-micro)",
+          fontWeight: 600,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "var(--text-secondary)",
+        }}
+      >
+        {CONSOLE_QUEUE_COPY.prepareWithAgent}
+      </h3>
+      <p
+        style={{
+          margin: "var(--space-2xs) 0 var(--space-sm)",
+          fontSize: "var(--font-size-label)",
+          color: "var(--text-secondary)",
+        }}
+      >
+        {CONSOLE_QUEUE_COPY.prepareWithAgentBody}
+      </p>
+      <p style={{ margin: "0 0 var(--space-sm)", fontSize: "var(--font-size-label)" }}>
+        <span style={{ color: "var(--text-tertiary)" }}>
+          {CONSOLE_QUEUE_COPY.prepareWithAgentRecordLabel}:{" "}
+        </span>
+        {subject ? <span>{subject} · </span> : null}
+        <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--text-secondary)" }}>
+          {recordId}
+        </span>
+      </p>
+      <p
+        style={{
+          margin: "0 0 var(--space-3xs)",
+          fontSize: "var(--font-size-micro)",
+          color: "var(--text-tertiary)",
+        }}
+      >
+        {CONSOLE_QUEUE_COPY.prepareWithAgentSnippetLabel}
+      </p>
+      <pre
+        style={{
+          margin: 0,
+          padding: "var(--space-sm)",
+          border: "var(--border-w-hairline) solid var(--border-strong)",
+          borderRadius: "var(--radius-control)",
+          background: "var(--surface-raised)",
+          color: "var(--text-primary)",
+          fontSize: "var(--font-size-micro)",
+          overflowX: "auto",
+        }}
+      >
+        {snippet}
+      </pre>
+      <button
+        type="button"
+        onClick={() => {
+          const done = () => {
+            setCopied(true);
+            onCopy?.(snippet);
+          };
+          const clipboard = globalThis.navigator?.clipboard;
+          if (clipboard?.writeText) void clipboard.writeText(snippet).then(done, done);
+          else done();
+        }}
+        style={{
+          marginTop: "var(--space-sm)",
+          border: "var(--border-w-hairline) solid var(--border-strong)",
+          background: "var(--surface-raised)",
+          color: "var(--text-primary)",
+          borderRadius: "var(--radius-control)",
+          padding: "var(--space-2xs) var(--space-sm)",
+          fontSize: "var(--font-size-label)",
+          fontFamily: "var(--font-family)",
+          cursor: "pointer",
+        }}
+      >
+        {copied ? CONSOLE_QUEUE_COPY.copiedSnippet : CONSOLE_QUEUE_COPY.copySnippet}
+      </button>
+    </section>
+  );
+}
+
 // ─── The queue ───────────────────────────────────────────────────────────────
 
 export interface ConsoleQueueRow {
@@ -455,6 +595,13 @@ export interface ConsoleQueueProps {
   selectedKey?: string;
   /** Receives the CSV text when the operator exports. */
   onExportCsv?: (csv: string, filtered: boolean) => void;
+  /**
+   * When set, open (non-terminal) rows gain a "Prepare with agent" action –
+   * the click hands the row to the consumer, which opens
+   * PrepareWithAgentPanel with the record reference. Prop-optional: absent,
+   * the queue renders exactly as before.
+   */
+  onPrepareWithAgent?: (row: ConsoleQueueRow) => void;
   locale?: string;
   style?: CSSProperties;
 }
@@ -471,6 +618,7 @@ export function ConsoleQueue({
   onOpen,
   selectedKey,
   onExportCsv,
+  onPrepareWithAgent,
   locale,
   style,
 }: ConsoleQueueProps): ReactElement {
@@ -530,8 +678,41 @@ export function ConsoleQueue({
           </span>
         ) : null,
     });
+    if (onPrepareWithAgent) {
+      base.push({
+        key: "prepare-with-agent",
+        header: "",
+        // Open decisions only: a terminal row has nothing left to prepare,
+        // and an unrecognised row needs a human eye before an agent's.
+        cell: (row) =>
+          row.derivation.kind === "actor" ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                // The action must never double as a row click - the row
+                // click opens the decision panel, this opens the agent one.
+                event.stopPropagation();
+                onPrepareWithAgent(row);
+              }}
+              style={{
+                border: "var(--border-w-hairline) solid var(--border-strong)",
+                background: "var(--surface-raised)",
+                color: "var(--text-primary)",
+                borderRadius: "var(--radius-control)",
+                padding: "var(--space-3xs) var(--space-sm)",
+                fontSize: "var(--font-size-micro)",
+                fontFamily: "var(--font-family)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {CONSOLE_QUEUE_COPY.prepareWithAgent}
+            </button>
+          ) : null,
+      });
+    }
     return base;
-  }, [seat, showAmount, ageHeader, nowIso, locale]);
+  }, [seat, showAmount, ageHeader, nowIso, locale, onPrepareWithAgent]);
 
   if (loading) {
     return (
