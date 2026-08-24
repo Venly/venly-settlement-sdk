@@ -40,7 +40,8 @@ const confirmField = z
   .describe(
     "No effect: write/prepare tools execute only in the mock sandbox and " +
       "refuse any non-sandbox base URL in code. Retained for call-shape " +
-      "compatibility.",
+      "compatibility. Unrelated to the react package's stage-then-confirm() " +
+      "flow, which is a UI review ceremony, not an arming flag.",
   );
 
 const addressSchema = z

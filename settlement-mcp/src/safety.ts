@@ -99,7 +99,17 @@ function credentialShapedKey(key: string): string | null {
   if (normalised.includes("credential")) return "the key names a credential";
   if (normalised.includes("apikey")) return "the key names an API key";
   if (normalised.includes("bearer")) return "the key names a bearer token";
-  if (normalised.includes("privatekey")) return "the key names a private key";
+  if (
+    normalised.includes("privatekey") ||
+    normalised.includes("privkey") ||
+    normalised.includes("signingkey") ||
+    normalised.includes("signerkey")
+  ) {
+    return "the key names a private key";
+  }
+  if (normalised.includes("mnemonic") || normalised.includes("seedphrase")) {
+    return "the key names a wallet seed";
+  }
   if (normalised === "token" || normalised.endsWith("token")) {
     return "the key names a token";
   }
@@ -111,7 +121,7 @@ function credentialShapedKey(key: string): string | null {
  * long opaque strings are NOT flagged, because legitimate parameters carry
  * them (0x addresses, ownership-proof signatures, IBANs).
  */
-function credentialShapedValue(value: string): string | null {
+function credentialShapedValue(value: string, keyHint = ""): string | null {
   if (/^Bearer\s+\S+/i.test(value)) return "the value is a Bearer authorization header";
   if (/^eyJ[\w-]{4,}\.[\w-]{4,}\.[\w-]*$/.test(value)) return "the value is shaped like a JWT";
   if (/^(sk|rk|pk)[-_](live|test|prod)[-_][A-Za-z0-9]{8,}$/i.test(value)) {
@@ -119,6 +129,13 @@ function credentialShapedValue(value: string): string | null {
   }
   if (value.includes("-----BEGIN") && value.includes("PRIVATE KEY-----")) {
     return "the value is a PEM private key";
+  }
+  // 0x + 64 hex is ambiguous: a transaction hash and a raw 32-byte private
+  // key share the shape. The key name resolves it - hash-named parameters
+  // (blockchainTransactionHash et al.) are the one legitimate carrier; the
+  // same value under any other name is treated as a raw private key.
+  if (/^0x[0-9a-fA-F]{64}$/.test(value) && !keyHint.toLowerCase().includes("hash")) {
+    return "the value is shaped like a raw 32-byte private key";
   }
   return null;
 }
@@ -132,7 +149,8 @@ export function findCredentialShapedParam(
   path = "",
 ): { path: string; reason: string } | null {
   if (typeof args === "string") {
-    const reason = credentialShapedValue(args);
+    const keyHint = path.split(".").pop()?.replace(/\[\d+\]$/, "") ?? "";
+    const reason = credentialShapedValue(args, keyHint);
     return reason ? { path: path || "(value)", reason } : null;
   }
   if (Array.isArray(args)) {

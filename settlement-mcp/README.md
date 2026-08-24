@@ -381,7 +381,7 @@ settlement-mcp/
     server.ts             createServer(client, env), registers all tiers
     constants.ts
     types.ts              Generated SDK aliases + MCP-owned compatibility types
-    safety.ts             the write-gate (confirm + env + creds)
+    safety.ts             the sandbox boundary (refuses non-sandbox base URLs and credential-shaped params)
     reconcile.ts          pure reconciliation logic
     resources.ts          capability, safety and workflow resources
     prompts.ts            build_international_account prompt
@@ -393,7 +393,7 @@ settlement-mcp/
     tools/
       read-tools.ts       tier 1
       write-tools.ts      tier 2 (fail closed)
-      x402-tools.ts       tier 3 (stub)
+      x402-tools.ts       tier 3 (quote + sandbox settle; live settlement stays outside this server)
   skills/
     reconcile-by-reference-code.md
     four-eyes-approval.md

@@ -180,11 +180,18 @@ test("the credential scan matches key names and value shapes, not legitimate par
       pem: "-----BEGIN RSA PRIVATE KEY-----\nabc\n-----END RSA PRIVATE KEY-----",
     }),
   );
+  // Raw-key shapes: 0x + 64 hex is a private key unless the key names a hash
+  // (transaction hashes are the one legitimate carrier of that shape).
+  assert.ok(findCredentialShapedParam({ signerKey: "0x" + "ab".repeat(32) }));
+  assert.ok(findCredentialShapedParam({ signing_key: "0x" + "ab".repeat(32) }));
+  assert.ok(findCredentialShapedParam({ walletMnemonic: "abandon ability able about" }));
+  assert.equal(findCredentialShapedParam({ blockchainTransactionHash: "0x" + "ab".repeat(32) }), null);
   // Legitimate parameters never trip it.
   assert.equal(findCredentialShapedParam(WRITE_PREPARE_CALLS.register_payout_bank_account), null);
   assert.equal(findCredentialShapedParam({ idempotencyKey: crypto.randomUUID() }), null);
   assert.equal(findCredentialShapedParam({ referenceCode: "REF-ABC-123" }), null);
-  assert.equal(findCredentialShapedParam({ signature: "0x" + "ab".repeat(32) }), null);
+  // A 65-byte ECDSA signature (130 hex) is not private-key shaped.
+  assert.equal(findCredentialShapedParam({ signature: "0x" + "ab".repeat(65) }), null);
   assert.equal(findCredentialShapedParam({ payTo: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" }), null);
 });
 
