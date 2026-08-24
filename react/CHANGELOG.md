@@ -87,3 +87,10 @@ Initial release.
 - Requires `@venlyfinance/sdk` ^0.7.0 (the `parties.ivVerification` method).
   The manifest range moves with the publish, alongside the lockfile
   regeneration, per this repo's publish sequencing.
+
+## 0.6.1 – 2026-08-24
+
+- The runtime `@venlyfinance/sdk` range moves to `^0.8.0` so an app on the
+  current sdk installs one flat copy (a `^0.7.0` range beside an app's
+  `^0.8.0` pin nests a second sdk under this package and splits the mock
+  world). No code change.
