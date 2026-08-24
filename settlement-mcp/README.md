@@ -15,7 +15,7 @@ coding agents.
 host coding agent builds the interface.** This is one expanded implementation of
 the original Settlement MCP, not a second server.
 
-The Venly Finance builder surface documented here is the v0.8.0 release line.
+The Venly Finance builder surface documented here is the v0.9.0 release line.
 
 Building with a coding agent? Start from [AGENTS.md](AGENTS.md) - the MCP also serves it as the `venly://frontend/agents` resource and pushes the core runtime doctrine in its initialize response.
 
