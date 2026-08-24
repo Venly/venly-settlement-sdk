@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0 – 2026-08-24
+
+- **Decision drafts (mock).** An agent-prepared decision attached to a record:
+  `simulations.decision.prepare/list/supersede` with the `decision.prepared`
+  event through the standard emit path; a human decision on the record marks
+  its draft superseded; drafts replicate to channel peers and never
+  auto-apply anything. The maker/checker seam for the agent-operable console.
+
 ## 0.7.1 – 2026-08-22
 
 - **Settable mock actor (fundflow).** `client.mock.setActor({username, email,
