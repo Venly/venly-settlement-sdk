@@ -19,6 +19,21 @@ const key = (n) => `${String(n).padStart(8, "0")}-1111-4111-8111-111111111111`;
 const usdc = async (f, acct) =>
   (await f.wallets.list(acct)).items.find((w) => w.asset === "USDC")?.amount ?? { total: 0, available: 0, reserved: 0 };
 
+/**
+ * Replication is asynchronous, so a fixed sleep is a race: BroadcastChannel
+ * dispatch on a contended runner can outlast any constant (a 40ms wait here
+ * failed in CI while >100ms deliveries were measured under load). Poll the
+ * condition instead and fail only when it never arrives.
+ */
+const waitFor = async (predicate, what, timeoutMs = 2000) => {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (predicate()) return;
+    if (Date.now() > deadline) throw new Error(`timed out waiting for: ${what}`);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+};
+
 // ── Criterion 1: conservation ──────────────────────────────────────────
 
 test("ledger: an internal transfer conserves the asset total; external legs move it", async () => {
@@ -610,10 +625,10 @@ test("ledger: exactness survives replication, not just a single context", async 
 
   A.$store.ledger.applyAtomic([wei(A.$store.ledger.toMinor("DAI", 1000) + 10n)]);
   A.$afterDriver(undefined);
-  await new Promise((r) => setTimeout(r, 40));
 
   const exactOf = (t) =>
     t.simulations.ledger.snapshot().rows.find((r) => r.accountId === OPS && r.asset === "DAI")?.exact.total;
+  await waitFor(() => exactOf(B) !== undefined, "B to adopt A's snapshot");
   assert.equal(exactOf(A), "1000.00000000000000001", "A tracks the wei");
   assert.equal(
     exactOf(B), exactOf(A),
