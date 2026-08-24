@@ -88,12 +88,14 @@ export type MockEventType =
   | "payment_session.status_changed"
   | "inbound_credit.received"
   | "wallet.balance_changed"
+  | "decision.prepared"
   | "store.reset"
   | "store.resync";
 
 export type MockResourceKind =
   | "transfer" | "payout" | "party" | "account" | "wallet" | "virtualBankAccount"
-  | "payoutRoute" | "payoutBankAccount" | "paymentSession" | "inboundCredit" | "store";
+  | "payoutRoute" | "payoutBankAccount" | "paymentSession" | "inboundCredit"
+  | "decisionDraft" | "store";
 
 export interface MockEvent<T = unknown> {
   /**

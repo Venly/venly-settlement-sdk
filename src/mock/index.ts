@@ -27,6 +27,9 @@ export type {
   MockPayoutRow,
   MockInboundCredit,
   MockWebhookDelivery,
+  MockDecisionDraft,
+  MockDecisionDraftInput,
+  MockDecisionRecordType,
 } from "./store.js";
 export { mockTenantConfig } from "./tenant-config.js";
 export type {

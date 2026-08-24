@@ -12,6 +12,9 @@ import {
   FinanceMockStore,
   type FinanceSeeds,
   type VerificationStatusInput,
+  type MockDecisionDraft,
+  type MockDecisionDraftInput,
+  type MockDecisionRecordType,
   type MockInboundCredit,
   type MockPayoutManagementTwin,
   type MockPayoutRow,
@@ -1134,6 +1137,23 @@ export interface VenlyFinanceSimulations {
     ): schemas["PayoutBankAccountDto"];
   };
   /**
+   * Agent-prepared decision drafts (mock-only concept - no contract op on
+   * either plane stores or serves one). `prepare` is how the agent seat
+   * enters the world: it stores the draft, validates the record exists, and
+   * emits `decision.prepared` through the standard path. A draft NEVER
+   * auto-applies anything - the mutations stay with the existing decision
+   * ceremonies, and a human decision on the record marks its drafts
+   * superseded. `supersede` exists as an explicit driver for decisions that
+   * resolve app-side (the reconciliation workspace), where no store mutation
+   * can observe the human's click.
+   */
+  decision: {
+    prepare(input: MockDecisionDraftInput): MockDecisionDraft;
+    /** Drafts, optionally for one record, newest first. */
+    list(recordId?: string): MockDecisionDraft[];
+    supersede(recordType: MockDecisionRecordType, recordId: string): number;
+  };
+  /**
    * Mock-only read: the simulated deliveries of mock events to registered
    * webhooks, newest first. No delivery-log operation exists on any plane of
    * the published contract - this is a SIMULATION surface (the event runtime
@@ -1200,6 +1220,12 @@ function createSimulations(transport: FinanceMockTransport): VenlyFinanceSimulat
       list: (accountId) => store().listMockPayouts(accountId),
     },
     payoutRoute: { advance: (id, to) => driven(() => store().advancePayoutRoute(id, to)) },
+    decision: {
+      prepare: (input) => driven(() => store().prepareDecision(input)),
+      list: (recordId) => store().listDecisionDrafts(recordId),
+      supersede: (recordType, recordId) =>
+        driven(() => store().supersedeDecisionDrafts(recordType, recordId)),
+    },
     webhookDeliveries: { list: (webhookId) => store().listWebhookDeliveries(webhookId) },
     payoutBankAccount: {
       advance: (id, to) => driven(() => store().advancePayoutBankAccount(id, to)),
