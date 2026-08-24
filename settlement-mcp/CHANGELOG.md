@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.0 – 2026-08-24
+
+- **The sandbox boundary is enforced in code.** Every write/prepare tool
+  refuses any non-sandbox base URL and any credential-shaped parameter
+  (named secrets, Bearer/JWT/prefixed keys, PEM, raw 32-byte private keys) –
+  one refusal test per tool. The former live-arming path (confirm + env +
+  credentials) is removed entirely; the retained `confirm` argument is
+  call-shape compatibility only.
+- **`prepare_decision`.** An agent prepares a decision (proposal, reason,
+  evidence refs) against a verification, reconciliation or payout-exception
+  record; the draft is stored on the mock sandbox, never applies anything,
+  and the human decides through the console's unchanged ceremony.
+- **`agent-payment` journey blueprint.** The runnable x402 sequence: quote →
+  `payment_required` envelope → transfer carrying the quoted reference →
+  activity + event trail + ledger verification.
+- The runtime `@venlyfinance/sdk` dependency moves to `^0.8.0` (decision-draft
+  surface).
+
 ## 0.8.0 – 2026-08-22
 
 - The runtime `@venlyfinance/sdk` dependency moves to `^0.7.0`, so the server's own
