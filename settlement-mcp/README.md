@@ -1,5 +1,11 @@
 # Venly Finance MCP
 
+**Every write/prepare tool in this MCP refuses any non-sandbox base URL and any
+credential-shaped parameter – enforced in code with a test per tool, not a
+policy note.** Reads work in every environment; mutations and preparation tools
+execute only against the mock sandbox (zero credentials, zero network). Live
+mutations belong to your own reviewed integration over `@venlyfinance/sdk`.
+
 Build and operate international money-product experiences over the Venly Finance
 and Fundflow APIs. The server exposes atomic financial tools, contract-backed
 product resources and a `build_international_account` prompt to MCP clients and
@@ -9,11 +15,7 @@ coding agents.
 host coding agent builds the interface.** This is one expanded implementation of
 the original Settlement MCP, not a second server.
 
-Start in explicit mock mode with no credentials or network. Move the same SDK
-business logic to staging only after reviewing capabilities, compliance state and
-the normalized write requests. Staging and production writes fail closed.
-
-The Venly Finance builder surface documented here is the v0.7.0 release line.
+The Venly Finance builder surface documented here is the v0.8.0 release line.
 
 Building with a coding agent? Start from [AGENTS.md](AGENTS.md) - the MCP also serves it as the `venly://frontend/agents` resource and pushes the core runtime doctrine in its initialize response.
 
@@ -87,7 +89,7 @@ account's vIBANs and matches the observed incoming bank transactions (operator-
 or feed-supplied) to the vIBAN carrying that referenceCode. It returns the
 matched vIBAN, the matched transactions, and the total amount.
 
-### 2. Write tools (present, DISARMED by default)
+### 2. Write tools (mock sandbox only)
 
 Builder writes: `create_party`, `create_account`,
 `create_virtual_bank_account`, `create_fiat_transfer`,
@@ -97,14 +99,15 @@ Operator writes: `approve_ramp_request`, `reject_ramp_request`. The legacy
 `stage_transfer` alias was removed in 0.4.0 as deprecated in 0.3.0; use
 `create_fiat_transfer` and its current OpenAPI field names.
 
-Each is dry-run by default and returns the exact request it would send. See the
-safety model below.
+Each executes against the mock fixtures in mock mode, and refuses any
+non-sandbox base URL with a message stating the boundary. See the safety model
+below.
 
 ### Payout tools (since 0.5.0)
 
 The payout surface of the finance contract, same tiering as above. Reads:
 `list_payouts`, `get_payout`, `list_payout_routes`, `list_payout_bank_accounts`.
-Writes (dry-run by default, fail-closed like every write): 
+Writes (mock sandbox only, fail-closed like every write):
 `register_payout_bank_account`, `create_payout_route`,
 `prepare_payout_ownership_proof`, `complete_payout_ownership_proof`,
 `request_payout`.
@@ -177,23 +180,23 @@ no-match failures; warnings print but do not fail. The same
 `venly-allow:<rule-id>` token suppresses a deliberate finding on its line or
 the line above.
 
-## Safety model (fail closed)
+## Safety model (fail closed, enforced in code)
 
-Outside explicit mock mode, read-only/dry-run is the default posture. A staging
-write executes a live call only when all three hold:
+Every write/prepare tool refuses, before validation and before any client
+access:
 
-1. the tool argument `confirm === true`, and
-2. the environment flag `VENLY_MCP_LIVE === "1"`, and
-3. credentials are present (`VENLY_CLIENT_ID` and `VENLY_CLIENT_SECRET`).
+1. **any non-mock base URL** – a session resolving to `VENLY_ENV=qa`, `staging`
+   or `production`, or carrying a base-URL override, is refused with a message
+   stating the sandbox boundary. There is no arming flag and no confirm
+   combination that opens a live write from this server.
+2. **any credential-shaped parameter** – argument keys that name a secret, API
+   key, token, password or private key, and argument values shaped like one
+   (Bearer header, JWT, prefixed API key, PEM block), are refused outright.
+   Credentials never belong in tool arguments; the sandbox needs none.
 
-If any leg is missing, the tool returns a dry-run object describing the request
-it would have sent and never touches the transport. This is proven by
-`test/write-tools.test.ts`, including the critical case: `confirm:true` with
-`VENLY_MCP_LIVE` unset still dry-runs and does not call the live client.
-
-Production additionally requires `VENLY_ENV=production` and
-`VENLY_MCP_PRODUCTION=1`. There is no implicit fallback from a live environment
-to mock data.
+Both rules are proven per tool by `test/sandbox-boundary.test.ts`, alongside an
+end-to-end mock-session test as the positive control. Reads are unaffected:
+staging/production credentials enable the read tier only.
 
 Other invariants:
 
@@ -233,8 +236,9 @@ Or from a clone:
 node dist/index.js
 ```
 
-The server speaks MCP over stdio. On start it logs to stderr whether writes are
-armed or disarmed (stdout is the MCP channel, no credentials are logged).
+The server speaks MCP over stdio. On start it logs to stderr whether
+write/prepare tools execute (mock) or refuse (any non-sandbox target) in this
+environment (stdout is the MCP channel, no credentials are logged).
 
 MCP client config example:
 
@@ -265,10 +269,11 @@ Override via env:
 | `VENLY_FINANCE_BASE_URL` | `https://api-staging.venlyfinance.com/v1` |
 | `VENLY_FUNDFLOW_BASE_URL` | `https://api-fundflow-staging.venly.io` |
 | `VENLY_TOKEN_URL` | `https://login-staging.venly.io/auth/realms/VenlyFinance/protocol/openid-connect/token` (staging; use `login.venly.io` for production) |
-| `VENLY_CLIENT_ID` | unset (read-only until set) |
+| `VENLY_CLIENT_ID` | unset (reads need it outside mock) |
 | `VENLY_CLIENT_SECRET` | unset |
-| `VENLY_MCP_LIVE` | unset (writes disarmed) |
-| `VENLY_MCP_PRODUCTION` | unset (production writes disarmed) |
+
+Credentials enable the read tier only: write/prepare tools refuse any non-mock
+base URL regardless of credentials or `confirm`.
 
 Fundflow also exposes a QA sandbox (`https://api-fundflow-qa.venly.io`). If your
 tenant uses different endpoints, override them via the env vars above.
@@ -284,26 +289,20 @@ VENLY_CLIENT_ID=... VENLY_CLIENT_SECRET=... npm run smoke:staging
 
 The command starts the MCP with `VENLY_ENV=staging`, verifies the discovery
 surface against the exact tool/resource/prompt inventory pinned in the smoke
-script itself, then reads parties, accounts, and reference data.
-It deliberately removes `VENLY_MCP_LIVE` and `VENLY_MCP_PRODUCTION` from the child
-process before submitting one confirmed `create_party` request. Passing requires that
-request to return `mode: dry-run`, `environment: staging`, and an unarmed gate. Output
-contains counts and status only – not party/account payloads, credentials, or tokens.
+script itself, then reads parties, accounts, and reference data. It closes by
+submitting one confirmed `create_party` request and requires it to be REFUSED
+with the sandbox-boundary message – the write guarantee observed from the
+outside. Output contains counts and status only – not party/account payloads,
+credentials, or tokens.
 
-## Enabling live writes (a deliberate operator decision)
+## Live writes: not from this server
 
-Live writes are OFF. To arm them, the operator must:
-
-1. set `VENLY_MCP_LIVE=1`, and
-2. provide sandbox credentials `VENLY_CLIENT_ID` and `VENLY_CLIENT_SECRET`, and
-3. pass `confirm: true` on the specific write tool call.
-
-Until all three are set, every write tool dry-runs. Arming the flag and
-provisioning credentials is a deliberate, human decision, not a default.
-
-Production also requires `VENLY_MCP_PRODUCTION=1` on the server. Mock mode does
-not use these flags because it cannot reach the network; results remain clearly
-labelled synthetic.
+There is no way to execute a staging or production mutation through this MCP –
+no flag, no confirm argument, no credential set opens one. That is the point:
+an agent session holding this server can prepare, simulate and read, and the
+blast radius of anything it does wrong is a local fixture store. When your app
+is ready for live mutations, implement them in your own reviewed integration
+over [`@venlyfinance/sdk`](../), behind your own review-and-confirm ceremony.
 
 ## x402 position
 
@@ -344,7 +343,7 @@ settlement-mcp/
     prompts.ts            build_international_account prompt
     results.ts            text + structured output and error redaction
     verify-cli.ts         runtime-contract profiles, checks and CLI
-    staging-smoke.ts      safe discovery/read/dry-run staging verification
+    staging-smoke.ts      safe discovery/read/refusal staging verification
     client/
       sdk-client.ts       Adapter over @venlyfinance/sdk
     tools/

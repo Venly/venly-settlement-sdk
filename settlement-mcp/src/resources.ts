@@ -45,16 +45,16 @@ Current boundaries:
     description: "Environment, write, compliance and secret-handling rules.",
     text: `# Venly Finance MCP safety
 
+- Every write/prepare tool refuses any non-sandbox base URL and any credential-shaped parameter - enforced in code with a test per tool, not a policy note.
 - Set VENLY_ENV explicitly to mock, qa, staging or production. An absent value defaults to mock (since 0.3.0), so an unconfigured server never points at real infrastructure.
 - Mock mode uses synthetic SDK fixtures, no credentials and no network. Every mutation result is labelled mode=mock.
-- Staging writes require confirm=true, VENLY_MCP_LIVE=1 and VENLY_CLIENT_ID/VENLY_CLIENT_SECRET.
-- Production requires every staging gate plus VENLY_MCP_PRODUCTION=1.
+- Outside mock, this MCP is read-only: staging/production credentials enable READS only. Live mutations belong to a reviewed integration over @venlyfinance/sdk, never to this server.
 - There is no implicit fallback from staging or production to mock.
 - Mutations use idempotency keys where supported. Preserve a caller-supplied key across retries.
 - Fundflow approvals retain four-eyes and optimistic-locking rules.
 - Creating a party does not mean KYC/KYB has passed. A live virtual bank account requires KYC status VERIFIED.
-- Keep Venly credentials and access tokens server-side. Never place them in browser code, tool output or logs.
-- Never arm writes or move from mock to staging/production without an explicit user decision.
+- Keep Venly credentials and access tokens server-side. Never place them in browser code, tool arguments, tool output or logs.
+- Never move from mock to staging/production without an explicit user decision.
 `,
   },
   {
@@ -92,8 +92,8 @@ Application business logic should continue to use @venlyfinance/sdk on the serve
 2. Set VENLY_ENV=staging and provide the VENLY_CLIENT_ID/VENLY_CLIENT_SECRET credentials through server-side secret storage.
 3. Confirm the tenant's custody model, enabled chains/assets and regulated-partner coverage.
 4. Use a documented VERIFIED test party/account before provisioning a live EUR virtual bank account.
-5. Run read-only smoke checks first. Do not set VENLY_MCP_LIVE until those checks pass.
-6. Dry-run every intended write, review its normalized request, then explicitly confirm it.
+5. Run read-only smoke checks through this MCP. Its write/prepare tools stay sandbox-only in every environment - they refuse a non-mock base URL in code.
+6. Implement live mutations in your own reviewed integration over @venlyfinance/sdk, behind your own review and confirmation ceremony.
 
 There is no implicit fallback to mock. Authentication or capability failures must remain visible rather than returning synthetic data.
 `,

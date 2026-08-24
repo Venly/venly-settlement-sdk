@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * Entry point. Builds the server over the official Venly Finance SDK and
- * connects it over stdio. Read-only by default outside explicit mock mode;
- * staging/production write tools stay disarmed unless VENLY_MCP_LIVE=1 and
- * credentials are set.
+ * connects it over stdio. Reads work in every environment; every write/prepare
+ * tool refuses any non-sandbox base URL and any credential-shaped parameter -
+ * enforced in code (src/safety.ts), not a policy note.
  *
  * Credentials are read from env inside SdkVenlyClient and never logged.
  */
@@ -11,7 +11,6 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./server.js";
 import { SdkVenlyClient } from "./client/sdk-client.js";
-import { LIVE_FLAG } from "./constants.js";
 
 async function main(): Promise<void> {
   const client = SdkVenlyClient.fromEnv(process.env);
@@ -21,13 +20,10 @@ async function main(): Promise<void> {
   // Log to stderr only (stdout is the MCP channel). No credentials here.
   // The banner states what writes actually do in THIS environment - wording is
   // the agent's safety surface, so it must match observed behavior exactly.
-  const armed = process.env[LIVE_FLAG] === "1";
   const writeState =
     client.environment === "mock"
-      ? "writes execute against local fixtures - no network, no credentials, nothing real"
-      : armed
-        ? "writes ARMED (VENLY_MCP_LIVE=1): confirmed writes hit the live API"
-        : "writes DISARMED: mutations return dry-run previews (arming needs confirm:true + VENLY_MCP_LIVE=1 + credentials)";
+      ? "write/prepare tools execute against local fixtures - no network, no credentials, nothing real"
+      : "write/prepare tools REFUSE this non-sandbox target (reads remain available); run with VENLY_ENV=mock to execute them";
   process.stderr.write(`venly-finance-mcp started in ${client.environment}. ${writeState}.\n`);
 }
 

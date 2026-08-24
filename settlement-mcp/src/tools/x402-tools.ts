@@ -12,6 +12,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { refuseNonSandbox, type EnvLike } from "../safety.js";
 
 function jsonResult(data: unknown) {
   return {
@@ -35,7 +36,7 @@ const CHAIN_META: Record<string, { network: string; usdc: string }> = {
   },
 };
 
-export function registerX402Tools(server: McpServer): void {
+export function registerX402Tools(server: McpServer, env: EnvLike): void {
   server.registerTool(
     "quote_x402_payment",
     {
@@ -73,6 +74,15 @@ export function registerX402Tools(server: McpServer): void {
       },
     },
     async ({ action, amount, asset, chain, payTo, resource, description }) => {
+      // Prepare-class tool: same sandbox gate as every write. The quote is a
+      // stub either way, but a quote prepared against a non-mock target would
+      // invite the payment call that follows it - refuse at the boundary.
+      const refusal = refuseNonSandbox(
+        "quote_x402_payment",
+        { action, amount, asset, chain, payTo, resource, description },
+        env,
+      );
+      if (refusal) return refusal;
       const meta = CHAIN_META[chain] ?? CHAIN_META.base;
       const quote = {
         mode: "stub",

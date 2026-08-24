@@ -44,6 +44,8 @@ import type {
 /** Records which methods were called, so tests can assert no live call fired. */
 export class MockVenlyClient implements VenlyClient {
   public calls: string[] = [];
+  /** Last body per method, for tests asserting the exact wire shape. */
+  public lastBody: Record<string, unknown> = {};
 
   private track(name: string) {
     this.calls.push(name);
@@ -383,6 +385,7 @@ export class MockVenlyClient implements VenlyClient {
     body: RegisterPayoutBankAccountInput,
   ): Promise<PayoutBankAccount> {
     this.track("registerPayoutBankAccount");
+    this.lastBody.registerPayoutBankAccount = body;
     return {
       id: "pba-live-1",
       partyId,

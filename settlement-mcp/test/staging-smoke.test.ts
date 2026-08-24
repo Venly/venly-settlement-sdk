@@ -4,7 +4,7 @@ import {
   EXPECTED_PROMPTS,
   EXPECTED_RESOURCE_URIS,
   EXPECTED_TOOLS,
-  assertDryRunResult,
+  assertSandboxRefusal,
   assertExpectedDiscovery,
   buildStagingChildEnv,
 } from "../src/staging-smoke.js";
@@ -50,12 +50,16 @@ test("staging smoke accepts only the complete expected MCP surface", () => {
   );
 });
 
-test("staging smoke accepts a disarmed confirmed write", () => {
+test("staging smoke accepts a refused confirmed write that states the boundary", () => {
   assert.doesNotThrow(() =>
-    assertDryRunResult({
-      mode: "dry-run",
-      environment: "staging",
-      gate: { armed: false, liveFlagArmed: false },
+    assertSandboxRefusal({
+      isError: true,
+      content: [
+        {
+          type: "text",
+          text: "Error: create_party refused: … the mock sandbox … No request was sent.",
+        },
+      ],
     }),
   );
 });
@@ -63,12 +67,23 @@ test("staging smoke accepts a disarmed confirmed write", () => {
 test("staging smoke rejects a write that executed", () => {
   assert.throws(
     () =>
-      assertDryRunResult({
+      assertSandboxRefusal({
         mode: "live",
         environment: "staging",
-        gate: { armed: true, liveFlagArmed: true },
+        result: { id: "party-1" },
       }),
-    /expected a staging dry-run/,
+    /expected the staging write to be refused/,
+  );
+});
+
+test("staging smoke rejects a refusal that does not state the sandbox boundary", () => {
+  assert.throws(
+    () =>
+      assertSandboxRefusal({
+        isError: true,
+        content: [{ type: "text", text: "Error: something else went wrong" }],
+      }),
+    /state the sandbox boundary/,
   );
 });
 

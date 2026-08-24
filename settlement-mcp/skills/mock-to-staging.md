@@ -5,7 +5,9 @@
    storage.
 3. Confirm enabled custody model, chains, assets and regulated-partner coverage.
 4. Use a documented KYC-verified staging account before provisioning a EUR vIBAN.
-5. Run read-only smoke checks before setting `VENLY_MCP_LIVE=1`.
-6. Dry-run each intended write, review the normalized request, then explicitly confirm.
+5. Run read-only smoke checks through the MCP. Its write/prepare tools stay
+   sandbox-only in every environment - a non-mock base URL is refused in code.
+6. Implement staging/production mutations in your own reviewed integration over
+   `@venlyfinance/sdk`, behind your own review-and-confirm ceremony.
 7. Never fall back implicitly to mock when staging authentication or capability checks
    fail.

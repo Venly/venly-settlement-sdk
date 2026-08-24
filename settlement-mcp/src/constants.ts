@@ -23,10 +23,6 @@ export function resolveVenlyEnvironment(
   );
 }
 
-/** The env flag that must equal "1" for any write tool to execute live. */
-export const LIVE_FLAG = "VENLY_MCP_LIVE";
-export const PRODUCTION_FLAG = "VENLY_MCP_PRODUCTION";
-
 /** Default base URLs (STAGING). Production values live in the vendored specs:
  * finance https://api.venlyfinance.com/v1, fundflow https://api-fundflow.venly.io */
 export const DEFAULT_FINANCE_BASE_URL =
