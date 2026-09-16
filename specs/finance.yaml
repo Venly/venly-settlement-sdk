@@ -1,6 +1,6 @@
 # Vendored Finance API contract. DO NOT hand-edit; refresh with:
 #   node scripts/vendor-finance-spec.mjs <source>
-# source: /Users/timdierckxsens/MCP/.claude/worktrees/triage-consolidation-compliance-0fcd25/projects/venly-finance-reference/audit/qa-contracts-2026-08-14/qa-finance-api.json
+# source: springdoc export (qa-finance-api.json)
 # retrieved: 2026-08-14
 # upstream version: 1.3.0-SNAPSHOT
 # note: paths are stripped of the /v1 prefix (client base URLs carry it).
