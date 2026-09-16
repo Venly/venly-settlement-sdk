@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.8.1 - 2026-09-16
+
+- **The vendored spec no longer publishes a local path.** `specs/finance.yaml`
+  ships inside this tarball, and `scripts/vendor-finance-spec.mjs` wrote its
+  source argument into the header verbatim, so 0.5.0, 0.7.0 and 0.8.0 each
+  carried an absolute filesystem path. The script now records a source KIND: a
+  served document contributes its pathname only, never scheme, host,
+  credentials or query; a local export contributes its basename. A guard
+  refuses to write a path-shaped header, so a future refresh fails rather than
+  ships one. No secrets were exposed and the spec body is unchanged, so
+  generated types are byte-identical.
+- **A skipped staging-smoke prerequisite no longer reports success.** With no
+  account to probe payouts against, `scripts/staging-smoke.mjs` printed `OK`
+  for the payout check and `SMOKE TEST PASSED`, exit 0, having never called the
+  payout client. A skipped prerequisite now reports `SKIP`, the summary says
+  `INCOMPLETE`, and the script exits 2. Failures still exit 1.
+- **`npm run check` fails on a local filesystem path in any tracked file**, so
+  the class of defect above cannot reach the registry again. It gates CI and
+  every publish job.
+
 ## 0.8.0 – 2026-08-24
 
 - **Decision drafts (mock).** An agent-prepared decision attached to a record:
