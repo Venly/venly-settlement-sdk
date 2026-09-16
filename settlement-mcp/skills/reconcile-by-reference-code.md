@@ -25,7 +25,10 @@ whether the expected funds have arrived.
    vIBANs and matches.
 4. Read the result:
    - `matched: true` plus a `virtualBankAccount` and `matchedTransactions`: the
-     payment is reconciled. `totalAmount` is the summed value.
+     payment is reconciled. `totals` lists the summed amount per currency (one
+     element for a single-currency match); `mixedCurrency: true` means the
+     matched transactions span more than one currency. There is no scalar
+     total: amounts in different currencies are never added together.
    - `matched: false` with a `virtualBankAccount` but no transactions: the vIBAN
      exists, funds have not arrived. Awaiting funds.
    - `matched: false` with `virtualBankAccount: null` but transactions present:

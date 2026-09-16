@@ -9,6 +9,14 @@
 
 import type { ObservedBankTransaction, VirtualBankAccount } from "./types.js";
 
+/** The summed amount of the matched transactions in ONE currency. */
+export interface CurrencyTotal {
+  /** Currency code as carried by the transactions, trimmed and upper-cased. */
+  currency: string;
+  /** Sum of `amount` over the matched transactions in this currency. */
+  amount: number;
+}
+
 export interface ReconcileResult {
   referenceCode: string;
   matched: boolean;
@@ -16,10 +24,16 @@ export interface ReconcileResult {
   virtualBankAccount: VirtualBankAccount | null;
   /** Transactions carrying the target referenceCode. */
   matchedTransactions: ObservedBankTransaction[];
-  /** Sum of matched transaction amounts. */
-  totalAmount: number;
-  /** Currency of the matched vIBAN (or first matched transaction). */
-  currency: string | null;
+  /**
+   * Matched amounts partitioned by currency, in order of first appearance.
+   * One element per currency present: a single-currency match yields exactly
+   * one element, no match yields none. There is deliberately no scalar total
+   * on this result. Amounts in different currencies have no defined sum
+   * without a conversion contract, and this tool has none.
+   */
+  totals: CurrencyTotal[];
+  /** True when the matched transactions carry more than one currency. */
+  mixedCurrency: boolean;
   note: string;
 }
 
@@ -31,6 +45,26 @@ export interface ReconcileResult {
  */
 export function normalizeReference(text: string): string {
   return text.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+/**
+ * Sum amounts per currency, never across currencies. Currency codes are
+ * compared trimmed and upper-cased so "eur" and "EUR" fall into one bucket
+ * rather than reporting a spurious currency mix.
+ */
+function partitionByCurrency(transactions: ObservedBankTransaction[]): CurrencyTotal[] {
+  const totals: CurrencyTotal[] = [];
+  for (const t of transactions) {
+    const currency = t.currency.trim().toUpperCase();
+    const amount = Number.isFinite(t.amount) ? t.amount : 0;
+    const bucket = totals.find((b) => b.currency === currency);
+    if (bucket) {
+      bucket.amount += amount;
+    } else {
+      totals.push({ currency, amount });
+    }
+  }
+  return totals;
 }
 
 export function reconcileByReferenceCode(
@@ -67,19 +101,18 @@ export function reconcileByReferenceCode(
     normalizeReference(t.referenceCode ?? "").includes(normalizedTarget),
   );
 
-  const totalAmount = matchedTransactions.reduce(
-    (sum, t) => sum + (Number.isFinite(t.amount) ? t.amount : 0),
-    0,
-  );
-
-  const currency =
-    vban?.currency ?? matchedTransactions[0]?.currency ?? null;
+  const totals = partitionByCurrency(matchedTransactions);
+  const mixedCurrency = totals.length > 1;
 
   const matched = vban !== null && matchedTransactions.length > 0;
 
   let note: string;
   if (matched) {
-    note = `Matched ${matchedTransactions.length} transaction(s) totalling ${totalAmount} ${currency ?? ""} to vIBAN ${vban?.id}.`;
+    const perCurrency = totals.map((t) => `${t.amount} ${t.currency}`).join(", ");
+    note = mixedCurrency
+      ? `Matched ${matchedTransactions.length} transaction(s) across ${totals.length} currencies ` +
+        `(${perCurrency}) to vIBAN ${vban?.id}. Amounts are reported per currency and never summed across currencies.`
+      : `Matched ${matchedTransactions.length} transaction(s) totalling ${perCurrency} to vIBAN ${vban?.id}.`;
   } else if (vban && matchedTransactions.length === 0) {
     note = `vIBAN ${vban.id} carries referenceCode "${target}" but no supplied transaction references it. Awaiting funds.`;
   } else if (!vban && matchedTransactions.length > 0) {
@@ -93,8 +126,8 @@ export function reconcileByReferenceCode(
     matched,
     virtualBankAccount: vban,
     matchedTransactions,
-    totalAmount,
-    currency,
+    totals,
+    mixedCurrency,
     note,
   };
 }

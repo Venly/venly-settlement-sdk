@@ -87,7 +87,9 @@ Call GETs only. No mutation, safe by default.
 EUR to a vIBAN including a reference code in the payment; this tool fetches the
 account's vIBANs and matches the observed incoming bank transactions (operator-
 or feed-supplied) to the vIBAN carrying that referenceCode. It returns the
-matched vIBAN, the matched transactions, and the total amount.
+matched vIBAN, the matched transactions, and one summed amount per currency
+(`totals`, never summed across currencies, with `mixedCurrency` set when more
+than one currency matched).
 
 ### 2. Write tools (mock sandbox only)
 
