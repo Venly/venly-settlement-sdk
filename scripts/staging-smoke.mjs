@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Staging smoke test: the three calls that validate the SDK against the real
+ * Staging smoke test: four checks that validate the SDK against the real
  * staging environment. Read-only; creates nothing, mutates nothing.
  *
  *   VENLY_CLIENT_ID=... VENLY_CLIENT_SECRET=... node scripts/staging-smoke.mjs
  *
- * Pass criteria: all three checks print OK. Any failure prints the status,
+ * Pass criteria: all four checks print OK. A missing fixture is SKIP and
+ * exits 2 (incomplete), never a successful validation. Any failure prints the status,
  * traceCode and body needed to diagnose whether it is auth, base-URL, or
  * schema drift.
  */
@@ -26,7 +27,11 @@ const results = [];
 async function check(name, fn) {
   try {
     const detail = await fn();
-    results.push([name, "OK", detail]);
+    if (detail && typeof detail === "object" && detail.skipped) {
+      results.push([name, "SKIP", detail.reason]);
+    } else {
+      results.push([name, "OK", detail]);
+    }
   } catch (err) {
     const detail =
       err instanceof VenlyApiError
@@ -62,15 +67,17 @@ await check("finance accounts.list()", async () => {
 // an auth failure).
 await check("finance payouts route reachable", async () => {
   const accounts = await finance.accounts.list({ size: 1 });
-  if (!accounts.items.length) return "no accounts to probe payouts with (skipped)";
+  if (!accounts.items.length) return { skipped: true, reason: "no account fixture to probe payouts; provide a documented test account and rerun" };
   const payouts = await finance.payouts.list(accounts.items[0].id, { size: 1 });
   return `payout surface answered; ${payouts.pagination?.numberOfElements ?? payouts.items.length} payout(s)`;
 });
 
 let failed = 0;
+let skipped = 0;
 for (const [name, verdict, detail] of results) {
   if (verdict === "FAIL") failed += 1;
+  if (verdict === "SKIP") skipped += 1;
   console.log(`${verdict.padEnd(4)} ${name} - ${detail}`);
 }
-console.log(failed === 0 ? `\nSMOKE TEST PASSED: SDK validated against ${environment}.` : `\n${failed} check(s) failed.`);
-process.exit(failed === 0 ? 0 : 1);
+console.log(failed > 0 ? `\n${failed} check(s) failed; ${skipped} skipped.` : skipped > 0 ? `\nSMOKE TEST INCOMPLETE: ${skipped} check(s) skipped; SDK not fully validated against ${environment}.` : `\nSMOKE TEST PASSED: SDK validated against ${environment}.`);
+process.exit(failed > 0 ? 1 : skipped > 0 ? 2 : 0);
