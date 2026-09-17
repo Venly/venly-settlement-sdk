@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **BREAKING (response shape): `reconcile_by_reference_code` no longer returns a
+  scalar `totalAmount` or a top-level `currency`.** The result carries `totals`,
+  one `{ currency, amount }` per currency among the matched transactions, and
+  `mixedCurrency`, true when more than one currency matched. Amounts in different
+  currencies are never added together: there is no conversion contract, so a
+  single number had no defined meaning. A single-currency match yields a
+  one-element `totals` array. The note names each currency's amount separately.
+  Before this change, `totalAmount` summed the matched amounts regardless of currency
+  and labelled the sum with one `currency` (the vIBAN's, or the first matched
+  transaction's), so a match spanning two currencies was reported as one number in
+  one currency. Migration: where you read `totalAmount` and `currency`, check
+  `mixedCurrency` first, then read `totals[0].amount` and `totals[0].currency` for
+  the single-currency case.
+
 ## 0.9.0 – 2026-08-24
 
 - **The sandbox boundary is enforced in code.** Every write/prepare tool

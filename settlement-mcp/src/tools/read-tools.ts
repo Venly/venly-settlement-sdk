@@ -192,8 +192,10 @@ export function registerReadTools(server: McpServer, client: VenlyClient): void 
         "separator-insensitive, and a transaction matches when its normalized " +
         "reference CONTAINS the normalized code (real payers type 'invoice ref " +
         "abc 123 ty'). Codes under 4 alphanumeric characters are refused. " +
-        "Read-only, no mutation. Returns the matched vIBAN, matched " +
-        "transactions, and total amount.",
+        "Read-only, no mutation. Returns the matched vIBAN and the matched " +
+        "transactions. totals holds one summed amount per currency; amounts " +
+        "are never summed across currencies. mixedCurrency is true when more " +
+        "than one currency matched.",
       inputSchema: {
         accountId: z.string().describe("Account UUID whose vIBANs to reconcile against"),
         referenceCode: z.string().describe("The reference code to reconcile"),

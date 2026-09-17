@@ -18,8 +18,8 @@ test("reconcile: matches a transaction to the vIBAN referenceCode (pure)", () =>
   assert.equal(r.matched, true);
   assert.equal(r.virtualBankAccount?.id, "vban-1");
   assert.equal(r.matchedTransactions.length, 1);
-  assert.equal(r.totalAmount, 1000);
-  assert.equal(r.currency, "EUR");
+  assert.deepEqual(r.totals, [{ currency: "EUR", amount: 1000 }]);
+  assert.equal(r.mixedCurrency, false);
 });
 
 test("reconcile: sums multiple matching transactions", () => {
@@ -30,7 +30,9 @@ test("reconcile: sums multiple matching transactions", () => {
   const r = reconcileByReferenceCode("REF-XYZ-999", VBANS, txns);
   assert.equal(r.matched, true);
   assert.equal(r.matchedTransactions.length, 2);
-  assert.equal(r.totalAmount, 500.5);
+  assert.deepEqual(r.totals, [{ currency: "EUR", amount: 500.5 }]);
+  assert.equal(r.mixedCurrency, false);
+  assert.match(r.note, /totalling 500.5 EUR/);
 });
 
 test("reconcile: vIBAN exists but no funds arrived => not matched, awaiting funds", () => {
@@ -81,7 +83,90 @@ test("reconcile_by_reference_code tool matches via the mocked client", async () 
   assert.equal(isError, false);
   assert.equal(data.matched, true);
   assert.equal(data.virtualBankAccount.id, "vban-1");
-  assert.equal(data.totalAmount, 1000);
+  assert.deepEqual(data.totals, [{ currency: "EUR", amount: 1000 }]);
+  assert.equal(data.mixedCurrency, false);
+  assert.equal("totalAmount" in data, false);
   assert.ok(h.mock.called("listVirtualBankAccounts"));
+  await h.close();
+});
+
+test("reconcile: unlike currencies are partitioned, never summed (pure)", () => {
+  const txns: ObservedBankTransaction[] = [
+    { referenceCode: "REF-ABC-123", amount: 100, currency: "EUR" },
+    { referenceCode: "REF-ABC-123", amount: 100, currency: "USD" },
+  ];
+  const r = reconcileByReferenceCode("REF-ABC-123", VBANS, txns);
+  assert.equal(r.matched, true);
+  assert.equal(r.matchedTransactions.length, 2);
+  assert.equal(r.mixedCurrency, true);
+  assert.deepEqual(r.totals, [
+    { currency: "EUR", amount: 100 },
+    { currency: "USD", amount: 100 },
+  ]);
+  // 100 EUR + 100 USD must never be presented as 200 of anything.
+  assert.doesNotMatch(r.note, /200/);
+  assert.match(r.note, /100 EUR, 100 USD/);
+  assert.match(r.note, /never summed across currencies/);
+});
+
+test("reconcile: no scalar total on the result, single or mixed currency", () => {
+  // Regression guard for the defect where 100 EUR + 100 USD was reported as
+  // totalAmount 200 with currency EUR. A scalar total across currencies has no
+  // defined value, so the result carries none and no currency label without an
+  // amount attached. Fails if either field is reintroduced.
+  const mixed = reconcileByReferenceCode("REF-ABC-123", VBANS, [
+    { referenceCode: "REF-ABC-123", amount: 100, currency: "EUR" },
+    { referenceCode: "REF-ABC-123", amount: 100, currency: "USD" },
+  ]);
+  const single = reconcileByReferenceCode("REF-ABC-123", VBANS, [
+    { referenceCode: "REF-ABC-123", amount: 100, currency: "EUR" },
+  ]);
+  for (const r of [mixed, single]) {
+    assert.equal("totalAmount" in r, false);
+    assert.equal("currency" in r, false);
+    const scalarNumbers = Object.entries(r)
+      .filter(([, v]) => typeof v === "number")
+      .map(([k]) => k);
+    assert.deepEqual(scalarNumbers, [], `scalar numeric field(s) on the result: ${scalarNumbers.join(", ")}`);
+  }
+  assert.equal(single.totals.length, 1);
+  assert.equal(mixed.totals.length, 2);
+});
+
+test("reconcile: currency codes are compared case- and whitespace-insensitively", () => {
+  const r = reconcileByReferenceCode("REF-ABC-123", VBANS, [
+    { referenceCode: "REF-ABC-123", amount: 40, currency: "eur" },
+    { referenceCode: "REF-ABC-123", amount: 60, currency: " EUR " },
+  ]);
+  assert.equal(r.mixedCurrency, false);
+  assert.deepEqual(r.totals, [{ currency: "EUR", amount: 100 }]);
+});
+
+test("reconcile: no match yields empty totals and no currency mix", () => {
+  const r = reconcileByReferenceCode("REF-ABC-123", VBANS, []);
+  assert.deepEqual(r.totals, []);
+  assert.equal(r.mixedCurrency, false);
+});
+
+test("reconcile_by_reference_code tool never sums unlike currencies over the wire", async () => {
+  const h = await makeHarness({});
+  const { data, isError } = await callToolJson(h.client, "reconcile_by_reference_code", {
+    accountId: "acct-1",
+    referenceCode: "REF-ABC-123",
+    transactions: [
+      { referenceCode: "REF-ABC-123", amount: 100, currency: "EUR" },
+      { referenceCode: "REF-ABC-123", amount: 100, currency: "USD" },
+    ],
+  });
+  assert.equal(isError, false);
+  assert.equal(data.matched, true);
+  assert.equal(data.mixedCurrency, true);
+  assert.deepEqual(data.totals, [
+    { currency: "EUR", amount: 100 },
+    { currency: "USD", amount: 100 },
+  ]);
+  assert.equal("totalAmount" in data, false);
+  assert.equal("currency" in data, false);
+  assert.doesNotMatch(data.note, /200/);
   await h.close();
 });
