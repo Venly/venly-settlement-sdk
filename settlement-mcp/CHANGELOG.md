@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.11.0 – 2026-09-18
 
 - The builder prompt and the staging-smoke banner no longer describe a dry run. There is
   none: outside mock every write and prepare tool refuses a non-mock target at the sandbox
