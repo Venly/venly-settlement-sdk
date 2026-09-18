@@ -53,6 +53,55 @@ test("auth: token endpoint failure throws VenlyAuthError", async () => {
   await assert.rejects(client.parties.get("a"), VenlyAuthError);
 });
 
+test("auth: a token response without access_token throws at the auth boundary and caches nothing", async () => {
+  const fetch = mockFetch(() => jsonResponse({ success: true, result: { id: "p1" } }), {
+    tokens: (n) => (n === 1 ? jsonResponse({ expires_in: 300 }) : tokenResponse({ token: "tok-real" })),
+  });
+  const client = new VenlyFinanceClient(clientOptions(fetch));
+
+  await assert.rejects(
+    client.parties.get("a"),
+    (err) => err instanceof VenlyAuthError && err.status === 200 && /access_token/.test(err.message),
+  );
+  // No request reached the API carrying a phantom bearer.
+  assert.equal(fetch.apiCalls().length, 0);
+  // The token-less payload was not cached: the next call fetches again and succeeds.
+  await client.parties.get("a");
+  assert.equal(fetch.tokenCallCount(), 2);
+  assert.equal(fetch.apiCalls()[0].init.headers["Authorization"], "Bearer tok-real");
+});
+
+test("auth: an empty access_token is refused like a missing one", async () => {
+  const fetch = mockFetch(() => jsonResponse({}), {
+    tokens: () => jsonResponse({ access_token: "", expires_in: 300 }),
+  });
+  const client = new VenlyFinanceClient(clientOptions(fetch));
+  await assert.rejects(client.parties.get("a"), VenlyAuthError);
+  assert.equal(fetch.apiCalls().length, 0);
+});
+
+test("auth: a non-JSON token response throws VenlyAuthError", async () => {
+  const fetch = mockFetch(() => jsonResponse({}), {
+    tokens: () => new Response("<html>gateway</html>", { status: 200, headers: { "Content-Type": "text/html" } }),
+  });
+  const client = new VenlyFinanceClient(clientOptions(fetch));
+  await assert.rejects(
+    client.parties.get("a"),
+    (err) => err instanceof VenlyAuthError && /not JSON/.test(err.message),
+  );
+  assert.equal(fetch.apiCalls().length, 0);
+});
+
+test("auth: a non-numeric expires_in falls back to the default lifetime", async () => {
+  const fetch = mockFetch(() => jsonResponse({ success: true, result: { id: "p1" } }), {
+    tokens: () => jsonResponse({ access_token: "tok-1", expires_in: "300" }),
+  });
+  const client = new VenlyFinanceClient(clientOptions(fetch));
+  await client.parties.get("a");
+  await client.parties.get("b");
+  assert.equal(fetch.tokenCallCount(), 1);
+});
+
 test("auth: a 401 from the API invalidates the token and retries once", async () => {
   let apiHits = 0;
   const fetch = mockFetch(() => {

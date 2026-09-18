@@ -68,10 +68,25 @@ export class TokenManager {
       }
       throw new VenlyAuthError(res.status, errBody);
     }
-    const json = (await res.json()) as { access_token: string; expires_in?: number };
-    const lifetimeSeconds = json.expires_in ?? 300;
+    // The auth boundary validates the payload shape. A success status with no usable
+    // access_token must throw here, not be cached and fail later as a 401 that blames
+    // the wrong thing.
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch {
+      throw new VenlyAuthError(res.status, undefined, "token response was not JSON");
+    }
+    const payload = (json ?? {}) as { access_token?: unknown; expires_in?: unknown };
+    if (typeof payload.access_token !== "string" || payload.access_token.length === 0) {
+      throw new VenlyAuthError(res.status, json, "token response carried no access_token");
+    }
+    const lifetimeSeconds =
+      typeof payload.expires_in === "number" && Number.isFinite(payload.expires_in)
+        ? payload.expires_in
+        : 300;
     this.cached = {
-      accessToken: json.access_token,
+      accessToken: payload.access_token,
       refreshAfter:
         Date.now() + Math.max(lifetimeSeconds - this.opts.expirySkewSeconds, 0) * 1000,
     };

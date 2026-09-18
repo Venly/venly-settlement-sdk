@@ -42,13 +42,22 @@ export class VenlyApiError extends Error {
   }
 }
 
-/** Thrown when the OAuth2 token endpoint rejects the client credentials. */
+/**
+ * Thrown when the OAuth2 token endpoint rejects the client credentials, or answers
+ * with a success status whose body carries no usable `access_token`. The second
+ * case is caught at the auth boundary on purpose: caching a token-less payload would
+ * send `Bearer undefined` on every later request and surface as a 401 somewhere else.
+ */
 export class VenlyAuthError extends Error {
   readonly status: number;
   readonly body: unknown;
 
-  constructor(status: number, body: unknown) {
-    super(`OAuth2 token request failed with ${status}`);
+  constructor(status: number, body: unknown, reason?: string) {
+    super(
+      reason
+        ? `OAuth2 token request failed with ${status}: ${reason}`
+        : `OAuth2 token request failed with ${status}`,
+    );
     this.name = "VenlyAuthError";
     this.status = status;
     this.body = body;
