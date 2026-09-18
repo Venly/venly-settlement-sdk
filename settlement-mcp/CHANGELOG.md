@@ -6,6 +6,13 @@
   none: outside mock every write and prepare tool refuses a non-mock target at the sandbox
   boundary, which is what the prompt now says and what the smoke check has verified since
   0.9.0. Guidance only; no runtime change.
+- **`reconcile_by_reference_code` counts a repeated bank event once.** Rows that
+  repeat a `bankTransactionId` with the same amount and currency are dropped before
+  anything is counted and reported under a new `duplicates` field (`removed`,
+  `bankTransactionIds`); the note says so. Rows that share an id but differ in amount
+  or currency make the call refuse with an error naming the id, since neither can be
+  taken as the real event. Rows without a `bankTransactionId` are never deduplicated.
+  Additive: single-currency, duplicate-free calls return the same totals as before.
 
 ## 0.10.0 – 2026-09-18
 

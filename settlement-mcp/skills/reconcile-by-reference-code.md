@@ -29,6 +29,10 @@ whether the expected funds have arrived.
      element for a single-currency match); `mixedCurrency: true` means the
      matched transactions span more than one currency. There is no scalar
      total: amounts in different currencies are never added together.
+     `duplicates` reports rows that repeated a `bankTransactionId` with the same
+     amount and currency; each such event is counted once. Two rows sharing an id
+     but differing in amount or currency make the tool refuse (an error result):
+     neither can be taken as the real event, so resolve the feed first.
    - `matched: false` with a `virtualBankAccount` but no transactions: the vIBAN
      exists, funds have not arrived. Awaiting funds.
    - `matched: false` with `virtualBankAccount: null` but transactions present:
