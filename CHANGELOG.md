@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.2 - 2026-09-18
 
 - **A token response with no `access_token` throws at the auth boundary.** The token
   manager used to cache whatever the token endpoint returned with a 2xx, so a payload
