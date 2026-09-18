@@ -93,8 +93,11 @@ test("auth: a non-JSON token response throws VenlyAuthError", async () => {
 });
 
 test("auth: a non-numeric expires_in falls back to the default lifetime", async () => {
+  // A value JavaScript cannot coerce: the old code did `"soon" - 30`, got NaN, and
+  // refetched the token on every call. (A numeric-looking string like "300" would
+  // coerce and pass on the old code too, so it proves nothing.)
   const fetch = mockFetch(() => jsonResponse({ success: true, result: { id: "p1" } }), {
-    tokens: () => jsonResponse({ access_token: "tok-1", expires_in: "300" }),
+    tokens: () => jsonResponse({ access_token: "tok-1", expires_in: "soon" }),
   });
   const client = new VenlyFinanceClient(clientOptions(fetch));
   await client.parties.get("a");

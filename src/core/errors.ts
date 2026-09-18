@@ -53,9 +53,12 @@ export class VenlyAuthError extends Error {
   readonly body: unknown;
 
   constructor(status: number, body: unknown, reason?: string) {
+    const succeeded = status >= 200 && status < 300;
     super(
       reason
-        ? `OAuth2 token request failed with ${status}: ${reason}`
+        ? succeeded
+          ? `OAuth2 token response (${status}) is unusable: ${reason}`
+          : `OAuth2 token request failed with ${status}: ${reason}`
         : `OAuth2 token request failed with ${status}`,
     );
     this.name = "VenlyAuthError";

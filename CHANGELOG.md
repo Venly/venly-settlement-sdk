@@ -7,8 +7,10 @@
   without a token was cached as a successful auth and every later request carried
   `Bearer undefined`, failing as a 401 that blamed the wrong thing. A missing or empty
   `access_token`, or a non-JSON body, now throws `VenlyAuthError` before any API call and
-  caches nothing; the error message carries the reason. A non-numeric `expires_in`
-  falls back to the default lifetime instead of producing an unusable expiry.
+  caches nothing; the error message carries the reason. `VenlyAuthError` is the type
+  already thrown for a rejected credential, so no consumer change is required. A
+  non-numeric `expires_in` falls back to the default lifetime instead of producing an
+  unusable expiry.
 
 ## 0.8.1 - 2026-09-16
 
