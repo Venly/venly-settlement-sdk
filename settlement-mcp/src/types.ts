@@ -161,7 +161,8 @@ export interface VenlyClient {
   getCompanyFees(): Promise<VenlyFee[]>;
 
   // ----- WRITE (POST) -----
-  // These are only ever called when the write gate is armed (confirm + env + creds).
+  // Only reachable in mock mode: outside it every write and prepare tool refuses the
+  // target at the sandbox boundary before any of these is called.
   createParty(body: CreatePartyInput): Promise<Party>;
   createAccount(body: CreateAccountInput): Promise<Account>;
   createVirtualBankAccount(

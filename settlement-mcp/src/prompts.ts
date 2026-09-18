@@ -39,7 +39,7 @@ Use this operating brief:
 7. Venly supplies financial infrastructure through regulated partners. Do not describe the application or its customer as a licensed bank unless separately verified.
 8. EUR/SEPA virtual bank accounts are documented. Validate ${targetGeography ?? "the requested geography"} and any broader currency/coverage requirement instead of inferring support.
 9. Card issuing is not exposed by the current Finance contract; do not invent a card feature.
-10. Require an explicit user decision before switching to staging, adding credentials or arming writes. Dry-run staging mutations before confirmation.
+10. Require an explicit user decision before switching to staging or adding credentials. Outside mock this server executes no writes: every write and prepare tool refuses a non-mock target at the sandbox boundary and says so, and there is no dry-run mode. Rehearse mutations in mock; read against staging.
 11. Produce a concise README showing mock setup, the unchanged SDK business logic and the explicit staging transition.
 
 Success means a credible money-product experience backed by real Venly contract shapes – not a generic dashboard and not a claim that the MCP itself generated a regulated bank.`,

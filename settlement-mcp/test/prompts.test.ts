@@ -25,6 +25,11 @@ test("international-account builder prompt enumerates and renders product guardr
   assert.match(text, /server[- ]side/i);
   assert.match(text, /do not claim.*KYC/i);
   assert.match(text, /explicit user.*staging/i);
+  // The server refuses non-mock targets on every write and prepare tool; it has no
+  // dry-run mode, so the brief must not promise one (contract question Q7).
+  assert.doesNotMatch(text, /dry-run staging mutations/i);
+  assert.match(text, /there is no dry-run mode/i);
+  assert.match(text, /refuses a non-mock target at the sandbox boundary/i);
   assert.match(text, /regulated partners/i);
   assert.match(text, /card issuing.*not exposed/i);
   await h.close();

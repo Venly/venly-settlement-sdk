@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The builder prompt and the staging-smoke banner no longer describe a dry run. There is
+  none: outside mock every write and prepare tool refuses a non-mock target at the sandbox
+  boundary, which is what the prompt now says and what the smoke check has verified since
+  0.9.0. Guidance only; no runtime change.
+
 ## 0.10.0 – 2026-09-18
 
 - **BREAKING (response shape): `reconcile_by_reference_code` no longer returns a
