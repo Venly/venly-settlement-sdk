@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.0 – 2026-09-18
 
 - **BREAKING (response shape): `reconcile_by_reference_code` no longer returns a
   scalar `totalAmount` or a top-level `currency`.** The result carries `totals`,
