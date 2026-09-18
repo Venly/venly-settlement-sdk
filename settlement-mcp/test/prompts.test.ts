@@ -29,7 +29,8 @@ test("international-account builder prompt enumerates and renders product guardr
   // dry-run mode, so the brief must not promise one (contract question Q7).
   assert.doesNotMatch(text, /dry-run staging mutations/i);
   assert.match(text, /there is no dry-run mode/i);
-  assert.match(text, /refuses a non-mock target at the sandbox boundary/i);
+  assert.match(text, /refuses a non-mock one at the sandbox boundary/i);
+  assert.match(text, /no request is sent/i);
   assert.match(text, /regulated partners/i);
   assert.match(text, /card issuing.*not exposed/i);
   await h.close();

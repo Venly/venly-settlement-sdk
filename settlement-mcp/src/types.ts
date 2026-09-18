@@ -121,7 +121,7 @@ export interface CreateFiatTransferInput {
   cryptocurrency?: string;
   description?: string;
   merchantReference?: string;
-  /** Preserved across the dry-run preview and the live call when supplied. */
+  /** Forwarded verbatim on the call when supplied. */
   idempotencyKey?: string;
 }
 

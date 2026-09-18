@@ -44,9 +44,9 @@ import type {
 
 /**
  * Normalize the legacy stage_transfer input to the current Finance
- * CreateFiatTransferInput wire shape. Exported so the write tool can show the
- * exact normalized request in its dry-run preview – the preview and the live
- * call must never diverge. The retired `cryptocurrency` field is rejected
+ * CreateFiatTransferInput wire shape. Exported so every caller normalizes
+ * through one function and the executed request can never diverge from the
+ * normalized one. The retired `cryptocurrency` field is rejected
  * rather than silently dropped: the current contract resolves the fiat amount
  * to the account's settlement asset itself.
  */

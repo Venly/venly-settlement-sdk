@@ -221,7 +221,7 @@ export class MockVenlyClient implements VenlyClient {
     return [{ id: "fee-1", type: "ON_RAMP", percentage: 1 }];
   }
 
-  // ----- WRITE (must NOT be called unless gate armed) -----
+  // ----- WRITE (only reachable in mock: every write tool refuses a non-mock target first) -----
   async createParty(body: CreatePartyInput): Promise<Party> {
     this.track("createParty");
     return { id: "party-created-1", status: "ACTIVE", ...body };
