@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   EXPECTED_PROMPTS,
@@ -102,4 +103,12 @@ test("staging smoke strips parent live-write flags before spawning", () => {
   assert.equal(childEnv.VENLY_CLIENT_SECRET, "staging-secret");
   assert.equal(childEnv.VENLY_MCP_LIVE, undefined);
   assert.equal(childEnv.VENLY_MCP_PRODUCTION, undefined);
+});
+
+test("staging smoke banner states the refusal, not a dry run", () => {
+  // scripts/staging-smoke.mjs prints the banner the workflow log shows; the server
+  // refuses writes at the sandbox boundary and has no dry-run mode.
+  const script = readFileSync(new URL("../scripts/staging-smoke.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(script, /dry.?run/i);
+  assert.match(script, /refused at the sandbox boundary/);
 });

@@ -5,7 +5,7 @@ import { runStagingSmoke } from "../dist/staging-smoke.js";
 
 try {
   await runStagingSmoke();
-  console.log("\nSTAGING SMOKE PASSED: discovery and reads succeeded; writes stayed dry-run.");
+  console.log("\nSTAGING SMOKE PASSED: discovery and reads succeeded; the confirmed write was refused at the sandbox boundary before any request was sent; nothing was mutated.");
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`\nSTAGING SMOKE FAILED: ${sanitizeErrorMessage(message)}`);
