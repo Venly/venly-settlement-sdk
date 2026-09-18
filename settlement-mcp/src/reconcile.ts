@@ -68,10 +68,12 @@ function normalizeCurrency(currency: string): string {
 
 /**
  * Drop repeated bank events. Two rows are the same event when they carry the
- * same non-blank bankTransactionId, the same amount and the same currency;
- * the first occurrence is kept. Two rows sharing an id but differing in amount
- * or currency cannot both be real and neither can be chosen, so the call is
- * refused rather than guessed at. Rows without an id are left alone.
+ * same non-blank bankTransactionId (compared exactly, ids are bank-assigned),
+ * the same amount and the same currency (compared case-insensitively); the
+ * first occurrence is kept, and its remittance text is what gets matched. Two
+ * rows sharing an id but differing in amount or currency cannot both be real
+ * and neither can be chosen, so the whole call is refused rather than guessed
+ * at. Rows without an id are left alone.
  */
 function dedupeBankEvents(transactions: ObservedBankTransaction[]): {
   rows: ObservedBankTransaction[];
@@ -100,7 +102,8 @@ function dedupeBankEvents(transactions: ObservedBankTransaction[]): {
       throw new Error(
         `bankTransactionId "${id}" appears more than once with a different amount or currency ` +
           `(${first.amount} ${normalizeCurrency(first.currency)} vs ${t.amount} ${normalizeCurrency(t.currency)}); ` +
-          "refusing to reconcile: neither row can be taken as the real event.",
+          "refusing to reconcile: neither row can be taken as the real event. " +
+          "Resolve the conflict in the feed and call again.",
       );
     }
     removed += 1;
@@ -187,7 +190,7 @@ export function reconcileByReferenceCode(
     note = `No vIBAN and no transaction match referenceCode "${target}".`;
   }
   if (duplicates.removed > 0) {
-    note += ` ${duplicates.removed} repeated bank event(s) ignored (bankTransactionId ${duplicates.bankTransactionIds.join(", ")}); each is counted once.`;
+    note += ` ${duplicates.removed} row(s) repeating an earlier bankTransactionId ignored (${duplicates.bankTransactionIds.join(", ")}); each bank transaction is counted once.`;
   }
 
   return {

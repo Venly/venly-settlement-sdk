@@ -11,7 +11,9 @@
   anything is counted and reported under a new `duplicates` field (`removed`,
   `bankTransactionIds`); the note says so. Rows that share an id but differ in amount
   or currency make the call refuse with an error naming the id, since neither can be
-  taken as the real event. Rows without a `bankTransactionId` are never deduplicated.
+  taken as the real event, and no row in that call is matched. Ids are compared
+  exactly, the first occurrence is kept. Rows without a `bankTransactionId` are never
+  deduplicated.
   Additive: single-currency, duplicate-free calls return the same totals as before.
 
 ## 0.10.0 – 2026-09-18

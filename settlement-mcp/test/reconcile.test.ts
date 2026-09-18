@@ -180,7 +180,7 @@ test("reconcile: a repeated bank event is counted once and reported (pure)", () 
   assert.equal(r.matchedTransactions.length, 1);
   assert.deepEqual(r.totals, [{ currency: "EUR", amount: 100 }]);
   assert.deepEqual(r.duplicates, { removed: 2, bankTransactionIds: ["bank-tx-1"] });
-  assert.match(r.note, /2 repeated bank event\(s\) ignored \(bankTransactionId bank-tx-1\)/);
+  assert.match(r.note, /2 row\(s\) repeating an earlier bankTransactionId ignored \(bank-tx-1\); each bank transaction is counted once/);
   assert.doesNotMatch(r.note, /300/);
 });
 
@@ -194,7 +194,7 @@ test("reconcile: rows sharing an id but differing in amount or currency refuse t
   );
   assert.throws(
     () => reconcileByReferenceCode("REF-ABC-123", VBANS, [base, { ...base, currency: "USD" }]),
-    /refusing to reconcile/,
+    /refusing to reconcile.*Resolve the conflict in the feed and call again/,
   );
 });
 
@@ -213,7 +213,7 @@ test("reconcile: a duplicate-free call reports no duplicates and unchanged total
   ]);
   assert.deepEqual(r.totals, [{ currency: "EUR", amount: 100 }]);
   assert.deepEqual(r.duplicates, { removed: 0, bankTransactionIds: [] });
-  assert.doesNotMatch(r.note, /repeated/);
+  assert.doesNotMatch(r.note, /repeating/);
 });
 
 test("reconcile_by_reference_code tool counts a repeated bank event once over the wire", async () => {
