@@ -17,12 +17,20 @@ export interface CurrencyTotal {
   amount: number;
 }
 
+/** What one call did about repeated bank events in the rows it was handed. */
+export interface DuplicateReport {
+  /** Rows dropped because an earlier row carried the same bankTransactionId, amount and currency. */
+  removed: number;
+  /** The ids that were repeated, once each. */
+  bankTransactionIds: string[];
+}
+
 export interface ReconcileResult {
   referenceCode: string;
   matched: boolean;
   /** The vIBAN whose referenceCode equals the target, if any. */
   virtualBankAccount: VirtualBankAccount | null;
-  /** Transactions carrying the target referenceCode. */
+  /** Transactions carrying the target referenceCode, after duplicate removal. */
   matchedTransactions: ObservedBankTransaction[];
   /**
    * Matched amounts partitioned by currency, in order of first appearance.
@@ -34,6 +42,13 @@ export interface ReconcileResult {
   totals: CurrencyTotal[];
   /** True when the matched transactions carry more than one currency. */
   mixedCurrency: boolean;
+  /**
+   * Repeated bank events among the supplied rows. A feed re-delivering an
+   * identical row is common and benign, so identical repeats are dropped and
+   * reported here rather than counted twice. Rows without a bankTransactionId
+   * cannot be told apart and are never deduplicated.
+   */
+  duplicates: DuplicateReport;
   note: string;
 }
 
@@ -47,6 +62,56 @@ export function normalizeReference(text: string): string {
   return text.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+function normalizeCurrency(currency: string): string {
+  return currency.trim().toUpperCase();
+}
+
+/**
+ * Drop repeated bank events. Two rows are the same event when they carry the
+ * same non-blank bankTransactionId (compared exactly, ids are bank-assigned),
+ * the same amount and the same currency (compared case-insensitively); the
+ * first occurrence is kept, and its remittance text is what gets matched. Two
+ * rows sharing an id but differing in amount or currency cannot both be real
+ * and neither can be chosen, so the whole call is refused rather than guessed
+ * at. Rows without an id are left alone.
+ */
+function dedupeBankEvents(transactions: ObservedBankTransaction[]): {
+  rows: ObservedBankTransaction[];
+  duplicates: DuplicateReport;
+} {
+  const seen = new Map<string, ObservedBankTransaction>();
+  const rows: ObservedBankTransaction[] = [];
+  const repeated: string[] = [];
+  let removed = 0;
+  for (const t of transactions) {
+    const id = (t.bankTransactionId ?? "").trim();
+    if (!id) {
+      rows.push(t);
+      continue;
+    }
+    const first = seen.get(id);
+    if (!first) {
+      seen.set(id, t);
+      rows.push(t);
+      continue;
+    }
+    const sameEvent =
+      first.amount === t.amount &&
+      normalizeCurrency(first.currency) === normalizeCurrency(t.currency);
+    if (!sameEvent) {
+      throw new Error(
+        `bankTransactionId "${id}" appears more than once with a different amount or currency ` +
+          `(${first.amount} ${normalizeCurrency(first.currency)} vs ${t.amount} ${normalizeCurrency(t.currency)}); ` +
+          "refusing to reconcile: neither row can be taken as the real event. " +
+          "Resolve the conflict in the feed and call again.",
+      );
+    }
+    removed += 1;
+    if (!repeated.includes(id)) repeated.push(id);
+  }
+  return { rows, duplicates: { removed, bankTransactionIds: repeated } };
+}
+
 /**
  * Sum amounts per currency, never across currencies. Currency codes are
  * compared trimmed and upper-cased so "eur" and "EUR" fall into one bucket
@@ -55,7 +120,7 @@ export function normalizeReference(text: string): string {
 function partitionByCurrency(transactions: ObservedBankTransaction[]): CurrencyTotal[] {
   const totals: CurrencyTotal[] = [];
   for (const t of transactions) {
-    const currency = t.currency.trim().toUpperCase();
+    const currency = normalizeCurrency(t.currency);
     const amount = Number.isFinite(t.amount) ? t.amount : 0;
     const bucket = totals.find((b) => b.currency === currency);
     if (bucket) {
@@ -95,9 +160,13 @@ export function reconcileByReferenceCode(
     throw new Error("matching vIBAN is missing an id");
   }
 
+  // Repeated bank events are dropped (or refused, when they conflict) before
+  // anything is counted, so a re-delivered row can never double a total.
+  const { rows, duplicates } = dedupeBankEvents(transactions);
+
   // The transaction side is free-form remittance text typed by a payer, so a
   // containment test on the normalized text is the honest match.
-  const matchedTransactions = transactions.filter((t) =>
+  const matchedTransactions = rows.filter((t) =>
     normalizeReference(t.referenceCode ?? "").includes(normalizedTarget),
   );
 
@@ -120,6 +189,9 @@ export function reconcileByReferenceCode(
   } else {
     note = `No vIBAN and no transaction match referenceCode "${target}".`;
   }
+  if (duplicates.removed > 0) {
+    note += ` ${duplicates.removed} row(s) repeating an earlier bankTransactionId ignored (${duplicates.bankTransactionIds.join(", ")}); each bank transaction is counted once.`;
+  }
 
   return {
     referenceCode: target,
@@ -128,6 +200,7 @@ export function reconcileByReferenceCode(
     matchedTransactions,
     totals,
     mixedCurrency,
+    duplicates,
     note,
   };
 }

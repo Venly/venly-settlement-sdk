@@ -195,7 +195,9 @@ export function registerReadTools(server: McpServer, client: VenlyClient): void 
         "Read-only, no mutation. Returns the matched vIBAN and the matched " +
         "transactions. totals holds one summed amount per currency; amounts " +
         "are never summed across currencies. mixedCurrency is true when more " +
-        "than one currency matched.",
+        "than one currency matched. Rows repeating a bankTransactionId with the same " +
+        "amount and currency are counted once and reported under duplicates; rows " +
+        "sharing an id but differing in amount or currency make the call refuse.",
       inputSchema: {
         accountId: z.string().describe("Account UUID whose vIBANs to reconcile against"),
         referenceCode: z.string().describe("The reference code to reconcile"),

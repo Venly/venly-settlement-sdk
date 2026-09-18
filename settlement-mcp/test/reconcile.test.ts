@@ -170,3 +170,75 @@ test("reconcile_by_reference_code tool never sums unlike currencies over the wir
   assert.doesNotMatch(data.note, /200/);
   await h.close();
 });
+
+test("reconcile: a repeated bank event is counted once and reported (pure)", () => {
+  const row: ObservedBankTransaction = {
+    referenceCode: "REF-ABC-123", amount: 100, currency: "EUR", bankTransactionId: "bank-tx-1",
+  };
+  const r = reconcileByReferenceCode("REF-ABC-123", VBANS, [row, { ...row }, { ...row }]);
+  assert.equal(r.matched, true);
+  assert.equal(r.matchedTransactions.length, 1);
+  assert.deepEqual(r.totals, [{ currency: "EUR", amount: 100 }]);
+  assert.deepEqual(r.duplicates, { removed: 2, bankTransactionIds: ["bank-tx-1"] });
+  assert.match(r.note, /2 row\(s\) repeating an earlier bankTransactionId ignored \(bank-tx-1\); each bank transaction is counted once/);
+  assert.doesNotMatch(r.note, /300/);
+});
+
+test("reconcile: rows sharing an id but differing in amount or currency refuse the call", () => {
+  const base: ObservedBankTransaction = {
+    referenceCode: "REF-ABC-123", amount: 100, currency: "EUR", bankTransactionId: "bank-tx-9",
+  };
+  assert.throws(
+    () => reconcileByReferenceCode("REF-ABC-123", VBANS, [base, { ...base, amount: 250 }]),
+    /bankTransactionId "bank-tx-9" appears more than once with a different amount or currency/,
+  );
+  assert.throws(
+    () => reconcileByReferenceCode("REF-ABC-123", VBANS, [base, { ...base, currency: "USD" }]),
+    /refusing to reconcile.*Resolve the conflict in the feed and call again/,
+  );
+});
+
+test("reconcile: rows without a bankTransactionId are never deduplicated", () => {
+  const row: ObservedBankTransaction = { referenceCode: "REF-ABC-123", amount: 100, currency: "EUR" };
+  const r = reconcileByReferenceCode("REF-ABC-123", VBANS, [row, { ...row }]);
+  assert.equal(r.matchedTransactions.length, 2);
+  assert.deepEqual(r.totals, [{ currency: "EUR", amount: 200 }]);
+  assert.deepEqual(r.duplicates, { removed: 0, bankTransactionIds: [] });
+});
+
+test("reconcile: a duplicate-free call reports no duplicates and unchanged totals", () => {
+  const r = reconcileByReferenceCode("REF-ABC-123", VBANS, [
+    { referenceCode: "REF-ABC-123", amount: 60, currency: "EUR", bankTransactionId: "a" },
+    { referenceCode: "REF-ABC-123", amount: 40, currency: "EUR", bankTransactionId: "b" },
+  ]);
+  assert.deepEqual(r.totals, [{ currency: "EUR", amount: 100 }]);
+  assert.deepEqual(r.duplicates, { removed: 0, bankTransactionIds: [] });
+  assert.doesNotMatch(r.note, /repeating/);
+});
+
+test("reconcile_by_reference_code tool counts a repeated bank event once over the wire", async () => {
+  const h = await makeHarness({});
+  const row = { referenceCode: "REF-ABC-123", amount: 100, currency: "EUR", bankTransactionId: "wire-dup" };
+  const { data, isError } = await callToolJson(h.client, "reconcile_by_reference_code", {
+    accountId: "acct-1", referenceCode: "REF-ABC-123", transactions: [row, row],
+  });
+  assert.equal(isError, false);
+  assert.deepEqual(data.totals, [{ currency: "EUR", amount: 100 }]);
+  assert.deepEqual(data.duplicates, { removed: 1, bankTransactionIds: ["wire-dup"] });
+  assert.equal("totalAmount" in data, false);
+  await h.close();
+});
+
+test("reconcile_by_reference_code tool refuses conflicting rows that share a bankTransactionId", async () => {
+  const h = await makeHarness({});
+  const { raw, isError } = await callToolJson(h.client, "reconcile_by_reference_code", {
+    accountId: "acct-1", referenceCode: "REF-ABC-123", transactions: [
+      { referenceCode: "REF-ABC-123", amount: 100, currency: "EUR", bankTransactionId: "wire-conflict" },
+      { referenceCode: "REF-ABC-123", amount: 100, currency: "USD", bankTransactionId: "wire-conflict" },
+    ],
+  });
+  assert.equal(isError, true);
+  assert.match(raw.content[0].text, /wire-conflict/);
+  assert.match(raw.content[0].text, /refusing to reconcile/);
+  await h.close();
+});
