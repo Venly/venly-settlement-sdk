@@ -1,0 +1,26 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Venly/settlement-mcp",
+  "title": "Venly Finance MCP",
+  "description": "Stablecoin settlement MCP for AI agents. Reads real data with credentials; writes are mock-only.",
+  "repository": {
+    "url": "https://github.com/Venly/venly-settlement-sdk",
+    "source": "github",
+    "subfolder": "settlement-mcp"
+  },
+  "websiteUrl": "https://github.com/Venly/venly-settlement-sdk/tree/main/settlement-mcp",
+  "version": "0.11.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@venlyfinance/settlement-mcp",
+      "version": "0.11.1",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        { "name": "VENLY_ENV", "description": "mock (default: no credentials, no network, writes run in the sandbox), staging or production (read tools only)", "isRequired": false, "format": "string", "default": "mock", "choices": ["mock", "staging", "production"] },
+        { "name": "VENLY_CLIENT_ID", "description": "Venly Finance OAuth client id, needed for reads outside mock mode", "isRequired": false, "format": "string" },
+        { "name": "VENLY_CLIENT_SECRET", "description": "Venly Finance OAuth client secret, needed for reads outside mock mode", "isRequired": false, "format": "string", "isSecret": true }
+      ]
+    }
+  ]
+}

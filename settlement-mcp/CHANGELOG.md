@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.1 – 2026-10-19
+
+- Listed in the official MCP Registry as `io.github.Venly/settlement-mcp`: adds the
+  `mcpName` field the registry uses to verify npm ownership, and a `server.json`
+  describing the package, its stdio transport and its environment variables. No
+  runtime change.
+
 ## 0.11.0 – 2026-09-18
 
 - The builder prompt and the staging-smoke banner no longer describe a dry run. There is
